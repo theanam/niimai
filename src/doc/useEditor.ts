@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useReducer } from 'react';
 import { round1, uid } from '../lib/units';
 import { editorReducer, initialState } from './history';
-import { createDoc, createElement, printableArea, type ElementType, type LabelDoc, type LabelElement } from './model';
+import { createDoc, createElement, placementArea, type ElementType, type LabelDoc, type LabelElement } from './model';
 
 export function useEditor(initial: LabelDoc = createDoc()) {
   const [state, dispatch] = useReducer(editorReducer, initial, initialState);
@@ -13,7 +13,7 @@ export function useEditor(initial: LabelDoc = createDoc()) {
   const add = useCallback(
     (type: ElementType, extra?: Partial<LabelElement>) => {
       // New elements land in the printable part, clear of a cable label's tail.
-      const element = createElement(type, printableArea(state.doc), extra);
+      const element = createElement(type, placementArea(state.doc), extra);
       dispatch({ type: 'add', element });
       return element;
     },

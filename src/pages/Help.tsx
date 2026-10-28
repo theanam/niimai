@@ -72,6 +72,10 @@ export function Help() {
           and shades the tail so your design stays on the flag. For other rolls, switch on Cable in the label settings and
           set the tail length.
         </p>
+        <p>
+          Flags that fold in the middle show a dashed fold line. Choose Same to repeat your design on both sides, Flipped to
+          repeat it upside down, or Separate to design each side on its own.
+        </p>
       </section>
       <section>
         <h2>

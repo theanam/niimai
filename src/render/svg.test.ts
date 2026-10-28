@@ -1,6 +1,6 @@
 import { createDoc, createElement, type TextElement } from '../doc/model';
 import { ptToMm } from '../lib/units';
-import { elementSvg, fitFontSize, renderSvg } from './svg';
+import { elementSvg, fitFontSize, mirrorTransform, renderSvg } from './svg';
 
 const measure = (text: string) => text.length * 0.5;
 
@@ -62,6 +62,15 @@ describe('svg renderer', () => {
     const el = createElement('icon', doc, { name: 'x', body: '<path d="M0 0H256V256Z"/>' } as never);
     expect(elementSvg(el)).toMatch(/<svg [^>]*viewBox="0 0 256 256"[^>]*fill="#000"><path d="M0 0H256V256Z"\/><\/svg>/);
     expect(elementSvg(createElement('icon', doc))).toContain('stroke-dasharray');
+  });
+
+  it('repeats a folded flag on its second half', () => {
+    const cable = { ...createDoc({ widthMm: 109, heightMm: 12.5, tailMm: 35, fold: 'copy' }), elements: [createElement('rect', doc)] };
+    expect(mirrorTransform(cable)).toBe('translate(37 0)');
+    expect(renderSvg(cable).match(/<rect x=/g)!.length).toBe(2);
+    expect(mirrorTransform({ ...cable, fold: 'flip' })).toBe('rotate(180 37 6.25)');
+    expect(mirrorTransform({ ...cable, fold: 'none' })).toBeNull();
+    expect(mirrorTransform(doc)).toBeNull();
   });
 
   it('embeds extra css', () => {

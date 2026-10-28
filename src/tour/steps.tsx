@@ -41,7 +41,7 @@ export const TOUR_STEPS: TourStep[] = [
     id: 'design',
     title: 'Design right on the label',
     body: 'Add text, images, icons, QR codes, barcodes and shapes. Double-click any text to type straight onto the label.',
-    highlights: ['Smart guides snap to edges and centres', 'Text shrinks to fit its box as you type', 'Cable labels keep the wrap-around tail blank'],
+    highlights: ['Smart guides snap to edges and centres', 'Text shrinks to fit its box as you type', 'Cable flags: blank tail, matching or different sides'],
     Visual: CanvasVisual,
   },
   {

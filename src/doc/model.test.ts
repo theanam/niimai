@@ -1,4 +1,4 @@
-import { createDoc, createElement, parseDoc, printableArea, serializeDoc, sizeLabel, usedFonts } from './model';
+import { createDoc, createElement, parseDoc, placementArea, printableArea, serializeDoc, sizeLabel, usedFonts } from './model';
 
 describe('document model', () => {
   const doc = createDoc({ widthMm: 40, heightMm: 12 });
@@ -48,6 +48,12 @@ describe('document model', () => {
   it('describes cable labels as flag + tail, and prints only on the flag', () => {
     const cable = { widthMm: 109, heightMm: 12.5, tailMm: 35 };
     expect(sizeLabel(cable)).toBe('74 + 35 × 12.5');
+    expect(sizeLabel({ ...cable, fold: 'copy' })).toBe('37|37 + 35 × 12.5');
+    // A repeated half leaves half the flag to design; separate halves leave all of it.
+    expect(printableArea({ ...cable, fold: 'copy' })).toEqual({ widthMm: 37, heightMm: 12.5 });
+    expect(printableArea({ ...cable, fold: 'none' })).toEqual({ widthMm: 74, heightMm: 12.5 });
+    // With separate halves, new elements still start on the first side.
+    expect(placementArea({ ...cable, fold: 'none' })).toEqual({ widthMm: 37, heightMm: 12.5 });
     expect(sizeLabel({ widthMm: 40, heightMm: 12 })).toBe('40 × 12');
     expect(printableArea(cable)).toEqual({ widthMm: 74, heightMm: 12.5 });
   });
@@ -56,6 +62,8 @@ describe('document model', () => {
     expect(parseDoc({ version: 1, widthMm: 109, heightMm: 12.5, tailMm: 35 }).tailMm).toBe(35);
     expect(parseDoc({ version: 1, widthMm: 40, heightMm: 12, tailMm: 80 }).tailMm).toBeUndefined();
     expect(parseDoc({ version: 1, widthMm: 40, heightMm: 12 }).tailMm).toBeUndefined();
+    expect(parseDoc({ version: 1, widthMm: 109, heightMm: 12.5, tailMm: 35, fold: 'flip' }).fold).toBe('flip');
+    expect(parseDoc({ version: 1, widthMm: 40, heightMm: 12, fold: 'sideways' }).fold).toBeUndefined();
   });
 
   it('lists fonts in use once each', () => {

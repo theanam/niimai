@@ -22,7 +22,7 @@ export const TEMPLATE_SIZES: LabelSize[] = [
   { widthMm: 50, heightMm: 40 },
   { widthMm: 40, heightMm: 40 },
   { widthMm: 50, heightMm: 50 },
-  { widthMm: 109, heightMm: 12.5, tailMm: 35 },
+  { widthMm: 109, heightMm: 12.5, tailMm: 35, fold: 'copy' },
 ];
 
 /** Families with no bold face; their titles stay regular weight. */
@@ -44,7 +44,7 @@ export interface Template {
 }
 
 const categoryOf = (id: string): Category => CATEGORIES.find((c) => c.id === id)!;
-export const sizeKey = (s: LabelSize): string => `${s.widthMm}x${s.heightMm}${s.tailMm ? `t${s.tailMm}` : ''}`;
+export const sizeKey = (s: LabelSize): string => `${s.widthMm}x${s.heightMm}${s.tailMm ? `t${s.tailMm}` : ''}${s.fold ? `f${s.fold}` : ''}`;
 
 const makeTemplate = (kind: Kind, size: LabelSize, variant: TemplateVariant): Template => ({
   id: `${kind.id}${variant === 'icon' ? '-icon' : ''}-${sizeKey(size)}`,

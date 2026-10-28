@@ -96,27 +96,55 @@ export interface LabelDoc {
   heightMm: number;
   /** Cable labels: the blank tail at the right end that wraps around the cable. */
   tailMm?: number;
+  /** The flag folds at its middle; see FoldMode. */
+  fold?: FoldMode;
   elements: LabelElement[];
   createdAt: number;
   updatedAt: number;
 }
+
+/**
+ * How a label that folds at the middle of its flag is printed:
+ * - copy: design the first half; the second half repeats it, so a fold across
+ *   the strip reads the right way from both sides
+ * - flip: the repeat is turned upside down, for flags folded the other way
+ * - none: both halves are designed freely; the fold line is only a guide
+ */
+export type FoldMode = 'copy' | 'flip' | 'none';
+const FOLD_MODES: FoldMode[] = ['copy', 'flip', 'none'];
 
 export interface LabelSize {
   widthMm: number;
   heightMm: number;
   /** Cable labels only: length of the unprinted tail at the right end. */
   tailMm?: number;
+  fold?: FoldMode;
 }
 
-/** The part of a label that takes printing: everything left of a cable label's tail. */
+/** Length of the flag: everything left of a cable label's tail. */
+export const flagWidth = (s: LabelSize): number => Math.max(1, s.widthMm - (s.tailMm ?? 0));
+
+/** True when the second half of the flag repeats the first. */
+export const isMirrored = (s: LabelSize): boolean => s.fold === 'copy' || s.fold === 'flip';
+
+/**
+ * The area you design in: the flag, or just its first half when the second
+ * half repeats it.
+ */
 export const printableArea = (s: LabelSize): LabelSize => ({
-  widthMm: Math.max(1, s.widthMm - (s.tailMm ?? 0)),
+  widthMm: isMirrored(s) ? flagWidth(s) / 2 : flagWidth(s),
   heightMm: s.heightMm,
 });
 
+/** Where new elements land: the first half of a folded flag, otherwise the design area. */
+export const placementArea = (s: LabelSize): LabelSize =>
+  s.fold ? { widthMm: flagWidth(s) / 2, heightMm: s.heightMm } : printableArea(s);
+
 /** "40 × 12" or, for cable labels, "74 + 35 × 12.5" (flag + tail × height). */
-export const sizeLabel = (s: LabelSize): string =>
-  s.tailMm ? `${s.widthMm - s.tailMm} + ${s.tailMm} × ${s.heightMm}` : `${s.widthMm} × ${s.heightMm}`;
+export const sizeLabel = (s: LabelSize): string => {
+  const flag = s.fold ? `${flagWidth(s) / 2}|${flagWidth(s) / 2}` : `${flagWidth(s)}`;
+  return s.tailMm ? `${flag} + ${s.tailMm} × ${s.heightMm}` : s.fold ? `${flag} × ${s.heightMm}` : `${s.widthMm} × ${s.heightMm}`;
+};
 
 /** Common NIIMBOT roll sizes, width × height in millimetres. */
 export const LABEL_PRESETS: LabelSize[] = [
@@ -128,8 +156,8 @@ export const LABEL_PRESETS: LabelSize[] = [
   { widthMm: 50, heightMm: 30 },
   { widthMm: 50, heightMm: 50 },
   { widthMm: 75, heightMm: 12 },
-  // NIIMBOT T12.5×74+35 cable flag, for the D-series.
-  { widthMm: 109, heightMm: 12.5, tailMm: 35 },
+  // NIIMBOT T12.5×74+35 cable flag, for the D-series. The flag folds at its middle.
+  { widthMm: 109, heightMm: 12.5, tailMm: 35, fold: 'copy' },
 ];
 
 export const DEFAULT_FONT = 'Inter';
@@ -221,12 +249,14 @@ export function parseDoc(input: unknown): LabelDoc {
     });
   const now = Date.now();
   const tail = isNum(raw.tailMm) && raw.tailMm > 0 && raw.tailMm < size.widthMm ? { tailMm: raw.tailMm } : {};
+  const fold = FOLD_MODES.includes(raw.fold as FoldMode) ? { fold: raw.fold as FoldMode } : {};
   return {
     version: 1,
     id: typeof raw.id === 'string' ? raw.id : uid(),
     name: typeof raw.name === 'string' && raw.name ? raw.name : 'Untitled',
     ...size,
     ...tail,
+    ...fold,
     elements,
     createdAt: isNum(raw.createdAt) ? raw.createdAt : now,
     updatedAt: isNum(raw.updatedAt) ? raw.updatedAt : now,

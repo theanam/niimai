@@ -1,4 +1,4 @@
-import type { LabelDoc, LabelElement, TextElement } from '../doc/model';
+import { flagWidth, isMirrored, type LabelDoc, type LabelElement, type TextElement } from '../doc/model';
 import { ptToMm } from '../lib/units';
 import { barcodeSymbol, qrSymbol, type Symbol2D } from './barcode';
 import { measureText, type MeasureFn } from './measure';
@@ -106,12 +106,29 @@ export function elementSvg(el: LabelElement, opts: SvgOptions = {}): string {
   return `<g transform="rotate(${n(el.rotation)} ${n(el.x + el.w / 2)} ${n(el.y + el.h / 2)})">${body}</g>`;
 }
 
+/**
+ * Where a folded flag's repeat goes: shifted onto the second half, or turned
+ * upside down around the fold. Null when nothing repeats.
+ */
+export function mirrorTransform(doc: Pick<LabelDoc, 'widthMm' | 'heightMm' | 'tailMm' | 'fold'>): string | null {
+  if (!isMirrored(doc)) return null;
+  const half = flagWidth(doc) / 2;
+  return doc.fold === 'flip' ? `rotate(180 ${n(half)} ${n(doc.heightMm / 2)})` : `translate(${n(half)} 0)`;
+}
+
+/** The repeated half of a folded flag, or an empty string. */
+export function mirroredSvg(doc: LabelDoc, opts: SvgOptions = {}): string {
+  const transform = mirrorTransform(doc);
+  if (!transform) return '';
+  return `<g transform="${transform}">${doc.elements.map((el) => elementSvg(el, opts)).join('')}</g>`;
+}
+
 /** The whole label as a standalone SVG document, in millimetre units. */
 export function renderSvg(doc: LabelDoc, opts: SvgOptions = {}): string {
   const { widthMm: w, heightMm: h } = doc;
   const size = opts.physicalSize === false ? '' : ` width="${n(w)}mm" height="${n(h)}mm"`;
   const style = opts.css ? `<style>${opts.css}</style>` : '';
-  const body = doc.elements.map((el) => elementSvg(el, opts)).join('');
+  const body = doc.elements.map((el) => elementSvg(el, opts)).join('') + mirroredSvg(doc, opts);
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"${size} viewBox="0 0 ${n(w)} ${n(h)}">` +
     `${style}<rect width="${n(w)}" height="${n(h)}" fill="#fff"/>${body}</svg>`

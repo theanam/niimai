@@ -389,6 +389,7 @@ kbd {
   caret-color: var(--primary);
 }
 .canvas-size {
+  white-space: nowrap;
   position: absolute;
   bottom: 12px;
   left: 50%;
@@ -2335,4 +2336,15 @@ kbd {
 .tail-zone line {
   stroke: var(--primary);
   stroke-dasharray: 1 1;
+}
+.mirror-preview {
+  pointer-events: none;
+  opacity: 0.38;
+}
+.mirror-preview > rect {
+  fill: rgb(242 84 45 / 0.08);
+}
+.fold-line {
+  stroke: var(--primary);
+  pointer-events: none;
 }

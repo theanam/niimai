@@ -17,10 +17,11 @@ import {
   PaintBucket,
   Smile,
   Cable,
+  FoldHorizontal,
 } from 'lucide-react';
 import { ICON_WEIGHTS, iconBody, iconLabel, type IconWeight } from '../icons/catalog';
 import { sameSize } from '../printer/roll';
-import { sizeLabel, type BarcodeFormat, type DitherMode, type LabelDoc, type LabelElement } from '../doc/model';
+import { sizeLabel, type BarcodeFormat, type DitherMode, type FoldMode, type LabelDoc, type LabelElement } from '../doc/model';
 import { LABEL_PRESETS } from '../doc/model';
 import type { RollState } from '../printer/roll';
 import { symbolError } from '../render/barcode';
@@ -36,7 +37,7 @@ interface Props {
   /** Opens the dialog for naming the loaded roll's size. */
   onSetRollSize: () => void;
   onUpdate: (id: string, patch: Partial<LabelElement>, key?: string) => void;
-  onDocChange: (patch: Partial<Pick<LabelDoc, 'widthMm' | 'heightMm' | 'tailMm' | 'name'>>) => void;
+  onDocChange: (patch: Partial<Pick<LabelDoc, 'widthMm' | 'heightMm' | 'tailMm' | 'fold' | 'name'>>) => void;
   onDuplicate: (el: LabelElement) => void;
   onRemove: (id: string) => void;
   onReorder: (id: string, direction: 'up' | 'down') => void;
@@ -74,6 +75,30 @@ export function Inspector({ doc, selected, roll, onSetRollSize, onUpdate, onDocC
             />
             {!!doc.tailMm && (
               <NumberField label="Tail length" icon="Tail" value={doc.tailMm} min={1} max={doc.widthMm - 5} step={1} suffix="mm" onChange={(tailMm) => onDocChange({ tailMm })} />
+            )}
+          </div>
+          <div className="row">
+            <Toggle
+              label="Fold in the middle"
+              icon={
+                <>
+                  <FoldHorizontal size={15} /> Fold
+                </>
+              }
+              checked={!!doc.fold}
+              onChange={(on) => onDocChange({ fold: on ? 'copy' : undefined })}
+            />
+            {!!doc.fold && (
+              <Segmented<FoldMode>
+                label="Second half"
+                value={doc.fold}
+                onChange={(fold) => onDocChange({ fold })}
+                options={[
+                  { value: 'copy', label: 'Same' },
+                  { value: 'flip', label: 'Flipped' },
+                  { value: 'none', label: 'Separate' },
+                ]}
+              />
             )}
           </div>
           <div className="chips">

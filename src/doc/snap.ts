@@ -19,8 +19,8 @@ const stops = (start: number, size: number): number[] => [start, start + size / 
  * Snaps a moving box to the label's edges and centre and to other elements'
  * edges and centres. Returns the adjusted position and the guides to draw.
  */
-export function snapBox(box: Box, doc: Pick<LabelDoc, 'widthMm' | 'heightMm'>, others: LabelElement[], tolerance: number) {
-  const xTargets = [0, doc.widthMm / 2, doc.widthMm, ...others.flatMap((o) => stops(o.x, o.w))];
+export function snapBox(box: Box, doc: Pick<LabelDoc, 'widthMm' | 'heightMm'>, others: LabelElement[], tolerance: number, extraX: number[] = []) {
+  const xTargets = [0, doc.widthMm / 2, doc.widthMm, ...extraX, ...others.flatMap((o) => stops(o.x, o.w))];
   const yTargets = [0, doc.heightMm / 2, doc.heightMm, ...others.flatMap((o) => stops(o.y, o.h))];
 
   const best = (own: number[], targets: number[]) => {

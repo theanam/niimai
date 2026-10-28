@@ -144,6 +144,7 @@ Builds on `niimbluelib` for the printer protocol and replaces the UI with someth
 ### Hardware notes (D11, verified on device)
 - Model id 512; prints with the library's D110 task on protocol 1. Paper info is unsupported too.
 - T12.5×74+35 cable rolls (barcode 6972842743817) are 109 × 12.5 mm: a 74 mm flag at the start of the canvas and a 35 mm tail after it. A test print confirmed the flag position; roughly the first 4 mm of the tail does not take print.
+- The flag folds at its middle (37 + 37 mm). Labels carry a fold mode: `copy` repeats the first half on the second, `flip` repeats it upside down, `none` leaves both halves free.
 
 ## 10. Open questions
 

@@ -29,7 +29,7 @@ type DialogName = 'new' | 'roll' | 'library' | 'print' | 'printer' | 'icon' | nu
 const DEFAULT_DPI = 203;
 
 /** A size as a document patch; always sets the tail, so a plain size clears a cable label's tail. */
-const asPatch = (s: LabelSize) => ({ widthMm: s.widthMm, heightMm: s.heightMm, tailMm: s.tailMm });
+const asPatch = (s: LabelSize) => ({ widthMm: s.widthMm, heightMm: s.heightMm, tailMm: s.tailMm, fold: s.fold });
 
 /** A friendly first label, so the editor never opens blank. */
 export function starterDoc(): LabelDoc {
@@ -97,7 +97,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
   }, [doc]);
 
   // Match the label to the loaded roll, once per roll. Undo puts the old size back.
-  const docSize: LabelSize = { widthMm: doc.widthMm, heightMm: doc.heightMm, tailMm: doc.tailMm };
+  const docSize: LabelSize = { widthMm: doc.widthMm, heightMm: doc.heightMm, tailMm: doc.tailMm, fold: doc.fold };
   useEffect(() => {
     if (status.state === 'disconnected') appliedRoll.current = null;
     if (!roll.key || appliedRoll.current === roll.key) return;

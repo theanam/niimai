@@ -24,7 +24,7 @@ describe('roll size', () => {
     expect(resolveRoll({ barcode: '6971501227941' }, {}).size).toEqual({ widthMm: 50, heightMm: 30 });
     expect(resolveRoll({ barcode: '6972842743589' }, {}).size).toEqual({ widthMm: 30, heightMm: 15 });
     // D11 cable flag roll, T12.5×74+35.
-    expect(resolveRoll({ barcode: '6972842743817' }, {}).size).toEqual({ widthMm: 109, heightMm: 12.5, tailMm: 35 });
+    expect(resolveRoll({ barcode: '6972842743817' }, {}).size).toEqual({ widthMm: 109, heightMm: 12.5, tailMm: 35, fold: 'copy' });
   });
 
   it('offers roll sizes that suit the printhead', () => {

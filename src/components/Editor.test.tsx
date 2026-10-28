@@ -218,6 +218,21 @@ describe('editor', () => {
     expect(x + w).toBeLessThanOrEqual(74);
   });
 
+  it('shows the fold line and a preview of the repeated half', async () => {
+    const { createDoc, createElement } = await import('../doc/model');
+    const doc = createDoc({ widthMm: 109, heightMm: 12.5, tailMm: 35, fold: 'copy' });
+    doc.elements.push(createElement('rect', { widthMm: 37, heightMm: 12.5 }));
+    renderApp(<Editor initialDoc={doc} initialProfileId={null} initialDensity={2} />);
+    expect(document.querySelector('.fold-line')?.getAttribute('x1')).toBe('37');
+    expect(document.querySelector('.mirror-preview g[transform="translate(37 0)"]')).not.toBeNull();
+    expect(screen.getByText(/mirrored/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('radio', { name: 'Separate' }));
+    expect(document.querySelector('.mirror-preview')).toBeNull();
+    expect(document.querySelector('.fold-line')).not.toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Fold in the middle' }));
+    expect(document.querySelector('.fold-line')).toBeNull();
+  });
+
   it('turns a label into a cable label and back from the settings', async () => {
     renderEditor();
     await userEvent.click(screen.getByRole('button', { name: 'Cable label' }));

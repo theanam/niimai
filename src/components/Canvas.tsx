@@ -1,9 +1,9 @@
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import type { EditorAction } from '../doc/history';
-import { printableArea, sizeLabel, type LabelDoc, type LabelElement } from '../doc/model';
+import { flagWidth, isMirrored, printableArea, sizeLabel, type LabelDoc, type LabelElement } from '../doc/model';
 import { HANDLES, resizeBox, snapBox, type Guide, type Handle } from '../doc/snap';
 import { round1 } from '../lib/units';
-import { elementSvg } from '../render/svg';
+import { elementSvg, mirroredSvg } from '../render/svg';
 import { TextEditor } from './TextEditor';
 
 interface Props {
@@ -70,7 +70,7 @@ export function Canvas({ doc, selectedId, dispatch, images, preview, fontsVersio
         d.moved = true;
         const others = doc.elements.filter((o) => o.id !== d.id);
         const box = { x: d.el.x + dx, y: d.el.y + dy, w: d.el.w, h: d.el.h };
-        const snapped = e.altKey ? { ...box, guides: [] } : snapBox(box, printableArea(doc), others, SNAP_PX / zoom);
+        const snapped = e.altKey ? { ...box, guides: [] } : snapBox(box, printableArea(doc), others, SNAP_PX / zoom, foldGuides(doc));
         setGuides(snapped.guides);
         dispatch({ type: 'update', id: d.id, patch: { x: round1(snapped.x), y: round1(snapped.y) }, key: 'move' });
       } else {
@@ -145,6 +145,23 @@ export function Canvas({ doc, selectedId, dispatch, images, preview, fontsVersio
                 dangerouslySetInnerHTML={{ __html: (el.id === editingId ? '' : elementSvg(el, { images })) + hitArea(el) }}
               />
             ))}
+            {isMirrored(doc) && (
+              <g className="mirror-preview" aria-hidden="true">
+                <g dangerouslySetInnerHTML={{ __html: mirroredSvg(doc, { images }) }} />
+                <rect x={flagWidth(doc) / 2} width={flagWidth(doc) / 2} height={doc.heightMm} />
+              </g>
+            )}
+            {!!doc.fold && (
+              <line
+                className="fold-line"
+                x1={flagWidth(doc) / 2}
+                x2={flagWidth(doc) / 2}
+                y1={-1.5}
+                y2={doc.heightMm + 1.5}
+                strokeWidth={1.2 / zoom}
+                strokeDasharray={`${4 / zoom} ${3 / zoom}`}
+              />
+            )}
             {!!doc.tailMm && (
               <g className="tail-zone" aria-hidden="true">
                 <defs>
@@ -207,10 +224,20 @@ export function Canvas({ doc, selectedId, dispatch, images, preview, fontsVersio
         )}
       </div>
       <div className="canvas-size" aria-hidden="true">
-        {sizeLabel(doc)} mm{doc.tailMm ? ' · tail stays blank' : ''}
+        {sizeLabel(doc)} mm{isMirrored(doc) ? ' · mirrored' : ''}{doc.tailMm ? ' · tail blank' : ''}
       </div>
     </div>
   );
+}
+
+/**
+ * With separate halves, each half acts like its own label: its edges and
+ * centre snap too.
+ */
+function foldGuides(doc: LabelDoc): number[] {
+  if (doc.fold !== 'none') return [];
+  const half = flagWidth(doc) / 2;
+  return [half / 2, half, half * 1.5];
 }
 
 /** An invisible box so thin lines and empty shapes are easy to grab. */

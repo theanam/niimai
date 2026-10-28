@@ -21,6 +21,12 @@ describe('snapping', () => {
     expect(r.x).toBeCloseTo(25);
   });
 
+  it('snaps to extra guides such as a fold line', () => {
+    const r = snapBox({ x: 37.3, y: 2, w: 10, h: 4 }, { widthMm: 74, heightMm: 12.5 }, [], 0.5, [37]);
+    expect(r.x).toBeCloseTo(37);
+    expect(r.guides).toContainEqual({ axis: 'x', at: 37 });
+  });
+
   it('leaves the box alone outside tolerance', () => {
     const r = snapBox({ x: 3, y: 3, w: 2, h: 2 }, doc, [], 0.5);
     expect(r).toMatchObject({ x: 3, y: 3, guides: [] });

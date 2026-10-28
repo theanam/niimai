@@ -81,6 +81,10 @@ describe('template catalog', () => {
       expect(doc.tailMm).toBe(35);
       for (const el of doc.elements) expect(el.x + el.w, t.id).toBeLessThanOrEqual(74.05);
     }
+    // Folded flags lay out on the first half; the second repeats it.
+    for (const t of templatesForSize({ ...cable, fold: 'copy' })) {
+      for (const el of templatePreview(t).elements) expect(el.x + el.w, t.id).toBeLessThanOrEqual(37.05);
+    }
     expect(labelFromTemplate(list[0]).tailMm).toBe(35);
   });
 

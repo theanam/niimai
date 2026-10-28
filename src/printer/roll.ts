@@ -36,7 +36,7 @@ export function resolveRoll(label: PrinterStatus['label'], saved: Record<string,
 }
 
 export const sameSize = (a: LabelSize, b: LabelSize): boolean =>
-  a.widthMm === b.widthMm && a.heightMm === b.heightMm && (a.tailMm ?? 0) === (b.tailMm ?? 0);
+  a.widthMm === b.widthMm && a.heightMm === b.heightMm && (a.tailMm ?? 0) === (b.tailMm ?? 0) && (a.fold ?? null) === (b.fold ?? null);
 
 /**
  * Roll sizes worth offering for a printer: the ones whose edge across the

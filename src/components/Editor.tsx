@@ -6,7 +6,7 @@ import { LABEL_EXT, openImageFile, openLabelFile, readAsDataUrl, safeFileName, s
 import { round1, uid } from '../lib/units';
 import { printer } from '../printer';
 import type { ConnectionKind } from '../printer/client';
-import { resolveRoll, sameSize } from '../printer/roll';
+import { resolveRoll, sameSize, sizesForPrinter } from '../printer/roll';
 import { browserPrint } from '../render/browserPrint';
 import { linkFont } from '../render/fonts';
 import { processImages, rasterize, standaloneSvg } from '../render/raster';
@@ -106,7 +106,8 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
         action: { label: 'Undo', onClick: () => dispatch({ type: 'undo' }) },
       });
     } else if (roll.needsSize) {
-      toast('New roll loaded', { action: { label: 'Set size', onClick: () => setDialog('roll') }, duration: 10000 });
+      // The printer cannot report this roll's size; ask now, once, and remember it.
+      setDialog('roll');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roll.key, roll.size?.widthMm, roll.size?.heightMm, status.state]);
@@ -482,10 +483,12 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
         key={dialog === 'roll' ? 'roll' : 'roll-closed'}
         open={dialog === 'roll'}
         onOpenChange={(o) => setDialog(o ? 'roll' : null)}
-        title="Loaded roll size"
+        title="What size is this roll?"
+        description={`${status.profile?.name ?? 'This printer'} does not report it. niimai remembers it for this roll.`}
         actionLabel="Remember size"
         rollSize={null}
-        initial={docSize}
+        initial={sizesForPrinter(status.profile)[0] ?? docSize}
+        presets={sizesForPrinter(status.profile)}
         onPick={saveRollSize}
       />
       <IconPicker

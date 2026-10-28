@@ -144,19 +144,21 @@ describe('editor', () => {
     expect(screen.getByRole('img', { name: /50 × 30 mm/ })).toBeInTheDocument();
   });
 
-  it('remembers the size of a roll the printer cannot measure', async () => {
+  it('asks for the size of a roll the printer cannot measure, offering sizes that suit it', async () => {
     const { MockClient } = await import('../printer/mock');
     const spy = vi.spyOn(MockClient.prototype, 'getRfidInfo').mockReturnValue({
       labelRfidInfo: { tagPresent: true, barCode: 'roll-1', allPaper: 10, usedPaper: 1 },
       paperInfo: undefined,
     });
     renderEditor();
-    await connectDemo();
-    await userEvent.click(await screen.findByRole('button', { name: /roll size/i }));
-    const dialog = await screen.findByRole('dialog', { name: 'Loaded roll size' });
-    await userEvent.click(within(dialog).getByRole('button', { name: '50 × 30' }));
-    await waitFor(() => expect(screen.getByRole('img', { name: /50 × 30 mm/ })).toBeInTheDocument());
-    expect(screen.getByTitle('Size of the loaded roll')).toHaveTextContent('50 × 30');
+    await userEvent.click(screen.getByRole('button', { name: 'Connect printer' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Demo printer' }));
+    const dialog = await screen.findByRole('dialog', { name: 'What size is this roll?' });
+    // The demo printer has a 12 mm head, so only strip labels are offered.
+    expect(within(dialog).queryByRole('button', { name: '50 × 50' })).toBeNull();
+    await userEvent.click(within(dialog).getByRole('button', { name: '30 × 15' }));
+    await waitFor(() => expect(screen.getByRole('img', { name: /30 × 15 mm/ })).toBeInTheDocument());
+    expect(screen.getByTitle('Size of the loaded roll')).toHaveTextContent('30 × 15');
     spy.mockRestore();
   });
 

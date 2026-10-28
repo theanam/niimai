@@ -1,4 +1,5 @@
-import { resolveRoll, sameSize } from './roll';
+import { findManualProfile } from './profiles';
+import { resolveRoll, sameSize, sizesForPrinter } from './roll';
 
 describe('roll size', () => {
   it('uses the size the printer reports', () => {
@@ -11,6 +12,27 @@ describe('roll size', () => {
       key: 'b',
       needsSize: false,
     });
+  });
+
+  it('fills in sizes of known rolls, with the user\'s own choice taking priority', () => {
+    const known = { b: { widthMm: 30, heightMm: 15 } };
+    expect(resolveRoll({ barcode: 'b' }, {}, known).size).toEqual({ widthMm: 30, heightMm: 15 });
+    expect(resolveRoll({ barcode: 'b' }, { b: { widthMm: 40, heightMm: 12 } }, known).size).toEqual({ widthMm: 40, heightMm: 12 });
+  });
+
+  it('knows the rolls verified on hardware', () => {
+    expect(resolveRoll({ barcode: '6971501227941' }, {}).size).toEqual({ widthMm: 50, heightMm: 30 });
+    expect(resolveRoll({ barcode: '6972842743589' }, {}).size).toEqual({ widthMm: 30, heightMm: 15 });
+  });
+
+  it('offers roll sizes that suit the printhead', () => {
+    const strips = sizesForPrinter(findManualProfile('d110')!);
+    expect(strips.length).toBeGreaterThan(3);
+    expect(strips.every((s) => s.heightMm <= 15.6)).toBe(true);
+    const wide = sizesForPrinter(findManualProfile('b21')!);
+    expect(wide.some((s) => s.widthMm === 50 && s.heightMm === 30)).toBe(true);
+    expect(wide.every((s) => s.widthMm >= 24)).toBe(true);
+    expect(sizesForPrinter(null).length).toBeGreaterThan(wide.length);
   });
 
   it('asks for the size of an unknown roll', () => {

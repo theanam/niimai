@@ -137,6 +137,10 @@ Builds on `niimbluelib` for the printer protocol and replaces the UI with someth
 - B21_V1's "print end" polling in niimbluelib stops after one reply, so the app polls it itself.
 - The heartbeat pauses during printing, as NiimBlue does.
 
+### Hardware notes (D110, verified on device)
+- Model id 2304, protocol 2, standard NIIMBOT BLE service.
+- Paper info (`0x59`) is also unsupported here, so roll sizes come from `src/printer/known-rolls.json` (by RFID barcode) or from the user, once per roll.
+
 ## 10. Open questions
 
 - Does the RFID paper size come back in millimetres on every model?

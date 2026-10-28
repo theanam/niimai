@@ -12,11 +12,14 @@ interface Props {
   /** Offered first when known. */
   rollSize: LabelSize | null;
   initial?: LabelSize;
+  /** Sizes to offer; the standard presets by default. */
+  presets?: LabelSize[];
+  description?: string;
   onPick: (size: LabelSize) => void;
 }
 
 /** Picks a label size from presets or exact dimensions. Used for new labels and for naming a roll's size. */
-export function SizeDialog({ open, onOpenChange, title, actionLabel, rollSize, initial, onPick }: Props) {
+export function SizeDialog({ open, onOpenChange, title, actionLabel, rollSize, initial, presets = LABEL_PRESETS, description, onPick }: Props) {
   const [size, setSize] = useState<LabelSize>(rollSize ?? initial ?? { widthMm: 40, heightMm: 12 });
   const pick = (s: LabelSize) => {
     onPick(s);
@@ -27,6 +30,7 @@ export function SizeDialog({ open, onOpenChange, title, actionLabel, rollSize, i
       open={open}
       onOpenChange={onOpenChange}
       title={title}
+      description={description}
       footer={
         <button className="btn btn-primary" onClick={() => pick(size)}>
           {actionLabel}
@@ -40,7 +44,7 @@ export function SizeDialog({ open, onOpenChange, title, actionLabel, rollSize, i
             {rollSize.widthMm} × {rollSize.heightMm}
           </button>
         )}
-        {LABEL_PRESETS.map((p) => (
+        {presets.map((p) => (
           <button key={`${p.widthMm}x${p.heightMm}`} className="preset" onClick={() => pick(p)}>
             <span className="preset-shape" style={{ aspectRatio: `${p.widthMm} / ${p.heightMm}` }} />
             {p.widthMm} × {p.heightMm}

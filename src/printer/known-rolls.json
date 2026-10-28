@@ -1,5 +1,334 @@
 {
-  "6971501227941": { "widthMm": 50, "heightMm": 30 },
-  "6972842743589": { "widthMm": 30, "heightMm": 15 },
-  "6972842743817": { "widthMm": 109, "heightMm": 12.5, "tailMm": 35, "fold": "copy" }
+  "6972842743589": {
+    "widthMm": 30,
+    "heightMm": 15,
+    "name": "RP15×30 white"
+  },
+  "6971501224599": {
+    "widthMm": 30,
+    "heightMm": 15,
+    "name": "15×30 white"
+  },
+  "02282280": {
+    "widthMm": 30,
+    "heightMm": 15,
+    "name": "15×30 white (printer starter roll)"
+  },
+  "6972842743565": {
+    "widthMm": 30,
+    "heightMm": 12,
+    "name": "RP12×30 white"
+  },
+  "6971501224568": {
+    "widthMm": 30,
+    "heightMm": 12,
+    "name": "12×30 white"
+  },
+  "6971501229778": {
+    "widthMm": 30,
+    "heightMm": 12,
+    "name": "12×30 white"
+  },
+  "6972842747594": {
+    "widthMm": 30,
+    "heightMm": 12,
+    "name": "12×30 white"
+  },
+  "6971501224582": {
+    "widthMm": 26,
+    "heightMm": 15,
+    "name": "15×26 white"
+  },
+  "6971501224605": {
+    "widthMm": 50,
+    "heightMm": 15,
+    "name": "15×50 white"
+  },
+  "6972842743596": {
+    "widthMm": 50,
+    "heightMm": 15,
+    "name": "RP15×50 white"
+  },
+  "6972842743558": {
+    "widthMm": 22,
+    "heightMm": 12,
+    "name": "RP12×22 white"
+  },
+  "6971501224551": {
+    "widthMm": 22,
+    "heightMm": 12,
+    "name": "12×22 white"
+  },
+  "6972842743572": {
+    "widthMm": 40,
+    "heightMm": 12,
+    "name": "RP12×40 white"
+  },
+  "01222281": {
+    "widthMm": 40,
+    "heightMm": 12,
+    "name": "12×40 white (printer starter roll)"
+  },
+  "6972842743640": {
+    "widthMm": 40,
+    "heightMm": 12,
+    "name": "RP12×40 pink"
+  },
+  "6972842743657": {
+    "widthMm": 40,
+    "heightMm": 12,
+    "name": "RP12×40 green"
+  },
+  "6972842743664": {
+    "widthMm": 40,
+    "heightMm": 12,
+    "name": "RP12×40 blue"
+  },
+  "6972842743671": {
+    "widthMm": 40,
+    "heightMm": 12,
+    "name": "RP12×40 yellow"
+  },
+  "10252110": {
+    "widthMm": 75,
+    "heightMm": 12,
+    "name": "12×75 white (printer starter roll)"
+  },
+  "6975746637480": {
+    "widthMm": 40,
+    "heightMm": 14,
+    "name": "RP14×40 white"
+  },
+  "6972842743831": {
+    "widthMm": 40,
+    "heightMm": 14,
+    "paper": "transparent",
+    "name": "14×40 transparent"
+  },
+  "6977388399351": {
+    "widthMm": 40,
+    "heightMm": 14,
+    "paper": "transparent",
+    "name": "T14×40 transparent, planets print"
+  },
+  "6972842743725": {
+    "widthMm": 30,
+    "heightMm": 14,
+    "paper": "transparent",
+    "name": "T14×30 transparent"
+  },
+  "6975746633727": {
+    "widthMm": 60,
+    "heightMm": 14,
+    "name": "RP14×60 white"
+  },
+  "6975746633703": {
+    "widthMm": 28,
+    "heightMm": 14,
+    "name": "R14×28 white, rounded"
+  },
+  "6975746630696": {
+    "widthMm": 28,
+    "heightMm": 14,
+    "name": "14×28 white, rounded"
+  },
+  "6975746633710": {
+    "widthMm": 28,
+    "heightMm": 14,
+    "paper": "transparent",
+    "name": "14×28 transparent, rounded"
+  },
+  "6972842743817": {
+    "widthMm": 109,
+    "heightMm": 12.5,
+    "tailMm": 35,
+    "fold": "copy",
+    "name": "RXL12.5×109 cable, red"
+  },
+  "6972842743787": {
+    "widthMm": 109,
+    "heightMm": 12.5,
+    "tailMm": 35,
+    "fold": "copy",
+    "name": "RXL12.5×109 cable, white"
+  },
+  "6972842743824": {
+    "widthMm": 109,
+    "heightMm": 12.5,
+    "tailMm": 35,
+    "fold": "copy",
+    "name": "RXL12.5×109 cable, yellow"
+  },
+  "6972842743800": {
+    "widthMm": 109,
+    "heightMm": 12.5,
+    "tailMm": 35,
+    "fold": "copy",
+    "name": "RXL12.5×109 cable, green"
+  },
+  "6972842743794": {
+    "widthMm": 109,
+    "heightMm": 12.5,
+    "tailMm": 35,
+    "fold": "copy",
+    "name": "RXL12.5×109 cable, blue"
+  },
+  "6971501227095": {
+    "widthMm": 109,
+    "heightMm": 12.5,
+    "tailMm": 35,
+    "fold": "copy",
+    "name": "12.5×109 cable, white"
+  },
+  "6971501227941": {
+    "widthMm": 50,
+    "heightMm": 30,
+    "name": "R50×30 white"
+  },
+  "6975746632782": {
+    "widthMm": 50,
+    "heightMm": 30,
+    "name": "R50×30 white"
+  },
+  "6977388391393": {
+    "widthMm": 50,
+    "heightMm": 30,
+    "paper": "transparent",
+    "name": "50×30 clear"
+  },
+  "6975746632799": {
+    "widthMm": 40,
+    "heightMm": 30,
+    "name": "R40×30 white"
+  },
+  "6975746632805": {
+    "widthMm": 40,
+    "heightMm": 30,
+    "paper": "transparent",
+    "name": "ER40×30 transparent"
+  },
+  "6975746633550": {
+    "widthMm": 30,
+    "heightMm": 20,
+    "name": "R30×20 white"
+  },
+  "6975746633567": {
+    "widthMm": 40,
+    "heightMm": 20,
+    "name": "R40×20 white"
+  },
+  "6971501227743": {
+    "widthMm": 40,
+    "heightMm": 20,
+    "name": "40×20 white"
+  },
+  "6975746630238": {
+    "widthMm": 40,
+    "heightMm": 20,
+    "paper": "transparent",
+    "name": "40×20 clear"
+  },
+  "6977388396039": {
+    "widthMm": 45,
+    "heightMm": 20,
+    "name": "R45×20 white"
+  },
+  "6975746633574": {
+    "widthMm": 40,
+    "heightMm": 40,
+    "name": "R40×40 white"
+  },
+  "6975746632775": {
+    "widthMm": 50,
+    "heightMm": 50,
+    "name": "R50×50 white"
+  },
+  "6975746633581": {
+    "widthMm": 50,
+    "heightMm": 50,
+    "name": "R50×50 round"
+  },
+  "6975746630467": {
+    "widthMm": 50,
+    "heightMm": 50,
+    "name": "50×50 round, white"
+  },
+  "6975746634397": {
+    "widthMm": 50,
+    "heightMm": 50,
+    "paper": "transparent",
+    "name": "50×50 round, clear"
+  },
+  "6975746633734": {
+    "widthMm": 31,
+    "heightMm": 31,
+    "paper": "transparent",
+    "name": "31×31 round, clear"
+  },
+  "6975746630344": {
+    "widthMm": 31,
+    "heightMm": 31,
+    "paper": "transparent",
+    "name": "31×31 round, clear"
+  },
+  "6975746630429": {
+    "widthMm": 34,
+    "heightMm": 34,
+    "name": "34×34 round, colourful"
+  },
+  "6975746637442": {
+    "widthMm": 21,
+    "heightMm": 21,
+    "name": "R21×21 round"
+  },
+  "6975746634472": {
+    "widthMm": 50,
+    "heightMm": 70,
+    "name": "R50×70 white"
+  },
+  "6975746633598": {
+    "widthMm": 50,
+    "heightMm": 80,
+    "name": "R50×80 white"
+  },
+  "6971501220607": {
+    "widthMm": 50,
+    "heightMm": 80,
+    "name": "50×80 white"
+  },
+  "6975746634540": {
+    "widthMm": 40,
+    "heightMm": 70,
+    "name": "40×70 white"
+  },
+  "6977031219562": {
+    "widthMm": 40,
+    "heightMm": 60,
+    "name": "R40×60 white"
+  },
+  "6977388399405": {
+    "widthMm": 45,
+    "heightMm": 60,
+    "name": "R45×60 white"
+  },
+  "6975746637503": {
+    "widthMm": 70,
+    "heightMm": 40,
+    "name": "RP70×40 white (B3S)"
+  },
+  "6977388396053": {
+    "widthMm": 70,
+    "heightMm": 80,
+    "name": "RP70×80 white (B3S)"
+  },
+  "6977031215595": {
+    "widthMm": 60,
+    "heightMm": 80,
+    "name": "RP60×80 white (B3S)"
+  },
+  "6977031213478": {
+    "widthMm": 50,
+    "heightMm": 30,
+    "name": "PL50×30 white (M2 thermal transfer)"
+  }
 }

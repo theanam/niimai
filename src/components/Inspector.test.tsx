@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createDoc, createElement } from '../doc/model';
 import { renderApp } from '../test/render';
@@ -9,22 +9,34 @@ const noRoll = { size: null, key: null, needsSize: false };
 const base = { onDuplicate: noop, onRemove: noop, onReorder: noop, onReplaceImage: noop, onReplaceIcon: noop, onSetRollSize: noop, roll: noRoll };
 
 describe('inspector', () => {
-  it('edits label size with presets and offers the detected roll', async () => {
+  it('picks a preset size from the dropdown, the loaded roll first', async () => {
     const onDocChange = vi.fn();
     renderApp(
-      <Inspector
-        {...base}
-        doc={createDoc()}
-        selected={null}
-        roll={{ size: { widthMm: 50, heightMm: 30 }, key: 'x', needsSize: false }}
-        onUpdate={noop}
-        onDocChange={onDocChange}
-      />,
+      <Inspector {...base} doc={createDoc()} selected={null} roll={{ size: { widthMm: 50, heightMm: 30 }, key: 'x', needsSize: false }} onUpdate={noop} onDocChange={onDocChange} />,
     );
-    await userEvent.click(screen.getByRole('button', { name: '30 × 15' }));
-    expect(onDocChange).toHaveBeenCalledWith({ widthMm: 30, heightMm: 15 });
-    await userEvent.click(screen.getByTitle('Size of the loaded roll'));
-    expect(onDocChange).toHaveBeenCalledWith({ widthMm: 50, heightMm: 30 });
+    await userEvent.click(screen.getByRole('button', { name: 'Label size: 40 × 12 mm' }));
+    const menu = screen.getByRole('listbox', { name: 'Label sizes' });
+    expect(within(menu).getAllByRole('option')[0]).toHaveTextContent('50 × 30 mm');
+    expect(within(menu).getByText('Loaded roll')).toBeInTheDocument();
+    await userEvent.click(within(menu).getByRole('option', { name: /^30 × 15 mm/ }));
+    expect(onDocChange).toHaveBeenCalledWith({ widthMm: 30, heightMm: 15, tailMm: undefined, fold: undefined });
+  });
+
+  it('keeps custom size tucked away for preset sizes and open for odd ones', () => {
+    const { unmount } = renderApp(<Inspector {...base} doc={createDoc()} selected={null} onUpdate={noop} onDocChange={noop} />);
+    expect(screen.getByText('Custom size').closest('details')).not.toHaveAttribute('open');
+    unmount();
+    renderApp(<Inspector {...base} doc={createDoc({ widthMm: 37, heightMm: 19 })} selected={null} onUpdate={noop} onDocChange={noop} />);
+    expect(screen.getByText('Custom size').closest('details')).toHaveAttribute('open');
+  });
+
+  it('sets the paper type, defaulting to what the roll reports', async () => {
+    const onDocChange = vi.fn();
+    renderApp(<Inspector {...base} doc={createDoc()} selected={null} rollPaper="continuous" onUpdate={noop} onDocChange={onDocChange} />);
+    const select = screen.getByRole('combobox', { name: 'Paper type' });
+    expect(select).toHaveDisplayValue('From roll · Continuous');
+    await userEvent.selectOptions(select, 'Black mark');
+    expect(onDocChange).toHaveBeenCalledWith({ paper: 'blackmark' });
   });
 
   it('asks for the size of a roll the printer cannot measure', async () => {
@@ -32,7 +44,7 @@ describe('inspector', () => {
     renderApp(
       <Inspector {...base} doc={createDoc()} selected={null} roll={{ size: null, key: 'abc', needsSize: true }} onSetRollSize={onSetRollSize} onUpdate={noop} onDocChange={noop} />,
     );
-    await userEvent.click(screen.getByRole('button', { name: /roll size/i }));
+    await userEvent.click(screen.getByRole('button', { name: /loaded roll/i }));
     expect(onSetRollSize).toHaveBeenCalled();
   });
 

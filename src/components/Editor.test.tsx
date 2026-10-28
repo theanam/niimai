@@ -147,7 +147,7 @@ describe('editor', () => {
   it('asks for the size of a roll the printer cannot measure, offering sizes that suit it', async () => {
     const { MockClient } = await import('../printer/mock');
     const spy = vi.spyOn(MockClient.prototype, 'getRfidInfo').mockReturnValue({
-      labelRfidInfo: { tagPresent: true, barCode: 'roll-1', allPaper: 10, usedPaper: 1 },
+      labelRfidInfo: { tagPresent: true, barCode: 'roll-1', allPaper: 10, usedPaper: 1, consumablesType: 1 },
       paperInfo: undefined,
     });
     renderEditor();
@@ -158,7 +158,7 @@ describe('editor', () => {
     expect(within(dialog).queryByRole('button', { name: '50 × 50' })).toBeNull();
     await userEvent.click(within(dialog).getByRole('button', { name: '30 × 15' }));
     await waitFor(() => expect(screen.getByRole('img', { name: /30 × 15 mm/ })).toBeInTheDocument());
-    expect(screen.getByTitle('Size of the loaded roll')).toHaveTextContent('30 × 15');
+    expect(screen.getByRole('button', { name: 'Label size: 30 × 15 mm' })).toBeInTheDocument();
     spy.mockRestore();
   });
 
@@ -211,7 +211,7 @@ describe('editor', () => {
     const { createDoc } = await import('../doc/model');
     renderApp(<Editor initialDoc={createDoc({ widthMm: 109, heightMm: 12.5, tailMm: 35 })} initialProfileId={null} initialDensity={2} />);
     expect(document.querySelector('.tail-zone rect[x="74"]')).not.toBeNull();
-    expect(screen.getByText(/74 \+ 35 × 12.5 mm/)).toBeInTheDocument();
+    expect(screen.getByText(/74 \+ 35 × 12.5 mm · tail blank/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'Add rectangle' }));
     const x = Number((screen.getByRole('spinbutton', { name: 'X' }) as HTMLInputElement).value);
     const w = Number((screen.getByRole('spinbutton', { name: 'Width' }) as HTMLInputElement).value);
@@ -229,16 +229,31 @@ describe('editor', () => {
     await userEvent.click(screen.getByRole('radio', { name: 'Separate' }));
     expect(document.querySelector('.mirror-preview')).toBeNull();
     expect(document.querySelector('.fold-line')).not.toBeNull();
+    await userEvent.click(screen.getByText('Custom size'));
     await userEvent.click(screen.getByRole('button', { name: 'Fold in the middle' }));
     expect(document.querySelector('.fold-line')).toBeNull();
   });
 
+  it('prints with the paper type the roll reports, or the one chosen', async () => {
+    const { printer } = await import('../printer');
+    const print = vi.spyOn(printer, 'print').mockResolvedValue();
+    renderEditor();
+    await connectDemo();
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Paper type' }), 'Continuous');
+    fireEvent.keyDown(window, { key: 'p', metaKey: true, ctrlKey: true });
+    await userEvent.click(await screen.findByRole('button', { name: /^print$/i }));
+    await waitFor(() => expect(print).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ labelType: 3 })));
+    print.mockRestore();
+  });
+
   it('turns a label into a cable label and back from the settings', async () => {
     renderEditor();
+    await userEvent.click(screen.getByText('Custom size'));
     await userEvent.click(screen.getByRole('button', { name: 'Cable label' }));
     expect(document.querySelector('.tail-zone')).not.toBeNull();
     expect(screen.getByRole('spinbutton', { name: 'Tail length' })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: '40 × 12' }));
+    await userEvent.click(screen.getByRole('button', { name: /^Label size:/ }));
+    await userEvent.click(screen.getByRole('option', { name: /^40 × 12 mm/ }));
     expect(document.querySelector('.tail-zone')).toBeNull();
   });
 

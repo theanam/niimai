@@ -2348,3 +2348,123 @@ kbd {
   stroke: var(--primary);
   pointer-events: none;
 }
+.field-select-inline {
+  height: auto;
+  border: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 10px;
+}
+
+/* Label size picker */
+.size-trigger {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  cursor: pointer;
+  text-align: left;
+}
+.size-trigger:hover {
+  border-color: var(--muted);
+}
+.size-trigger-text,
+.size-option-text {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.size-trigger-text strong,
+.size-option-text strong {
+  font-weight: 600;
+  white-space: nowrap;
+}
+.size-trigger-text small,
+.size-option-text small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.silhouette {
+  flex: none;
+}
+.silhouette-paper {
+  fill: var(--surface);
+  stroke: var(--muted);
+  stroke-width: 1;
+}
+.size-option.active .silhouette-paper,
+.size-trigger .silhouette-paper {
+  stroke: var(--primary);
+  fill: var(--primary-soft);
+}
+.silhouette-tail {
+  fill: rgb(242 84 45 / 0.25);
+}
+.silhouette-fold {
+  stroke: var(--primary);
+  stroke-width: 1;
+  stroke-dasharray: 2 1.5;
+}
+.size-menu {
+  width: var(--radix-popover-trigger-width);
+  min-width: 250px;
+  max-height: min(440px, var(--radix-popover-content-available-height));
+  overflow-y: auto;
+  padding: 6px;
+}
+.size-group + .size-group {
+  border-top: 1px solid var(--border);
+  margin-top: 6px;
+  padding-top: 6px;
+}
+.size-group-title {
+  padding: 4px 8px 6px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.size-option {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+}
+.size-option:hover {
+  background: var(--surface-2);
+}
+.size-option.active {
+  color: var(--primary);
+}
+.custom-size {
+  border-top: 1px solid var(--border);
+  padding-top: 10px;
+}
+.custom-size summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 500;
+}
+.custom-size[open] {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.custom-size[open] summary {
+  margin-bottom: 2px;
+}

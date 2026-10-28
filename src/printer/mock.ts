@@ -52,7 +52,7 @@ export class MockClient implements ClientLike {
 
   getRfidInfo() {
     return {
-      labelRfidInfo: { tagPresent: true, barCode: '6971501227941', allPaper: 210, usedPaper: 12 },
+      labelRfidInfo: { tagPresent: true, barCode: '6971501227941', allPaper: 210, usedPaper: 12, consumablesType: 1 },
       paperInfo: this.reportsPaperSize ? { valid: true, paperWidth: 40, paperHeight: 12 } : undefined,
     };
   }

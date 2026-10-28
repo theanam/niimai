@@ -6,7 +6,8 @@ import { LABEL_EXT, openImageFile, openLabelFile, readAsDataUrl, safeFileName, s
 import { round1, uid } from '../lib/units';
 import { printer } from '../printer';
 import type { ConnectionKind } from '../printer/client';
-import { resolveRoll, sameSize, sizesForPrinter } from '../printer/roll';
+import { effectivePaper, labelTypeOf } from '../printer/paper';
+import { allSizesFor, resolveRoll, sameSize, sizesForPrinter } from '../printer/roll';
 import { browserPrint } from '../render/browserPrint';
 import { linkFont } from '../render/fonts';
 import { processImages, rasterize, standaloneSvg } from '../render/raster';
@@ -267,7 +268,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
   const printToPrinter = async (copies: number) => {
     try {
       const canvas = await rasterize(doc, dpi, images);
-      await printer.print(canvas, { density, copies });
+      await printer.print(canvas, { density, copies, labelType: labelTypeOf(effectivePaper(doc.paper, status.label?.paper)) });
       toast.success(copies > 1 ? `Printed ${copies} labels` : 'Printed');
       setDialog(null);
     } catch (err) {
@@ -457,6 +458,9 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
             doc={doc}
             selected={selected}
             roll={roll}
+            rollPaper={status.label?.paper}
+            fitting={status.profile ? sizesForPrinter(status.profile) : []}
+            allSizes={allSizesFor(null)}
             onSetRollSize={() => setDialog('roll')}
             onUpdate={update}
             onDocChange={(patch) => dispatch({ type: 'setDoc', patch: 'widthMm' in patch && 'heightMm' in patch ? asPatch(patch as LabelSize) : patch })}
@@ -526,6 +530,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
         status={status}
         rollSize={roll.size}
         rollNeedsSize={roll.needsSize}
+        rollName={roll.name}
         onSetRollSize={() => setDialog('roll')}
         manualProfileId={manualProfileId}
         onConnect={connect}

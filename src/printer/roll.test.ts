@@ -1,5 +1,5 @@
 import { findManualProfile } from './profiles';
-import { resolveRoll, sameSize, sizesForPrinter } from './roll';
+import { KNOWN_ROLL_SIZES, KNOWN_ROLLS, resolveRoll, sameSize, sizesForPrinter } from './roll';
 
 describe('roll size', () => {
   it('uses the size the printer reports', () => {
@@ -25,6 +25,37 @@ describe('roll size', () => {
     expect(resolveRoll({ barcode: '6972842743589' }, {}).size).toEqual({ widthMm: 30, heightMm: 15 });
     // D11 cable flag roll, T12.5×74+35.
     expect(resolveRoll({ barcode: '6972842743817' }, {}).size).toEqual({ widthMm: 109, heightMm: 12.5, tailMm: 35, fold: 'copy' });
+  });
+
+  it('keeps a clean table of known rolls', () => {
+    const ean13 = (code: string) => {
+      const d = [...code].map(Number);
+      const sum = d.slice(0, 12).reduce((a, n, i) => a + n * (i % 2 ? 3 : 1), 0);
+      return (10 - (sum % 10)) % 10 === d[12];
+    };
+    const codes = Object.keys(KNOWN_ROLLS);
+    expect(codes.length).toBeGreaterThan(50);
+    for (const code of codes) {
+      const roll = KNOWN_ROLLS[code];
+      // Full codes are EAN-13; starter rolls bundled with printers carry 8-digit codes.
+      expect(/^\d{13}$/.test(code) ? ean13(code) : /^\d{8}$/.test(code), code).toBe(true);
+      expect(roll.widthMm, code).toBeGreaterThan(0);
+      expect(roll.heightMm, code).toBeGreaterThan(0);
+      expect(roll.name.length, code).toBeGreaterThan(2);
+      if (roll.tailMm) expect(roll.tailMm, code).toBeLessThan(roll.widthMm);
+    }
+  });
+
+  it('reports the product name of a recognised roll, and orients B-series rolls across the roll', () => {
+    const r = resolveRoll({ barcode: '6975746634472' }, {});
+    expect(r.name).toBe('R50×70 white');
+    expect(r.size).toEqual({ widthMm: 50, heightMm: 70 });
+    expect(resolveRoll({ barcode: '6972842743572' }, {}).size).toEqual({ widthMm: 40, heightMm: 12 });
+  });
+
+  it('offers every known roll size somewhere in the size lists', () => {
+    const all = sizesForPrinter(null);
+    for (const s of KNOWN_ROLL_SIZES) expect(all.some((o) => sameSize(o, s)), `${s.widthMm}x${s.heightMm}`).toBe(true);
   });
 
   it('offers roll sizes that suit the printhead', () => {

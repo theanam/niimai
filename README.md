@@ -19,11 +19,11 @@
 - **A start screen** that gets you printing fast: connect, start blank, or pick a template sized for your roll.
 - **Connects directly** to NIIMBOT printers over Bluetooth or USB. No app install, no account.
 - **Text, images, QR codes, barcodes and shapes**, with snapping, rotation and undo. Text is edited right on the label.
-- **Over 4,500 templates** across 19 categories, from pantry jars and cable flags to asset tags and safety signs, many with icons, laid out for every common roll size.
+- **Over 6,800 templates** across 22 categories, from pantry jars, cable flags and perfume decants to travel toiletries, lab samples and electronics drawers, most with icon versions, laid out for every common roll size.
 - **Every Google Font**, grouped by category and previewed in the picker.
 - **1,500 icons** from Phosphor in regular, bold and fill weights, chosen for crisp thermal printing.
 - **What you see is what prints.** A 1-bit preview shows every dot, and photos are dithered for thermal paper.
-- **Reads the label roll** to suggest the right size and show how many labels are left.
+- **Recognises 60+ NIIMBOT rolls** from the barcode on their RFID tag, setting the label size and paper type and showing how many labels are left ([list](docs/known-rolls.md)).
 - **Browser printing** of the label as a vector document at its exact size.
 - **Local-first.** Labels are kept on your device, and can be saved to and opened from `.niimai` files.
 - **Keyboard shortcuts** for everything you do often.

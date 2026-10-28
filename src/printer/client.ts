@@ -21,8 +21,8 @@ export interface ClientLike {
   getModelMetadata(): PrinterModelMeta | undefined;
   getPrintTaskType(): PrintTaskName | undefined;
   getRfidInfo(): {
-    labelRfidInfo?: { tagPresent?: boolean; barCode?: string; allPaper?: number; usedPaper?: number };
-    paperInfo?: { valid?: boolean; paperWidth?: number; paperHeight?: number };
+    labelRfidInfo?: { tagPresent?: boolean; barCode?: string; allPaper?: number; usedPaper?: number; consumablesType?: number };
+    paperInfo?: { valid?: boolean; paperWidth?: number; paperHeight?: number; paperType?: number };
   };
   fetchRfidInfo(): Promise<unknown>;
   startHeartbeat(): void;

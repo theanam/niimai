@@ -21,23 +21,31 @@ import {
 } from 'lucide-react';
 import { ICON_WEIGHTS, iconBody, iconLabel, type IconWeight } from '../icons/catalog';
 import { sameSize } from '../printer/roll';
-import { sizeLabel, type BarcodeFormat, type DitherMode, type FoldMode, type LabelDoc, type LabelElement } from '../doc/model';
-import { LABEL_PRESETS } from '../doc/model';
+import type { BarcodeFormat, DitherMode, FoldMode, LabelDoc, LabelElement } from '../doc/model';
+import { LABEL_PRESETS, type LabelSize } from '../doc/model';
+import { PAPER_TYPES, paperName, type PaperType } from '../printer/paper';
 import type { RollState } from '../printer/roll';
 import { symbolError } from '../render/barcode';
 import { IconButton } from '../ui/IconButton';
 import { ELEMENT_META } from './elementMeta';
 import { NumberField, Section, Segmented, Toggle } from './fields';
 import { FontPicker } from './FontPicker';
+import { LabelSizePicker } from './LabelSizePicker';
 
 interface Props {
   doc: LabelDoc;
   selected: LabelElement | null;
   roll: RollState;
+  /** Paper type the loaded roll reports, if any. */
+  rollPaper?: PaperType;
+  /** Sizes that suit the connected printer, listed first. */
+  fitting?: LabelSize[];
+  /** Every preset size. */
+  allSizes?: LabelSize[];
   /** Opens the dialog for naming the loaded roll's size. */
   onSetRollSize: () => void;
   onUpdate: (id: string, patch: Partial<LabelElement>, key?: string) => void;
-  onDocChange: (patch: Partial<Pick<LabelDoc, 'widthMm' | 'heightMm' | 'tailMm' | 'fold' | 'name'>>) => void;
+  onDocChange: (patch: Partial<Pick<LabelDoc, 'widthMm' | 'heightMm' | 'tailMm' | 'fold' | 'paper' | 'name'>>) => void;
   onDuplicate: (el: LabelElement) => void;
   onRemove: (id: string) => void;
   onReorder: (id: string, direction: 'up' | 'down') => void;
@@ -52,43 +60,43 @@ const FORMATS: { value: BarcodeFormat; label: string }[] = [
   { value: 'upca', label: 'UPC-A' },
 ];
 
-export function Inspector({ doc, selected, roll, onSetRollSize, onUpdate, onDocChange, onDuplicate, onRemove, onReorder, onReplaceImage, onReplaceIcon }: Props) {
+export function Inspector({ doc, selected, roll, rollPaper, fitting = [], allSizes = LABEL_PRESETS, onSetRollSize, onUpdate, onDocChange, onDuplicate, onRemove, onReorder, onReplaceImage, onReplaceIcon }: Props) {
   if (!selected) {
-    const rollSize = roll.size;
+    const isPreset = [...(roll.size ? [roll.size] : []), ...allSizes].some((p) => sameSize(p, doc));
     return (
       <aside className="inspector" aria-label="Label settings">
         <Section title="Label">
-          <div className="grid-2">
-            <NumberField label="Width" value={doc.widthMm} min={5} max={200} step={1} suffix="mm" icon="W" onChange={(v) => onDocChange({ widthMm: v })} />
-            <NumberField label="Height" value={doc.heightMm} min={5} max={200} step={1} suffix="mm" icon="H" onChange={(v) => onDocChange({ heightMm: v })} />
-          </div>
-          <div className="row">
-            <Toggle
-              label="Cable label"
-              icon={
-                <>
-                  <Cable size={15} /> Cable
-                </>
-              }
-              checked={!!doc.tailMm}
-              onChange={(on) => onDocChange({ tailMm: on ? Math.min(35, Math.round(doc.widthMm / 3)) : undefined })}
-            />
-            {!!doc.tailMm && (
-              <NumberField label="Tail length" icon="Tail" value={doc.tailMm} min={1} max={doc.widthMm - 5} step={1} suffix="mm" onChange={(tailMm) => onDocChange({ tailMm })} />
-            )}
-          </div>
-          <div className="row">
-            <Toggle
-              label="Fold in the middle"
-              icon={
-                <>
-                  <FoldHorizontal size={15} /> Fold
-                </>
-              }
-              checked={!!doc.fold}
-              onChange={(on) => onDocChange({ fold: on ? 'copy' : undefined })}
-            />
-            {!!doc.fold && (
+          <LabelSizePicker
+            value={doc}
+            rollSize={roll.size}
+            fitting={fitting}
+            all={allSizes}
+            onChange={(size) => onDocChange({ widthMm: size.widthMm, heightMm: size.heightMm, tailMm: size.tailMm, fold: size.fold })}
+          />
+          {roll.needsSize && (
+            <button className="chip chip-primary" onClick={onSetRollSize} title="Set the loaded roll's size">
+              <ScanLine size={14} /> Set the loaded roll's size
+            </button>
+          )}
+          <label className="field field-select-inline">
+            <span className="field-label-text">Paper</span>
+            <select
+              className="select"
+              aria-label="Paper type"
+              value={doc.paper ?? ''}
+              onChange={(e) => onDocChange({ paper: (e.target.value || undefined) as PaperType | undefined })}
+            >
+              <option value="">{rollPaper ? `From roll · ${paperName(rollPaper)}` : 'Labels with gaps'}</option>
+              {PAPER_TYPES.map((p) => (
+                <option key={p.value} value={p.value}>
+                  {p.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          {!!doc.fold && (
+            <div className="field-select-inline">
+              <span className="field-label-text">Sides</span>
               <Segmented<FoldMode>
                 label="Second half"
                 value={doc.fold}
@@ -99,29 +107,40 @@ export function Inspector({ doc, selected, roll, onSetRollSize, onUpdate, onDocC
                   { value: 'none', label: 'Separate' },
                 ]}
               />
-            )}
-          </div>
-          <div className="chips">
-            {rollSize && (
-              <button className="chip chip-primary" onClick={() => onDocChange(rollSize)} title="Size of the loaded roll">
-                <ScanLine size={14} /> {sizeLabel(rollSize)}
-              </button>
-            )}
-            {roll.needsSize && (
-              <button className="chip chip-primary" onClick={onSetRollSize} title="Set the loaded roll's size">
-                <ScanLine size={14} /> Roll size?
-              </button>
-            )}
-            {LABEL_PRESETS.map((p) => (
-              <button
-                key={sizeLabel(p)}
-                className={`chip${sameSize(p, doc) ? ' active' : ''}`}
-                onClick={() => onDocChange(p)}
-              >
-                {sizeLabel(p)}
-              </button>
-            ))}
-          </div>
+            </div>
+          )}
+          <details className="custom-size" open={!isPreset || undefined}>
+            <summary>Custom size</summary>
+            <div className="grid-2">
+              <NumberField label="Width" value={doc.widthMm} min={5} max={200} step={1} suffix="mm" icon="W" onChange={(v) => onDocChange({ widthMm: v })} />
+              <NumberField label="Height" value={doc.heightMm} min={5} max={200} step={1} suffix="mm" icon="H" onChange={(v) => onDocChange({ heightMm: v })} />
+            </div>
+            <div className="row">
+              <Toggle
+                label="Cable label"
+                icon={
+                  <>
+                    <Cable size={15} /> Cable
+                  </>
+                }
+                checked={!!doc.tailMm}
+                onChange={(on) => onDocChange({ tailMm: on ? Math.min(35, Math.round(doc.widthMm / 3)) : undefined })}
+              />
+              {!!doc.tailMm && (
+                <NumberField label="Tail length" icon="Tail" value={doc.tailMm} min={1} max={doc.widthMm - 5} step={1} suffix="mm" onChange={(tailMm) => onDocChange({ tailMm })} />
+              )}
+            </div>
+            <Toggle
+              label="Fold in the middle"
+              icon={
+                <>
+                  <FoldHorizontal size={15} /> Fold
+                </>
+              }
+              checked={!!doc.fold}
+              onChange={(on) => onDocChange({ fold: on ? 'copy' : undefined })}
+            />
+          </details>
         </Section>
       </aside>
     );

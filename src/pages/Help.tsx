@@ -59,6 +59,10 @@ export function Help() {
           D11 family suits most small handheld models.
         </p>
         <p>
+          niimai recognises over 60 NIIMBOT rolls from the barcode on their tag. If yours is not one of them, it asks for the
+          size once and remembers it.
+        </p>
+        <p>
           If connecting fails with an unknown Bluetooth service, open <code>chrome://bluetooth-internals</code>, connect to
           the printer under Devices, and include the service and characteristic IDs it lists in an issue.
         </p>

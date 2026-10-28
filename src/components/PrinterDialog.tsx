@@ -16,6 +16,8 @@ interface Props {
   rollSize: LabelSize | null;
   /** The printer cannot measure the roll and its size is not known yet. */
   rollNeedsSize?: boolean;
+  /** Product name of a recognised roll. */
+  rollName?: string;
   onSetRollSize?: () => void;
   manualProfileId: string | null;
   onConnect: (kind: ConnectionKind) => Promise<void>;
@@ -94,7 +96,7 @@ function Connect({ onConnect }: Pick<Props, 'onConnect'>) {
   );
 }
 
-function Connected({ status, rollSize, rollNeedsSize, onSetRollSize, onDisconnect }: Pick<Props, 'status' | 'rollSize' | 'rollNeedsSize' | 'onSetRollSize' | 'onDisconnect'>) {
+function Connected({ status, rollSize, rollName, rollNeedsSize, onSetRollSize, onDisconnect }: Pick<Props, 'status' | 'rollSize' | 'rollName' | 'rollNeedsSize' | 'onSetRollSize' | 'onDisconnect'>) {
   const label = status.label;
   const battery = status.battery;
   const used = label?.remaining !== undefined && label.capacity ? label.remaining / label.capacity : undefined;
@@ -139,7 +141,7 @@ function Connected({ status, rollSize, rollNeedsSize, onSetRollSize, onDisconnec
           value={rollSize ? `${sizeLabel(rollSize)} mm` : label ? 'Size unknown' : 'No roll'}
           fraction={used}
           low={used !== undefined && used <= 0.1}
-          detail={label?.remaining !== undefined ? `${label.remaining} labels left` : undefined}
+          detail={[rollName, label?.remaining !== undefined ? `${label.remaining} labels left` : null].filter(Boolean).join(' · ') || undefined}
         />
       </div>
 

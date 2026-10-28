@@ -31,7 +31,7 @@ describe('printer service', () => {
     expect(s.deviceName).toBe('Demo printer');
     expect(s.battery).toBe(80);
     expect(s.profile?.printTask).toBe('D11_V1');
-    expect(s.label).toEqual({ widthMm: 40, heightMm: 12, remaining: 198, capacity: 210, barcode: '6971501227941' });
+    expect(s.label).toEqual({ widthMm: 40, heightMm: 12, remaining: 198, capacity: 210, barcode: '6971501227941', paper: 'gaps' });
     expect(seen).toContain('connecting');
   });
 
@@ -39,7 +39,7 @@ describe('printer service', () => {
     const { service, client } = setup();
     client.reportsPaperSize = false;
     await service.connect('demo');
-    expect(service.getStatus().label).toEqual({ widthMm: undefined, heightMm: undefined, remaining: 198, capacity: 210, barcode: '6971501227941' });
+    expect(service.getStatus().label).toEqual({ widthMm: undefined, heightMm: undefined, remaining: 198, capacity: 210, barcode: '6971501227941', paper: 'gaps' });
   });
 
   it('prints the encoded page with the requested copies and clamped density', async () => {

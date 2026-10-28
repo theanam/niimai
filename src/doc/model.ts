@@ -1,4 +1,5 @@
 import { sanitizeIconBody, type IconWeight } from '../icons/catalog';
+import { PAPER_TYPES, type PaperType } from '../printer/paper';
 import { round1, uid } from '../lib/units';
 
 export type Align = 'left' | 'center' | 'right';
@@ -98,6 +99,8 @@ export interface LabelDoc {
   tailMm?: number;
   /** The flag folds at its middle; see FoldMode. */
   fold?: FoldMode;
+  /** Paper to print on; unset follows what the loaded roll reports. */
+  paper?: PaperType;
   elements: LabelElement[];
   createdAt: number;
   updatedAt: number;
@@ -250,6 +253,7 @@ export function parseDoc(input: unknown): LabelDoc {
   const now = Date.now();
   const tail = isNum(raw.tailMm) && raw.tailMm > 0 && raw.tailMm < size.widthMm ? { tailMm: raw.tailMm } : {};
   const fold = FOLD_MODES.includes(raw.fold as FoldMode) ? { fold: raw.fold as FoldMode } : {};
+  const paper = PAPER_TYPES.some((p) => p.value === raw.paper) ? { paper: raw.paper as PaperType } : {};
   return {
     version: 1,
     id: typeof raw.id === 'string' ? raw.id : uid(),
@@ -257,6 +261,7 @@ export function parseDoc(input: unknown): LabelDoc {
     ...size,
     ...tail,
     ...fold,
+    ...paper,
     elements,
     createdAt: isNum(raw.createdAt) ? raw.createdAt : now,
     updatedAt: isNum(raw.updatedAt) ? raw.updatedAt : now,

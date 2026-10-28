@@ -1,4 +1,5 @@
 import type { ClientLike, ConnectionKind, PrintTaskLike } from './client';
+import { paperFromLabelType, type PaperType } from './paper';
 import { findManualProfile, printheadCrop, resolveProfile, type PrinterProfile } from './profiles';
 
 export type PrinterState = 'disconnected' | 'connecting' | 'ready' | 'printing';
@@ -14,7 +15,7 @@ export interface PrinterStatus {
    * The loaded roll. Size comes from the printer's paper info where it reports
    * one; the barcode identifies the roll when it does not (the B21 C2B, for one).
    */
-  label?: { widthMm?: number; heightMm?: number; remaining?: number; capacity?: number; barcode?: string };
+  label?: { widthMm?: number; heightMm?: number; remaining?: number; capacity?: number; barcode?: string; paper?: PaperType };
   lidClosed?: boolean;
   paperInserted?: boolean;
   progress?: { page: number; total: number };
@@ -140,6 +141,7 @@ export class PrinterService {
       remaining: tag && tag.allPaper !== undefined && tag.allPaper >= 0 ? Math.max(0, tag.allPaper - (tag.usedPaper ?? 0)) : undefined,
       capacity: tag && tag.allPaper !== undefined && tag.allPaper > 0 ? tag.allPaper : undefined,
       barcode: tag?.barCode || undefined,
+      paper: paperFromLabelType(tag?.consumablesType ?? paper?.paperType),
     };
   }
 

@@ -141,6 +141,10 @@ Builds on `niimbluelib` for the printer protocol and replaces the UI with someth
 - Model id 2304, protocol 2, standard NIIMBOT BLE service.
 - Paper info (`0x59`) is also unsupported here, so roll sizes come from `src/printer/known-rolls.json` (by RFID barcode) or from the user, once per roll.
 
+### Hardware notes (D11, verified on device)
+- Model id 512; prints with the library's D110 task on protocol 1. Paper info is unsupported too.
+- T12.5×74+35 cable rolls (barcode 6972842743817) are 109 × 12.5 mm: a 74 mm flag at the start of the canvas and a 35 mm tail after it. A test print confirmed the flag position; roughly the first 4 mm of the tail does not take print.
+
 ## 10. Open questions
 
 - Does the RFID paper size come back in millimetres on every model?

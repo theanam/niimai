@@ -23,11 +23,14 @@ describe('roll size', () => {
   it('knows the rolls verified on hardware', () => {
     expect(resolveRoll({ barcode: '6971501227941' }, {}).size).toEqual({ widthMm: 50, heightMm: 30 });
     expect(resolveRoll({ barcode: '6972842743589' }, {}).size).toEqual({ widthMm: 30, heightMm: 15 });
+    // D11 cable flag roll, T12.5×74+35.
+    expect(resolveRoll({ barcode: '6972842743817' }, {}).size).toEqual({ widthMm: 109, heightMm: 12.5, tailMm: 35 });
   });
 
   it('offers roll sizes that suit the printhead', () => {
     const strips = sizesForPrinter(findManualProfile('d110')!);
     expect(strips.length).toBeGreaterThan(3);
+    expect(strips.some((s) => s.tailMm === 35)).toBe(true);
     expect(strips.every((s) => s.heightMm <= 15.6)).toBe(true);
     const wide = sizesForPrinter(findManualProfile('b21')!);
     expect(wide.some((s) => s.widthMm === 50 && s.heightMm === 30)).toBe(true);
@@ -44,7 +47,8 @@ describe('roll size', () => {
     expect(resolveRoll({ remaining: 5 }, {})).toEqual({ size: null, key: null, needsSize: false });
   });
 
-  it('compares sizes', () => {
+  it('compares sizes, tail included', () => {
+    expect(sameSize({ widthMm: 109, heightMm: 12.5, tailMm: 35 }, { widthMm: 109, heightMm: 12.5 })).toBe(false);
     expect(sameSize({ widthMm: 1, heightMm: 2 }, { widthMm: 1, heightMm: 2 })).toBe(true);
     expect(sameSize({ widthMm: 1, heightMm: 2 }, { widthMm: 2, heightMm: 1 })).toBe(false);
   });

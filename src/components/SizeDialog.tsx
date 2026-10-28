@@ -1,6 +1,6 @@
 import { ScanLine } from 'lucide-react';
 import { useState } from 'react';
-import { LABEL_PRESETS, type LabelSize } from '../doc/model';
+import { LABEL_PRESETS, type LabelSize, sizeLabel } from '../doc/model';
 import { Dialog } from '../ui/Dialog';
 import { NumberField } from './fields';
 
@@ -41,13 +41,13 @@ export function SizeDialog({ open, onOpenChange, title, actionLabel, rollSize, i
         {rollSize && (
           <button className="preset preset-roll" onClick={() => pick(rollSize)}>
             <ScanLine size={16} />
-            {rollSize.widthMm} × {rollSize.heightMm}
+            {sizeLabel(rollSize)}
           </button>
         )}
         {presets.map((p) => (
           <button key={`${p.widthMm}x${p.heightMm}`} className="preset" onClick={() => pick(p)}>
             <span className="preset-shape" style={{ aspectRatio: `${p.widthMm} / ${p.heightMm}` }} />
-            {p.widthMm} × {p.heightMm}
+            {sizeLabel(p)}
           </button>
         ))}
       </div>

@@ -1,9 +1,9 @@
 import { ArrowRight, Battery, Bluetooth, Check, FilePlus2, FlaskConical, LayoutTemplate, Plug, Printer, ScanLine } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import { LABEL_PRESETS, type LabelDoc, type LabelSize } from '../doc/model';
+import { LABEL_PRESETS, type LabelDoc, type LabelSize, sizeLabel } from '../doc/model';
 import { supportsBluetooth, supportsSerial, type ConnectionKind } from '../printer/client';
-import type { RollState } from '../printer/roll';
+import { sameSize, type RollState } from '../printer/roll';
 import type { PrinterStatus } from '../printer/service';
 import { ensureFont } from '../render/fonts';
 import { listLabels } from '../storage/db';
@@ -24,7 +24,6 @@ interface Props {
   onContinue: () => void;
 }
 
-const sameSize = (a: LabelSize, b: LabelSize) => a.widthMm === b.widthMm && a.heightMm === b.heightMm;
 
 function PrinterCard({ status, roll, onConnect, onSetRollSize }: Pick<Props, 'status' | 'roll' | 'onConnect' | 'onSetRollSize'>) {
   const [busy, setBusy] = useState(false);
@@ -54,7 +53,7 @@ function PrinterCard({ status, roll, onConnect, onSetRollSize }: Pick<Props, 'st
           <li>
             <ScanLine size={15} />
             {roll.size ? (
-              `${roll.size.widthMm} × ${roll.size.heightMm} mm roll`
+              `${sizeLabel(roll.size)} mm roll`
             ) : roll.needsSize ? (
               <button className="link-btn" onClick={onSetRollSize}>
                 Set roll size
@@ -104,9 +103,9 @@ function BlankCard({ size, roll, onBlank }: { size: LabelSize; roll: RollState; 
       <h2 id="start-blank">Start blank</h2>
       <div className="start-sizes">
         {presets.slice(0, 6).map((p, i) => (
-          <button key={`${p.widthMm}x${p.heightMm}`} className={`preset${roll.size && i === 0 ? ' preset-roll' : ''}`} onClick={() => onBlank(p)} aria-label={`Blank ${p.widthMm} × ${p.heightMm} mm`}>
+          <button key={`${p.widthMm}x${p.heightMm}`} className={`preset${roll.size && i === 0 ? ' preset-roll' : ''}`} onClick={() => onBlank(p)} aria-label={`Blank ${sizeLabel(p)} mm`}>
             <span className="preset-shape" style={{ aspectRatio: `${p.widthMm} / ${p.heightMm}` }} />
-            {p.widthMm} × {p.heightMm}
+            {sizeLabel(p)}
           </button>
         ))}
       </div>
@@ -143,7 +142,7 @@ function TemplatesCard({ size, onOpen, onBrowse }: { size: LabelSize; onOpen: (d
       <span className="start-step">3</span>
       <h2 id="start-templates">Or begin from a template</h2>
       <p className="muted">
-        Laid out for {size.widthMm} × {size.heightMm} mm.
+        Laid out for {sizeLabel(size)} mm.
       </p>
       <ul className="start-templates" aria-label="Suggested templates">
         {picks.map((t) => (

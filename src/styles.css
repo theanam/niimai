@@ -540,8 +540,10 @@ kbd {
 }
 
 .toggle {
-  display: inline-grid;
-  place-items: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   min-width: 32px;
   height: 32px;
   padding: 0 8px;
@@ -2323,4 +2325,14 @@ kbd {
   gap: 6px;
   font-size: 13px;
   color: var(--muted);
+}
+.tail-zone {
+  pointer-events: none;
+}
+.tail-zone pattern rect {
+  fill: rgb(242 84 45 / 0.22);
+}
+.tail-zone line {
+  stroke: var(--primary);
+  stroke-dasharray: 1 1;
 }

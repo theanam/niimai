@@ -207,6 +207,26 @@ describe('editor', () => {
     }
   });
 
+  it('shades a cable label tail and keeps new elements on the flag', async () => {
+    const { createDoc } = await import('../doc/model');
+    renderApp(<Editor initialDoc={createDoc({ widthMm: 109, heightMm: 12.5, tailMm: 35 })} initialProfileId={null} initialDensity={2} />);
+    expect(document.querySelector('.tail-zone rect[x="74"]')).not.toBeNull();
+    expect(screen.getByText(/74 \+ 35 × 12.5 mm/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Add rectangle' }));
+    const x = Number((screen.getByRole('spinbutton', { name: 'X' }) as HTMLInputElement).value);
+    const w = Number((screen.getByRole('spinbutton', { name: 'Width' }) as HTMLInputElement).value);
+    expect(x + w).toBeLessThanOrEqual(74);
+  });
+
+  it('turns a label into a cable label and back from the settings', async () => {
+    renderEditor();
+    await userEvent.click(screen.getByRole('button', { name: 'Cable label' }));
+    expect(document.querySelector('.tail-zone')).not.toBeNull();
+    expect(screen.getByRole('spinbutton', { name: 'Tail length' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: '40 × 12' }));
+    expect(document.querySelector('.tail-zone')).toBeNull();
+  });
+
   it('has a GitHub link, help and about', () => {
     renderEditor();
     expect(screen.getByRole('link', { name: 'GitHub repository' })).toHaveAttribute('href', 'https://github.com/theanam/niimai');

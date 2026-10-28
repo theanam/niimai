@@ -2,7 +2,7 @@ import * as RD from '@radix-ui/react-dialog';
 import { BatteryMedium, Bluetooth, ChevronRight, FlaskConical, Loader2, Plug, Printer, ScanLine, TriangleAlert, Unplug, X } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
-import type { LabelSize } from '../doc/model';
+import { sizeLabel, type LabelSize } from '../doc/model';
 import { supportsBluetooth, supportsSerial, type ConnectionKind } from '../printer/client';
 import { MANUAL_PROFILES, printheadMm } from '../printer/profiles';
 import type { PrinterStatus } from '../printer/service';
@@ -136,7 +136,7 @@ function Connected({ status, rollSize, rollNeedsSize, onSetRollSize, onDisconnec
         <Meter
           icon={<ScanLine size={15} />}
           label="Roll"
-          value={rollSize ? `${rollSize.widthMm} × ${rollSize.heightMm} mm` : label ? 'Size unknown' : 'No roll'}
+          value={rollSize ? `${sizeLabel(rollSize)} mm` : label ? 'Size unknown' : 'No roll'}
           fraction={used}
           low={used !== undefined && used <= 0.1}
           detail={label?.remaining !== undefined ? `${label.remaining} labels left` : undefined}

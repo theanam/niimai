@@ -28,6 +28,9 @@ type DialogName = 'new' | 'roll' | 'library' | 'print' | 'printer' | 'icon' | nu
 
 const DEFAULT_DPI = 203;
 
+/** A size as a document patch; always sets the tail, so a plain size clears a cable label's tail. */
+const asPatch = (s: LabelSize) => ({ widthMm: s.widthMm, heightMm: s.heightMm, tailMm: s.tailMm });
+
 /** A friendly first label, so the editor never opens blank. */
 export function starterDoc(): LabelDoc {
   const doc = createDoc({ widthMm: 40, heightMm: 12 }, 'My label');
@@ -94,13 +97,13 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
   }, [doc]);
 
   // Match the label to the loaded roll, once per roll. Undo puts the old size back.
-  const docSize = { widthMm: doc.widthMm, heightMm: doc.heightMm };
+  const docSize: LabelSize = { widthMm: doc.widthMm, heightMm: doc.heightMm, tailMm: doc.tailMm };
   useEffect(() => {
     if (status.state === 'disconnected') appliedRoll.current = null;
     if (!roll.key || appliedRoll.current === roll.key) return;
     appliedRoll.current = roll.key;
     if (roll.size && !sameSize(roll.size, docSize)) {
-      dispatch({ type: 'setDoc', patch: roll.size });
+      dispatch({ type: 'setDoc', patch: asPatch(roll.size) });
       dispatch({ type: 'commit' });
       toast(`Label resized to the ${roll.size.widthMm} × ${roll.size.heightMm} mm roll`, {
         action: { label: 'Undo', onClick: () => dispatch({ type: 'undo' }) },
@@ -118,7 +121,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
     const next = { ...rollSizes, [barcode]: size };
     setRollSizes(next);
     void setSetting('rollSizes', next).catch(() => {});
-    if (!sameSize(size, docSize)) dispatch({ type: 'setDoc', patch: size });
+    if (!sameSize(size, docSize)) dispatch({ type: 'setDoc', patch: asPatch(size) });
   };
 
   // Fonts: link every family in use and re-measure text once they arrive.
@@ -456,7 +459,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
             roll={roll}
             onSetRollSize={() => setDialog('roll')}
             onUpdate={update}
-            onDocChange={(patch) => dispatch({ type: 'setDoc', patch })}
+            onDocChange={(patch) => dispatch({ type: 'setDoc', patch: 'widthMm' in patch && 'heightMm' in patch ? asPatch(patch as LabelSize) : patch })}
             onDuplicate={duplicate}
             onRemove={(id) => dispatch({ type: 'remove', id })}
             onReorder={(id, direction) => dispatch({ type: 'reorder', id, direction })}

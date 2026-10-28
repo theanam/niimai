@@ -1,7 +1,7 @@
 import { Copy, LayoutTemplate, Search, Shapes, Smile, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import type { LabelDoc, LabelSize } from '../doc/model';
+import { sizeLabel, type LabelDoc, type LabelSize } from '../doc/model';
 import { uid } from '../lib/units';
 import { ensureFont } from '../render/fonts';
 import { renderSvg } from '../render/svg';
@@ -66,7 +66,7 @@ function useFontsVersion(): number {
 
 /** Accessible name for a template card. */
 export const templateLabel = (t: Template): string =>
-  `Use ${t.name}${t.variant === 'icon' ? ' with icon' : ''}, ${t.size.widthMm} × ${t.size.heightMm} mm`;
+  `Use ${t.name}${t.variant === 'icon' ? ' with icon' : ''}, ${sizeLabel(t.size)} mm`;
 
 const PAGE = 48;
 const NONE: Template[] = [];
@@ -102,7 +102,7 @@ function MyLabels({ currentId, onOpen }: { currentId: string; onOpen: (d: LabelD
             <div className="card-text">
               <strong title={doc.name}>{doc.name}</strong>
               <small>
-                {doc.widthMm} × {doc.heightMm} mm
+                {sizeLabel(doc)} mm
               </small>
             </div>
             <IconButton label="Duplicate" onClick={() => void duplicate(doc)}>
@@ -154,7 +154,7 @@ function Templates({ currentSize, onOpen }: { currentSize: LabelSize; onOpen: (d
         </label>
         <div className="segmented" role="radiogroup" aria-label="Template sizes">
           <button role="radio" aria-checked={!allSizes} className={!allSizes ? 'active' : ''} onClick={() => setAllSizes(false)}>
-            {currentSize.widthMm} × {currentSize.heightMm}
+            {sizeLabel(currentSize)}
           </button>
           <button role="radio" aria-checked={allSizes} className={allSizes ? 'active' : ''} onClick={() => setAllSizes(true)}>
             All sizes
@@ -168,7 +168,7 @@ function Templates({ currentSize, onOpen }: { currentSize: LabelSize; onOpen: (d
           </button>
           {TEMPLATE_SIZES.map((s) => (
             <button key={sizeKey(s)} className={`chip${size && sizeKey(size) === sizeKey(s) ? ' active' : ''}`} onClick={() => setSize(s)}>
-              {s.widthMm} × {s.heightMm}
+              {sizeLabel(s)}
             </button>
           ))}
         </div>
@@ -199,7 +199,7 @@ function Templates({ currentSize, onOpen }: { currentSize: LabelSize; onOpen: (d
                   <div className="card-text">
                     <strong title={t.name}>{t.name}</strong>
                     <small>
-                      {t.size.widthMm} × {t.size.heightMm} mm
+                      {sizeLabel(t.size)} mm
                     </small>
                   </div>
                   {t.variant === 'icon' && <Smile size={15} className="card-badge" aria-label="With icon" />}

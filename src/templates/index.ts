@@ -1,4 +1,4 @@
-import { createDoc, type LabelDoc, type LabelSize } from '../doc/model';
+import { createDoc, printableArea, type LabelDoc, type LabelSize } from '../doc/model';
 import { sanitizeIconBody } from '../icons/catalog';
 import ICON_SHAPES from './icon-shapes.json';
 import KIND_ICONS from './kind-icons.json';
@@ -22,6 +22,7 @@ export const TEMPLATE_SIZES: LabelSize[] = [
   { widthMm: 50, heightMm: 40 },
   { widthMm: 40, heightMm: 40 },
   { widthMm: 50, heightMm: 50 },
+  { widthMm: 109, heightMm: 12.5, tailMm: 35 },
 ];
 
 /** Families with no bold face; their titles stay regular weight. */
@@ -43,7 +44,7 @@ export interface Template {
 }
 
 const categoryOf = (id: string): Category => CATEGORIES.find((c) => c.id === id)!;
-export const sizeKey = (s: LabelSize): string => `${s.widthMm}x${s.heightMm}`;
+export const sizeKey = (s: LabelSize): string => `${s.widthMm}x${s.heightMm}${s.tailMm ? `t${s.tailMm}` : ''}`;
 
 const makeTemplate = (kind: Kind, size: LabelSize, variant: TemplateVariant): Template => ({
   id: `${kind.id}${variant === 'icon' ? '-icon' : ''}-${sizeKey(size)}`,
@@ -93,7 +94,7 @@ const previews = new Map<string, LabelDoc>();
 export function templatePreview(t: Template): LabelDoc {
   let doc = previews.get(t.id);
   if (!doc) {
-    doc = { ...createDoc(t.size, t.name), id: t.id, elements: layoutTemplate(content(t.kind, t.variant), t.size) };
+    doc = { ...createDoc(t.size, t.name), id: t.id, elements: layoutTemplate(content(t.kind, t.variant), printableArea(t.size)) };
     previews.set(t.id, doc);
   }
   return doc;
@@ -102,7 +103,7 @@ export function templatePreview(t: Template): LabelDoc {
 /** A fresh, editable label made from the template. */
 export function labelFromTemplate(t: Template): LabelDoc {
   const doc = createDoc(t.size, t.name);
-  return { ...doc, elements: layoutTemplate(content(t.kind, t.variant), t.size).map((el) => ({ ...el, id: uid() })) };
+  return { ...doc, elements: layoutTemplate(content(t.kind, t.variant), printableArea(t.size)).map((el) => ({ ...el, id: uid() })) };
 }
 
 /** Every font family the templates use, to load before drawing thumbnails. */
@@ -119,7 +120,7 @@ export function filterTemplates(list: Template[], { query = '', category = null,
   return list.filter(
     (t) =>
       (!category || t.category === category) &&
-      (!size || (t.size.widthMm === size.widthMm && t.size.heightMm === size.heightMm)) &&
+      (!size || sizeKey(t.size) === sizeKey(size)) &&
       words.every((w) => t.haystack.includes(w)),
   );
 }

@@ -1,4 +1,4 @@
-import { createDoc, createElement, parseDoc, serializeDoc, usedFonts } from './model';
+import { createDoc, createElement, parseDoc, printableArea, serializeDoc, sizeLabel, usedFonts } from './model';
 
 describe('document model', () => {
   const doc = createDoc({ widthMm: 40, heightMm: 12 });
@@ -43,6 +43,19 @@ describe('document model', () => {
     const parsed = parseDoc({ version: 1, widthMm: 30, heightMm: 15, elements: [{ type: 'icon', name: 'x', body: '<path d="M0 0Z"/><script>alert(1)</script>' }] });
     const icon = parsed.elements[0];
     expect(icon.type === 'icon' && icon.body).toBe('<path d="M0 0Z"/>');
+  });
+
+  it('describes cable labels as flag + tail, and prints only on the flag', () => {
+    const cable = { widthMm: 109, heightMm: 12.5, tailMm: 35 };
+    expect(sizeLabel(cable)).toBe('74 + 35 × 12.5');
+    expect(sizeLabel({ widthMm: 40, heightMm: 12 })).toBe('40 × 12');
+    expect(printableArea(cable)).toEqual({ widthMm: 74, heightMm: 12.5 });
+  });
+
+  it('keeps a valid tail from a file and drops a nonsense one', () => {
+    expect(parseDoc({ version: 1, widthMm: 109, heightMm: 12.5, tailMm: 35 }).tailMm).toBe(35);
+    expect(parseDoc({ version: 1, widthMm: 40, heightMm: 12, tailMm: 80 }).tailMm).toBeUndefined();
+    expect(parseDoc({ version: 1, widthMm: 40, heightMm: 12 }).tailMm).toBeUndefined();
   });
 
   it('lists fonts in use once each', () => {

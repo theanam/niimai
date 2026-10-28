@@ -94,6 +94,8 @@ export interface LabelDoc {
   name: string;
   widthMm: number;
   heightMm: number;
+  /** Cable labels: the blank tail at the right end that wraps around the cable. */
+  tailMm?: number;
   elements: LabelElement[];
   createdAt: number;
   updatedAt: number;
@@ -102,7 +104,19 @@ export interface LabelDoc {
 export interface LabelSize {
   widthMm: number;
   heightMm: number;
+  /** Cable labels only: length of the unprinted tail at the right end. */
+  tailMm?: number;
 }
+
+/** The part of a label that takes printing: everything left of a cable label's tail. */
+export const printableArea = (s: LabelSize): LabelSize => ({
+  widthMm: Math.max(1, s.widthMm - (s.tailMm ?? 0)),
+  heightMm: s.heightMm,
+});
+
+/** "40 × 12" or, for cable labels, "74 + 35 × 12.5" (flag + tail × height). */
+export const sizeLabel = (s: LabelSize): string =>
+  s.tailMm ? `${s.widthMm - s.tailMm} + ${s.tailMm} × ${s.heightMm}` : `${s.widthMm} × ${s.heightMm}`;
 
 /** Common NIIMBOT roll sizes, width × height in millimetres. */
 export const LABEL_PRESETS: LabelSize[] = [
@@ -114,6 +128,8 @@ export const LABEL_PRESETS: LabelSize[] = [
   { widthMm: 50, heightMm: 30 },
   { widthMm: 50, heightMm: 50 },
   { widthMm: 75, heightMm: 12 },
+  // NIIMBOT T12.5×74+35 cable flag, for the D-series.
+  { widthMm: 109, heightMm: 12.5, tailMm: 35 },
 ];
 
 export const DEFAULT_FONT = 'Inter';
@@ -204,11 +220,13 @@ export function parseDoc(input: unknown): LabelDoc {
       return merged;
     });
   const now = Date.now();
+  const tail = isNum(raw.tailMm) && raw.tailMm > 0 && raw.tailMm < size.widthMm ? { tailMm: raw.tailMm } : {};
   return {
     version: 1,
     id: typeof raw.id === 'string' ? raw.id : uid(),
     name: typeof raw.name === 'string' && raw.name ? raw.name : 'Untitled',
     ...size,
+    ...tail,
     elements,
     createdAt: isNum(raw.createdAt) ? raw.createdAt : now,
     updatedAt: isNum(raw.updatedAt) ? raw.updatedAt : now,

@@ -1,4 +1,4 @@
-import { Bluetooth, Bug, Keyboard, LayoutTemplate, Mail, Printer, ScanLine, Sparkles } from 'lucide-react';
+import { Bluetooth, Bug, Cable, Keyboard, LayoutTemplate, Mail, Printer, ScanLine, Sparkles } from 'lucide-react';
 import { replayTour } from '../tour/Tour';
 import { shortcutLabel } from '../shortcuts/shortcuts';
 import { CONTACT_EMAIL, ISSUES_URL } from '../ui/links';
@@ -61,6 +61,16 @@ export function Help() {
         <p>
           If connecting fails with an unknown Bluetooth service, open <code>chrome://bluetooth-internals</code>, connect to
           the printer under Devices, and include the service and characteristic IDs it lists in an issue.
+        </p>
+      </section>
+      <section>
+        <h2>
+          <Cable size={18} /> Cable labels
+        </h2>
+        <p>
+          Cable flag rolls, such as the T12.5 × 74+35, have a tail that wraps around the cable. niimai recognises known rolls
+          and shades the tail so your design stays on the flag. For other rolls, switch on Cable in the label settings and
+          set the tail length.
         </p>
       </section>
       <section>

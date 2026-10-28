@@ -16,9 +16,11 @@ import {
   ImageUp,
   PaintBucket,
   Smile,
+  Cable,
 } from 'lucide-react';
 import { ICON_WEIGHTS, iconBody, iconLabel, type IconWeight } from '../icons/catalog';
-import type { BarcodeFormat, DitherMode, LabelDoc, LabelElement } from '../doc/model';
+import { sameSize } from '../printer/roll';
+import { sizeLabel, type BarcodeFormat, type DitherMode, type LabelDoc, type LabelElement } from '../doc/model';
 import { LABEL_PRESETS } from '../doc/model';
 import type { RollState } from '../printer/roll';
 import { symbolError } from '../render/barcode';
@@ -34,7 +36,7 @@ interface Props {
   /** Opens the dialog for naming the loaded roll's size. */
   onSetRollSize: () => void;
   onUpdate: (id: string, patch: Partial<LabelElement>, key?: string) => void;
-  onDocChange: (patch: Partial<Pick<LabelDoc, 'widthMm' | 'heightMm' | 'name'>>) => void;
+  onDocChange: (patch: Partial<Pick<LabelDoc, 'widthMm' | 'heightMm' | 'tailMm' | 'name'>>) => void;
   onDuplicate: (el: LabelElement) => void;
   onRemove: (id: string) => void;
   onReorder: (id: string, direction: 'up' | 'down') => void;
@@ -59,10 +61,25 @@ export function Inspector({ doc, selected, roll, onSetRollSize, onUpdate, onDocC
             <NumberField label="Width" value={doc.widthMm} min={5} max={200} step={1} suffix="mm" icon="W" onChange={(v) => onDocChange({ widthMm: v })} />
             <NumberField label="Height" value={doc.heightMm} min={5} max={200} step={1} suffix="mm" icon="H" onChange={(v) => onDocChange({ heightMm: v })} />
           </div>
+          <div className="row">
+            <Toggle
+              label="Cable label"
+              icon={
+                <>
+                  <Cable size={15} /> Cable
+                </>
+              }
+              checked={!!doc.tailMm}
+              onChange={(on) => onDocChange({ tailMm: on ? Math.min(35, Math.round(doc.widthMm / 3)) : undefined })}
+            />
+            {!!doc.tailMm && (
+              <NumberField label="Tail length" icon="Tail" value={doc.tailMm} min={1} max={doc.widthMm - 5} step={1} suffix="mm" onChange={(tailMm) => onDocChange({ tailMm })} />
+            )}
+          </div>
           <div className="chips">
             {rollSize && (
               <button className="chip chip-primary" onClick={() => onDocChange(rollSize)} title="Size of the loaded roll">
-                <ScanLine size={14} /> {rollSize.widthMm} × {rollSize.heightMm}
+                <ScanLine size={14} /> {sizeLabel(rollSize)}
               </button>
             )}
             {roll.needsSize && (
@@ -72,11 +89,11 @@ export function Inspector({ doc, selected, roll, onSetRollSize, onUpdate, onDocC
             )}
             {LABEL_PRESETS.map((p) => (
               <button
-                key={`${p.widthMm}x${p.heightMm}`}
-                className={`chip${p.widthMm === doc.widthMm && p.heightMm === doc.heightMm ? ' active' : ''}`}
+                key={sizeLabel(p)}
+                className={`chip${sameSize(p, doc) ? ' active' : ''}`}
                 onClick={() => onDocChange(p)}
               >
-                {p.widthMm} × {p.heightMm}
+                {sizeLabel(p)}
               </button>
             ))}
           </div>

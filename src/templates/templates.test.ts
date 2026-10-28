@@ -72,6 +72,18 @@ describe('template catalog', () => {
     }
   });
 
+  it('lays cable templates out on the flag, leaving the tail blank', () => {
+    const cable = { widthMm: 109, heightMm: 12.5, tailMm: 35 };
+    const list = templatesForSize(cable);
+    expect(list.length).toBeGreaterThan(100);
+    for (const t of list) {
+      const doc = templatePreview(t);
+      expect(doc.tailMm).toBe(35);
+      for (const el of doc.elements) expect(el.x + el.w, t.id).toBeLessThanOrEqual(74.05);
+    }
+    expect(labelFromTemplate(list[0]).tailMm).toBe(35);
+  });
+
   it('makes a fresh editable label each time', () => {
     const a = labelFromTemplate(TEMPLATES[0]);
     const b = labelFromTemplate(TEMPLATES[0]);

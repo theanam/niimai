@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
 import type { EditorAction } from '../doc/history';
-import type { LabelDoc, LabelElement } from '../doc/model';
+import { printableArea, sizeLabel, type LabelDoc, type LabelElement } from '../doc/model';
 import { HANDLES, resizeBox, snapBox, type Guide, type Handle } from '../doc/snap';
 import { round1 } from '../lib/units';
 import { elementSvg } from '../render/svg';
@@ -70,7 +70,7 @@ export function Canvas({ doc, selectedId, dispatch, images, preview, fontsVersio
         d.moved = true;
         const others = doc.elements.filter((o) => o.id !== d.id);
         const box = { x: d.el.x + dx, y: d.el.y + dy, w: d.el.w, h: d.el.h };
-        const snapped = e.altKey ? { ...box, guides: [] } : snapBox(box, doc, others, SNAP_PX / zoom);
+        const snapped = e.altKey ? { ...box, guides: [] } : snapBox(box, printableArea(doc), others, SNAP_PX / zoom);
         setGuides(snapped.guides);
         dispatch({ type: 'update', id: d.id, patch: { x: round1(snapped.x), y: round1(snapped.y) }, key: 'move' });
       } else {
@@ -145,6 +145,17 @@ export function Canvas({ doc, selectedId, dispatch, images, preview, fontsVersio
                 dangerouslySetInnerHTML={{ __html: (el.id === editingId ? '' : elementSvg(el, { images })) + hitArea(el) }}
               />
             ))}
+            {!!doc.tailMm && (
+              <g className="tail-zone" aria-hidden="true">
+                <defs>
+                  <pattern id="tail-hatch" width={1.6} height={1.6} patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+                    <rect width={0.5} height={1.6} />
+                  </pattern>
+                </defs>
+                <rect x={doc.widthMm - doc.tailMm} width={doc.tailMm} height={doc.heightMm} fill="url(#tail-hatch)" />
+                <line x1={doc.widthMm - doc.tailMm} x2={doc.widthMm - doc.tailMm} y1={0} y2={doc.heightMm} strokeWidth={1 / zoom} />
+              </g>
+            )}
             {guides.map((g, i) =>
               g.axis === 'x' ? (
                 <line key={i} className="guide" x1={g.at} x2={g.at} y1={-100} y2={doc.heightMm + 100} strokeWidth={1 / zoom} />
@@ -196,7 +207,7 @@ export function Canvas({ doc, selectedId, dispatch, images, preview, fontsVersio
         )}
       </div>
       <div className="canvas-size" aria-hidden="true">
-        {doc.widthMm} × {doc.heightMm} mm
+        {sizeLabel(doc)} mm{doc.tailMm ? ' · tail stays blank' : ''}
       </div>
     </div>
   );

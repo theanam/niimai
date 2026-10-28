@@ -115,7 +115,9 @@ export function Canvas({ doc, selectedId, dispatch, images, preview, fontsVersio
 
   const selected = preview ? null : doc.elements.find((e) => e.id === selectedId);
   const editing = preview ? undefined : doc.elements.find((e) => e.id === editingId && e.type === 'text');
-  const handleSize = 8 / zoom;
+  // Fingers need bigger targets than a mouse pointer.
+  const coarse = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
+  const handleSize = (coarse ? 18 : 8) / zoom;
 
   return (
     <div className="canvas-wrap" ref={wrapRef} onPointerDown={() => dispatch({ type: 'select', id: null })}>

@@ -3,7 +3,7 @@ import { BatteryMedium, Bluetooth, ChevronRight, FlaskConical, Loader2, Plug, Pr
 import { useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { sizeLabel, type LabelSize } from '../doc/model';
-import { supportsBluetooth, supportsSerial, type ConnectionKind } from '../printer/client';
+import { unsupportedReason, type ConnectionKind } from '../printer/client';
 import { MANUAL_PROFILES, printheadMm } from '../printer/profiles';
 import type { PrinterStatus } from '../printer/service';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
@@ -55,8 +55,8 @@ function Meter({ icon, label, value, detail, fraction, low }: { icon: ReactNode;
 function Connect({ onConnect }: Pick<Props, 'onConnect'>) {
   const [busy, setBusy] = useState<ConnectionKind | null>(null);
   const options: Option[] = [
-    { kind: 'bluetooth', icon: Bluetooth, title: 'Bluetooth', hint: 'Wireless. Works with most models.', unavailable: supportsBluetooth() ? undefined : 'Needs Chrome or Edge' },
-    { kind: 'serial', icon: Plug, title: 'USB cable', hint: 'For printers with a USB port.', unavailable: supportsSerial() ? undefined : 'Needs Chrome or Edge on desktop' },
+    { kind: 'bluetooth', icon: Bluetooth, title: 'Bluetooth', hint: 'Wireless. Works with most models.', unavailable: unsupportedReason('bluetooth') ?? undefined },
+    { kind: 'serial', icon: Plug, title: 'USB cable', hint: 'For printers with a USB port.', unavailable: unsupportedReason('serial') ?? undefined },
     { kind: 'demo', icon: FlaskConical, title: 'Demo printer', hint: 'Try everything without hardware.' },
   ];
 

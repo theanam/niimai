@@ -2,7 +2,7 @@ import { ArrowRight, Battery, Bluetooth, Check, FilePlus2, FlaskConical, LayoutT
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { LABEL_PRESETS, type LabelDoc, type LabelSize, sizeLabel } from '../doc/model';
-import { supportsBluetooth, supportsSerial, type ConnectionKind } from '../printer/client';
+import { supportsBluetooth, supportsSerial, unsupportedReason, type ConnectionKind } from '../printer/client';
 import { sameSize, type RollState } from '../printer/roll';
 import type { PrinterStatus } from '../printer/service';
 import { ensureFont } from '../render/fonts';
@@ -78,7 +78,7 @@ function PrinterCard({ status, roll, onConnect, onSetRollSize }: Pick<Props, 'st
               <FlaskConical size={16} /> Demo
             </button>
           </div>
-          {!supportsBluetooth() && <p className="muted small">Printing needs Chrome or Edge.</p>}
+          {unsupportedReason('bluetooth') && <p className="muted small">{unsupportedReason('bluetooth')}.</p>}
           <div className="start-printer-art" aria-hidden="true">
             <Printer size={40} strokeWidth={1.4} />
             <div className="start-models">

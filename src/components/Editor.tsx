@@ -468,6 +468,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
             onRemove={(id) => dispatch({ type: 'remove', id })}
             onReorder={(id, direction) => dispatch({ type: 'reorder', id, direction })}
             onReplaceImage={(id) => void chooseImage(id)}
+            onEditText={(id) => setEditing({ id, fresh: false })}
             onReplaceIcon={(id) => {
               setIconTarget(id);
               setDialog('icon');

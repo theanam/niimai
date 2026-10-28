@@ -257,6 +257,23 @@ describe('editor', () => {
     expect(document.querySelector('.tail-zone')).toBeNull();
   });
 
+  it('opens in-place text editing from the Edit text button', async () => {
+    renderEditor();
+    fireEvent.pointerDown(elements()[0], { button: 0 });
+    fireEvent.pointerUp(window);
+    await userEvent.click(screen.getByRole('button', { name: 'Edit text' }));
+    expect(screen.getByRole('textbox', { name: 'Edit text' })).toHaveFocus();
+  });
+
+  it('offers the file and help actions from the More menu', async () => {
+    renderEditor();
+    await userEvent.click(screen.getByRole('button', { name: 'More' }));
+    const menu = await screen.findByRole('menu', { name: 'More' });
+    expect(within(menu).getByRole('menuitem', { name: 'Undo' })).toBeDisabled();
+    await userEvent.click(within(menu).getByRole('menuitem', { name: 'Library' }));
+    expect(await screen.findByRole('dialog', { name: 'Library' })).toBeInTheDocument();
+  });
+
   it('has a GitHub link, help and about', () => {
     renderEditor();
     expect(screen.getByRole('link', { name: 'GitHub repository' })).toHaveAttribute('href', 'https://github.com/theanam/niimai');

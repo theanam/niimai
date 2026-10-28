@@ -48,7 +48,11 @@ export function Help() {
           <li>Click the printer button in the top bar and choose Bluetooth or USB.</li>
           <li>Pick your printer from the browser's list.</li>
         </ol>
-        <p>Bluetooth and USB printing work in Chrome and Edge on desktop and Android.</p>
+        <p>
+          Bluetooth printing works in Chrome and Edge on desktop, and in Chrome on Android. USB works in Chrome and Edge on
+          desktop; niimai shows the USB option wherever the browser supports it. iPhone and iPad browsers cannot reach
+          printers; the Bluefy browser adds Bluetooth on iOS. Designing labels works everywhere.
+        </p>
       </section>
       <section>
         <h2>

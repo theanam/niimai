@@ -17,6 +17,7 @@ import {
   PaintBucket,
   Smile,
   Cable,
+  Pencil,
   FoldHorizontal,
 } from 'lucide-react';
 import { ICON_WEIGHTS, iconBody, iconLabel, type IconWeight } from '../icons/catalog';
@@ -51,6 +52,8 @@ interface Props {
   onReorder: (id: string, direction: 'up' | 'down') => void;
   onReplaceImage: (id: string) => void;
   onReplaceIcon: (id: string) => void;
+  /** Opens in-place editing for a text element. */
+  onEditText?: (id: string) => void;
 }
 
 const FORMATS: { value: BarcodeFormat; label: string }[] = [
@@ -60,7 +63,7 @@ const FORMATS: { value: BarcodeFormat; label: string }[] = [
   { value: 'upca', label: 'UPC-A' },
 ];
 
-export function Inspector({ doc, selected, roll, rollPaper, fitting = [], allSizes = LABEL_PRESETS, onSetRollSize, onUpdate, onDocChange, onDuplicate, onRemove, onReorder, onReplaceImage, onReplaceIcon }: Props) {
+export function Inspector({ doc, selected, roll, rollPaper, fitting = [], allSizes = LABEL_PRESETS, onSetRollSize, onUpdate, onDocChange, onDuplicate, onRemove, onReorder, onReplaceImage, onReplaceIcon, onEditText }: Props) {
   if (!selected) {
     const isPreset = [...(roll.size ? [roll.size] : []), ...allSizes].some((p) => sameSize(p, doc));
     return (
@@ -183,6 +186,11 @@ export function Inspector({ doc, selected, roll, rollPaper, fitting = [], allSiz
 
       {el.type === 'text' && (
         <Section title="Style">
+          {onEditText && (
+            <button className="btn btn-block" onClick={() => onEditText(el.id)}>
+              <Pencil size={16} /> Edit text
+            </button>
+          )}
           <FontPicker value={el.fontFamily} onChange={(fontFamily) => set({ fontFamily })} />
           <div className="row">
             <Toggle label="Fit to box" icon={<Maximize2 size={15} />} checked={el.autoFit} onChange={(autoFit) => set({ autoFit })} />

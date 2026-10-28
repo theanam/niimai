@@ -1,0 +1,56 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+      # Analytics belong to the hosted site only, so the tag is added to the
+      # built page here and never lives in the source.
+      - name: Add Google tag to the hosted page
+        env:
+          GTAG_ID: G-P1WTNEKDM4
+        run: |
+          node -e '
+            const fs = require("fs");
+            const id = process.env.GTAG_ID;
+            const tag = `<script async src="https://www.googletagmanager.com/gtag/js?id=${id}"></script>
+            <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag("js",new Date());gtag("config","${id}");</script>`;
+            const html = fs.readFileSync("dist/index.html", "utf8");
+            if (!html.includes("</head>")) throw new Error("No </head> in dist/index.html");
+            fs.writeFileSync("dist/index.html", html.replace("</head>", tag + "\n</head>"));
+          '
+          grep -q "$GTAG_ID" dist/index.html
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

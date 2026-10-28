@@ -1,0 +1,78 @@
+<h1 align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/logo-dark.svg" />
+    <img src="docs/logo-light.svg" width="294" alt="niimai" />
+  </picture>
+</h1>
+
+<p align="center">
+  Design and print labels on NIIMBOT printers, right in your browser.<br />
+  <a href="https://niimai.app/"><strong>Open the app →</strong></a>
+</p>
+
+<p align="center">
+  <img src="docs/screenshot.png" alt="The niimai label editor showing a pantry label with a title, barcode and QR code" />
+</p>
+
+## Features
+
+- **A start screen** that gets you printing fast: connect, start blank, or pick a template sized for your roll.
+- **Connects directly** to NIIMBOT printers over Bluetooth or USB. No app install, no account.
+- **Text, images, QR codes, barcodes and shapes**, with snapping, rotation and undo. Text is edited right on the label.
+- **Over 4,500 templates** across 19 categories, from pantry jars and cable flags to asset tags and safety signs, many with icons, laid out for every common roll size.
+- **Every Google Font**, grouped by category and previewed in the picker.
+- **1,500 icons** from Phosphor in regular, bold and fill weights, chosen for crisp thermal printing.
+- **What you see is what prints.** A 1-bit preview shows every dot, and photos are dithered for thermal paper.
+- **Reads the label roll** to suggest the right size and show how many labels are left.
+- **Browser printing** of the label as a vector document at its exact size.
+- **Local-first.** Labels are kept on your device, and can be saved to and opened from `.niimai` files.
+- **Keyboard shortcuts** for everything you do often.
+
+<table>
+  <tr>
+    <td><img src="docs/start.png" alt="The start screen: connect a printer, start blank, or pick a template" /></td>
+    <td><img src="docs/templates.png" alt="The template library, filtered to the loaded label size" /></td>
+  </tr>
+</table>
+
+## Supported printers
+
+niimai uses [niimbluelib](https://github.com/MultiMote/niimbluelib), which recognises most current NIIMBOT models (D11, D110, B1, B18, B21 and more), and adds support verified on hardware for the B21 C2B on early firmware. For models the library does not recognise yet, choose the closest printer type in the printer settings.
+
+Printing needs a browser with Web Bluetooth or Web Serial: Chrome or Edge on desktop, or Chrome on Android. Designing labels works in any modern browser.
+
+## Development
+
+```bash
+npm install
+npm run dev
+```
+
+The dev server runs at http://localhost:5197.
+
+| Command | What it does |
+| --- | --- |
+| `npm test` | Runs the test suite |
+| `npm run build` | Builds the static site into `dist/` |
+| `npm run fonts` | Refreshes the Google Fonts list |
+| `npm run icons` | Rebuilds the icon library from Phosphor |
+| `npm run screenshot` | Regenerates the README screenshot and social image (needs Chrome) |
+
+Pushes to `main` deploy to GitHub Pages through the included workflow.
+
+## Feedback
+
+Found a bug or have an idea? [Open an issue](https://github.com/theanam/niimai/issues). For anything else, write to [anam.ahmed.a@gmail.com](mailto:anam.ahmed.a@gmail.com).
+
+## Credits
+
+- [niimbluelib](https://github.com/MultiMote/niimbluelib) by MultiMote, for the printer protocol
+- [bwip-js](https://github.com/metafloor/bwip-js), for barcodes and QR codes
+- [Fontsource](https://fontsource.org), for the Google Fonts catalogue
+- [Phosphor Icons](https://phosphoricons.com) (MIT), for the icon library
+
+niimai is an independent project and is not affiliated with NIIMBOT.
+
+## License
+
+[MIT](LICENSE)

@@ -1,0 +1,13 @@
+{
+  "name": "niimai",
+  "short_name": "niimai",
+  "description": "Label designer for NIIMBOT printers",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f6f5f3",
+  "theme_color": "#f2542d",
+  "icons": [
+    { "src": "logo.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}

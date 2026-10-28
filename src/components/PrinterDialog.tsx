@@ -1,0 +1,200 @@
+import * as RD from '@radix-ui/react-dialog';
+import { BatteryMedium, Bluetooth, ChevronRight, FlaskConical, Loader2, Plug, Printer, ScanLine, TriangleAlert, Unplug, X } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import { toast } from 'sonner';
+import type { LabelSize } from '../doc/model';
+import { supportsBluetooth, supportsSerial, type ConnectionKind } from '../printer/client';
+import { MANUAL_PROFILES, printheadMm } from '../printer/profiles';
+import type { PrinterStatus } from '../printer/service';
+import { ErrorBoundary } from '../ui/ErrorBoundary';
+
+interface Props {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  status: PrinterStatus;
+  /** The roll size, from the printer or remembered for this roll. */
+  rollSize: LabelSize | null;
+  /** The printer cannot measure the roll and its size is not known yet. */
+  rollNeedsSize?: boolean;
+  onSetRollSize?: () => void;
+  manualProfileId: string | null;
+  onConnect: (kind: ConnectionKind) => Promise<void>;
+  onDisconnect: () => Promise<void>;
+  onManualProfile: (id: string | null) => void;
+}
+
+interface Option {
+  kind: ConnectionKind;
+  icon: typeof Bluetooth;
+  title: string;
+  hint: string;
+  /** Why the option cannot be used here, if it cannot. */
+  unavailable?: string;
+}
+
+function Meter({ icon, label, value, detail, fraction, low }: { icon: ReactNode; label: string; value: string; detail?: string; fraction?: number; low?: boolean }) {
+  return (
+    <div className={`meter${low ? ' meter-low' : ''}`}>
+      <div className="meter-head">
+        {icon}
+        <span>{label}</span>
+      </div>
+      <strong>{value}</strong>
+      {fraction !== undefined && (
+        <div className="meter-bar" role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(fraction * 100)}>
+          <span style={{ width: `${Math.max(3, Math.min(100, fraction * 100))}%` }} />
+        </div>
+      )}
+      {detail && <small>{detail}</small>}
+    </div>
+  );
+}
+
+function Connect({ onConnect }: Pick<Props, 'onConnect'>) {
+  const [busy, setBusy] = useState<ConnectionKind | null>(null);
+  const options: Option[] = [
+    { kind: 'bluetooth', icon: Bluetooth, title: 'Bluetooth', hint: 'Wireless. Works with most models.', unavailable: supportsBluetooth() ? undefined : 'Needs Chrome or Edge' },
+    { kind: 'serial', icon: Plug, title: 'USB cable', hint: 'For printers with a USB port.', unavailable: supportsSerial() ? undefined : 'Needs Chrome or Edge on desktop' },
+    { kind: 'demo', icon: FlaskConical, title: 'Demo printer', hint: 'Try everything without hardware.' },
+  ];
+
+  const connect = async (kind: ConnectionKind) => {
+    setBusy(kind);
+    try {
+      await onConnect(kind);
+    } catch (err) {
+      toast.error((err as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <>
+      <div className="pd-hero" aria-hidden="true">
+        <div className="pd-hero-icon">
+          <Printer size={34} strokeWidth={1.6} />
+        </div>
+      </div>
+      <RD.Title className="pd-title">Connect a printer</RD.Title>
+      <RD.Description className="pd-subtitle">Turn the printer on, then choose how it connects.</RD.Description>
+      <div className="pd-options">
+        {options.map(({ kind, icon: Icon, title, hint, unavailable }) => (
+          <button key={kind} className="pd-option" disabled={!!unavailable || busy !== null} onClick={() => void connect(kind)} aria-label={title}>
+            <span className="pd-option-icon">{busy === kind ? <Loader2 size={20} className="spin" /> : <Icon size={20} />}</span>
+            <span className="pd-option-text">
+              <strong>{title}</strong>
+              <small>{busy === kind && kind !== 'demo' ? 'Pick your printer in the browser window' : (unavailable ?? hint)}</small>
+            </span>
+            <ChevronRight size={18} className="pd-option-go" />
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
+
+function Connected({ status, rollSize, rollNeedsSize, onSetRollSize, onDisconnect }: Pick<Props, 'status' | 'rollSize' | 'rollNeedsSize' | 'onSetRollSize' | 'onDisconnect'>) {
+  const label = status.label;
+  const battery = status.battery;
+  const used = label?.remaining !== undefined && label.capacity ? label.remaining / label.capacity : undefined;
+  const warnings = [status.lidClosed === false && 'Lid is open', status.paperInserted === false && 'No labels loaded'].filter(Boolean) as string[];
+
+  return (
+    <>
+      <div className="pd-device">
+        <div className="pd-device-icon">
+          <Printer size={28} strokeWidth={1.6} />
+          <span className={`pd-dot pd-dot-${status.state}`} />
+        </div>
+        <div className="pd-device-text">
+          <RD.Title className="pd-title">{status.profile?.name ?? status.detectedModel ?? 'Printer'}</RD.Title>
+          <RD.Description className="pd-subtitle">
+            {status.state === 'printing' ? 'Printing…' : 'Ready'} · {status.deviceName ?? 'Unknown device'}
+          </RD.Description>
+        </div>
+      </div>
+
+      {warnings.length > 0 && (
+        <div className="pd-warnings" role="status">
+          {warnings.map((w) => (
+            <span key={w}>
+              <TriangleAlert size={15} /> {w}
+            </span>
+          ))}
+        </div>
+      )}
+
+      <div className="pd-meters">
+        <Meter
+          icon={<BatteryMedium size={15} />}
+          label="Battery"
+          value={battery !== undefined ? `${battery}%` : 'Unknown'}
+          fraction={battery !== undefined ? battery / 100 : undefined}
+          low={battery !== undefined && battery <= 20}
+        />
+        <Meter
+          icon={<ScanLine size={15} />}
+          label="Roll"
+          value={rollSize ? `${rollSize.widthMm} × ${rollSize.heightMm} mm` : label ? 'Size unknown' : 'No roll'}
+          fraction={used}
+          low={used !== undefined && used <= 0.1}
+          detail={label?.remaining !== undefined ? `${label.remaining} labels left` : undefined}
+        />
+      </div>
+
+      {rollNeedsSize && onSetRollSize && (
+        <button className="pd-callout" onClick={onSetRollSize}>
+          <ScanLine size={18} />
+          <span>
+            <strong>Tell niimai this roll's size</strong>
+            <small>This printer does not report it. You only need to do this once per roll.</small>
+          </span>
+          <ChevronRight size={18} />
+        </button>
+      )}
+
+      <button className="btn btn-ghost pd-disconnect" onClick={() => void onDisconnect()}>
+        <Unplug size={16} /> Disconnect
+      </button>
+    </>
+  );
+}
+
+/** Connecting, and the connected printer at a glance. */
+export function PrinterDialog(props: Props) {
+  const { open, onOpenChange, status, manualProfileId, onManualProfile } = props;
+  const connected = status.state === 'ready' || status.state === 'printing';
+  const unrecognised = connected && !status.detectedModel;
+
+  return (
+    <RD.Root open={open} onOpenChange={onOpenChange}>
+      <RD.Portal>
+        <RD.Overlay className="dialog-overlay" />
+        <RD.Content className="dialog pd" onOpenAutoFocus={(e) => (e.preventDefault(), (e.currentTarget as HTMLElement).focus())}>
+          <RD.Close className="icon-btn pd-close" aria-label="Close">
+            <X size={18} />
+          </RD.Close>
+          <ErrorBoundary name="Printer">
+            {connected ? <Connected {...props} /> : <Connect onConnect={props.onConnect} />}
+            <details className="pd-advanced" open={unrecognised || undefined}>
+              <summary>{unrecognised ? 'Printer not recognised' : 'Advanced'}</summary>
+              <label className="pd-field">
+                <span>Printer type, if not recognised</span>
+                <select className="select" value={manualProfileId ?? ''} onChange={(e) => onManualProfile(e.target.value || null)}>
+                  <option value="">None</option>
+                  {MANUAL_PROFILES.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} · {Math.round(printheadMm(p))} mm head
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {unrecognised && !status.profile && <p className="field-error">Pick the closest type to start printing.</p>}
+            </details>
+          </ErrorBoundary>
+        </RD.Content>
+      </RD.Portal>
+    </RD.Root>
+  );
+}

@@ -1,0 +1,234 @@
+import {
+  AlignCenter,
+  AlignLeft,
+  AlignRight,
+  ArrowDownToLine,
+  ArrowUpToLine,
+  Bold,
+  Copy,
+  Italic,
+  Maximize2,
+  RotateCw,
+  ScanLine,
+  SquareDashed,
+  Trash2,
+  Contrast,
+  ImageUp,
+  PaintBucket,
+  Smile,
+} from 'lucide-react';
+import { ICON_WEIGHTS, iconBody, iconLabel, type IconWeight } from '../icons/catalog';
+import type { BarcodeFormat, DitherMode, LabelDoc, LabelElement } from '../doc/model';
+import { LABEL_PRESETS } from '../doc/model';
+import type { RollState } from '../printer/roll';
+import { symbolError } from '../render/barcode';
+import { IconButton } from '../ui/IconButton';
+import { ELEMENT_META } from './elementMeta';
+import { NumberField, Section, Segmented, Toggle } from './fields';
+import { FontPicker } from './FontPicker';
+
+interface Props {
+  doc: LabelDoc;
+  selected: LabelElement | null;
+  roll: RollState;
+  /** Opens the dialog for naming the loaded roll's size. */
+  onSetRollSize: () => void;
+  onUpdate: (id: string, patch: Partial<LabelElement>, key?: string) => void;
+  onDocChange: (patch: Partial<Pick<LabelDoc, 'widthMm' | 'heightMm' | 'name'>>) => void;
+  onDuplicate: (el: LabelElement) => void;
+  onRemove: (id: string) => void;
+  onReorder: (id: string, direction: 'up' | 'down') => void;
+  onReplaceImage: (id: string) => void;
+  onReplaceIcon: (id: string) => void;
+}
+
+const FORMATS: { value: BarcodeFormat; label: string }[] = [
+  { value: 'code128', label: 'Code 128' },
+  { value: 'code39', label: 'Code 39' },
+  { value: 'ean13', label: 'EAN-13' },
+  { value: 'upca', label: 'UPC-A' },
+];
+
+export function Inspector({ doc, selected, roll, onSetRollSize, onUpdate, onDocChange, onDuplicate, onRemove, onReorder, onReplaceImage, onReplaceIcon }: Props) {
+  if (!selected) {
+    const rollSize = roll.size;
+    return (
+      <aside className="inspector" aria-label="Label settings">
+        <Section title="Label">
+          <div className="grid-2">
+            <NumberField label="Width" value={doc.widthMm} min={5} max={200} step={1} suffix="mm" icon="W" onChange={(v) => onDocChange({ widthMm: v })} />
+            <NumberField label="Height" value={doc.heightMm} min={5} max={200} step={1} suffix="mm" icon="H" onChange={(v) => onDocChange({ heightMm: v })} />
+          </div>
+          <div className="chips">
+            {rollSize && (
+              <button className="chip chip-primary" onClick={() => onDocChange(rollSize)} title="Size of the loaded roll">
+                <ScanLine size={14} /> {rollSize.widthMm} × {rollSize.heightMm}
+              </button>
+            )}
+            {roll.needsSize && (
+              <button className="chip chip-primary" onClick={onSetRollSize} title="Set the loaded roll's size">
+                <ScanLine size={14} /> Roll size?
+              </button>
+            )}
+            {LABEL_PRESETS.map((p) => (
+              <button
+                key={`${p.widthMm}x${p.heightMm}`}
+                className={`chip${p.widthMm === doc.widthMm && p.heightMm === doc.heightMm ? ' active' : ''}`}
+                onClick={() => onDocChange(p)}
+              >
+                {p.widthMm} × {p.heightMm}
+              </button>
+            ))}
+          </div>
+        </Section>
+      </aside>
+    );
+  }
+
+  const el = selected;
+  const set = (patch: Partial<LabelElement>, key?: string) => onUpdate(el.id, patch, key);
+  const Meta = ELEMENT_META[el.type];
+  const error = el.type === 'qr' || el.type === 'barcode' ? symbolError(el) : null;
+
+  return (
+    <aside className="inspector" aria-label={`${Meta.label} settings`}>
+      <Section
+        title={Meta.label}
+        actions={
+          <>
+            <IconButton label="Bring forward" onClick={() => onReorder(el.id, 'up')}>
+              <ArrowUpToLine size={16} />
+            </IconButton>
+            <IconButton label="Send backward" onClick={() => onReorder(el.id, 'down')}>
+              <ArrowDownToLine size={16} />
+            </IconButton>
+            <IconButton label="Duplicate" shortcut="⌘D" onClick={() => onDuplicate(el)}>
+              <Copy size={16} />
+            </IconButton>
+            <IconButton label="Delete" shortcut="⌫" onClick={() => onRemove(el.id)}>
+              <Trash2 size={16} />
+            </IconButton>
+          </>
+        }
+      >
+        <div className="grid-2">
+          <NumberField label="X" value={el.x} suffix="mm" onChange={(x) => set({ x }, 'x')} />
+          <NumberField label="Y" value={el.y} suffix="mm" onChange={(y) => set({ y }, 'y')} />
+          <NumberField label="Width" icon="W" value={el.w} min={0.5} suffix="mm" onChange={(w) => set({ w }, 'w')} />
+          <NumberField label="Height" icon="H" value={el.h} min={0.5} suffix="mm" onChange={(h) => set({ h }, 'h')} />
+          <NumberField label="Rotation" icon={<RotateCw size={13} />} value={el.rotation} step={1} suffix="°" onChange={(rotation) => set({ rotation }, 'rotation')} />
+        </div>
+      </Section>
+
+      {el.type === 'text' && (
+        <Section title="Style">
+          <FontPicker value={el.fontFamily} onChange={(fontFamily) => set({ fontFamily })} />
+          <div className="row">
+            <Toggle label="Fit to box" icon={<Maximize2 size={15} />} checked={el.autoFit} onChange={(autoFit) => set({ autoFit })} />
+            <NumberField label="Font size" icon="pt" value={el.fontSize} min={1} max={400} step={1} onChange={(fontSize) => set({ fontSize, autoFit: false }, 'fontSize')} />
+          </div>
+          <div className="row">
+            <Toggle label="Bold" icon={<Bold size={15} />} checked={el.bold} onChange={(bold) => set({ bold })} />
+            <Toggle label="Italic" icon={<Italic size={15} />} checked={el.italic} onChange={(italic) => set({ italic })} />
+            <Segmented
+              label="Alignment"
+              value={el.align}
+              onChange={(align) => set({ align })}
+              options={[
+                { value: 'left', label: 'Align left', icon: <AlignLeft size={15} /> },
+                { value: 'center', label: 'Align centre', icon: <AlignCenter size={15} /> },
+                { value: 'right', label: 'Align right', icon: <AlignRight size={15} /> },
+              ]}
+            />
+          </div>
+        </Section>
+      )}
+
+      {el.type === 'image' && (
+        <Section title="Dithering">
+          <button className="btn btn-block" onClick={() => onReplaceImage(el.id)}>
+            <ImageUp size={16} /> {el.src ? 'Replace' : 'Choose image'}
+          </button>
+          <Segmented<DitherMode>
+            label="Dithering"
+            value={el.dither}
+            onChange={(dither) => set({ dither })}
+            options={[
+              { value: 'threshold', label: 'Threshold' },
+              { value: 'floyd', label: 'Floyd' },
+              { value: 'atkinson', label: 'Atkinson' },
+            ]}
+          />
+          <label className="field field-range" title="Darkness">
+            <Contrast size={15} aria-hidden="true" />
+            <input
+              type="range"
+              aria-label="Darkness"
+              min={20}
+              max={235}
+              value={el.threshold}
+              onChange={(e) => set({ threshold: Number(e.target.value) }, 'threshold')}
+            />
+          </label>
+          <Toggle label="Invert" checked={el.invert} onChange={(invert) => set({ invert })} />
+        </Section>
+      )}
+
+      {el.type === 'icon' && (
+        <Section title="Style">
+          <button className="btn btn-block" onClick={() => onReplaceIcon(el.id)}>
+            <Smile size={16} /> {el.body ? iconLabel(el.name) : 'Choose icon'}
+          </button>
+          <Segmented<IconWeight>
+            label="Weight"
+            value={el.weight}
+            options={ICON_WEIGHTS}
+            onChange={(weight) => {
+              if (!el.name) return set({ weight });
+              iconBody(el.name, weight).then(
+                (body) => set({ weight, body }),
+                () => {},
+              );
+            }}
+          />
+        </Section>
+      )}
+
+      {(el.type === 'qr' || el.type === 'barcode') && (
+        <Section title="Content">
+          {el.type === 'barcode' && (
+            <select className="select" aria-label="Format" value={el.format} onChange={(e) => set({ format: e.target.value as BarcodeFormat })}>
+              {FORMATS.map((f) => (
+                <option key={f.value} value={f.value}>
+                  {f.label}
+                </option>
+              ))}
+            </select>
+          )}
+          <textarea
+            className="text-input"
+            aria-label="Value"
+            aria-invalid={!!error}
+            rows={el.type === 'qr' ? 3 : 1}
+            value={el.value}
+            onChange={(e) => set({ value: e.target.value }, 'value')}
+          />
+          {error && <p className="field-error">{error}</p>}
+          {el.type === 'barcode' && <Toggle label="Show digits" checked={el.showText} onChange={(showText) => set({ showText })} />}
+        </Section>
+      )}
+
+      {(el.type === 'rect' || el.type === 'ellipse' || el.type === 'line') && (
+        <Section title="Stroke">
+          <div className="row">
+            <NumberField label="Stroke width" icon={<SquareDashed size={13} />} value={el.strokeWidth} min={0.1} max={20} suffix="mm" onChange={(strokeWidth) => set({ strokeWidth }, 'stroke')} />
+            {el.type !== 'line' && <Toggle label="Fill" icon={<PaintBucket size={15} />} checked={el.fill} onChange={(fill) => set({ fill })} />}
+          </div>
+          {el.type === 'rect' && (
+            <NumberField label="Corner radius" icon="R" value={el.radius} min={0} max={50} suffix="mm" onChange={(radius) => set({ radius }, 'radius')} />
+          )}
+        </Section>
+      )}
+    </aside>
+  );
+}

@@ -19,11 +19,13 @@ import {
   Cable,
   Pencil,
   FoldHorizontal,
+  Minus,
+  Slash,
 } from 'lucide-react';
 import { ICON_WEIGHTS, iconBody, iconLabel, type IconWeight } from '../icons/catalog';
 import { sameSize } from '../printer/roll';
-import type { BarcodeFormat, DitherMode, FoldMode, LabelDoc, LabelElement } from '../doc/model';
-import { LABEL_PRESETS, type LabelSize } from '../doc/model';
+import type { BarcodeFormat, DitherMode, FoldMode, LabelDoc, LabelElement, LineDirection } from '../doc/model';
+import { LABEL_PRESETS, placementArea, reshapeLine, type LabelSize } from '../doc/model';
 import { PAPER_TYPES, paperName, type PaperType } from '../printer/paper';
 import type { RollState } from '../printer/roll';
 import { symbolError } from '../render/barcode';
@@ -297,6 +299,19 @@ export function Inspector({ doc, selected, roll, rollPaper, fitting = [], allSiz
 
       {(el.type === 'rect' || el.type === 'ellipse' || el.type === 'line') && (
         <Section title="Stroke">
+          {el.type === 'line' && (
+            <Segmented<LineDirection>
+              label="Direction"
+              value={el.direction}
+              onChange={(direction) => set(reshapeLine(el, direction, placementArea(doc)))}
+              options={[
+                { value: 'horizontal', label: 'Horizontal', icon: <Minus size={15} /> },
+                { value: 'vertical', label: 'Vertical', icon: <Minus size={15} style={{ transform: 'rotate(90deg)' }} /> },
+                { value: 'down', label: 'Diagonal down', icon: <Slash size={15} style={{ transform: 'scaleX(-1)' }} /> },
+                { value: 'up', label: 'Diagonal up', icon: <Slash size={15} /> },
+              ]}
+            />
+          )}
           <div className="row">
             <NumberField label="Stroke width" icon={<SquareDashed size={13} />} value={el.strokeWidth} min={0.1} max={20} suffix="mm" onChange={(strokeWidth) => set({ strokeWidth }, 'stroke')} />
             {el.type !== 'line' && <Toggle label="Fill" icon={<PaintBucket size={15} />} checked={el.fill} onChange={(fill) => set({ fill })} />}

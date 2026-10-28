@@ -109,6 +109,11 @@ export function Help() {
           Everything prints in black and white. Use the preview toggle to see exactly which dots will print, and the
           image darkness slider to tune photos and logos. Browser printing produces a vector document sized to the label.
         </p>
+        <p>
+          The image tool takes PNG, JPEG, GIF, WebP and SVG files. You can also drop them on the label, or paste SVG code
+          copied from a design app. SVGs stay vector in browser printing.
+        </p>
+        <p>Lines run horizontal, vertical or diagonal; pick the direction in the side panel and drag the handles to set the angle.</p>
       </section>
       <section>
         <h2>

@@ -1,6 +1,25 @@
-import { createDoc, createElement, parseDoc, placementArea, printableArea, serializeDoc, sizeLabel, usedFonts } from './model';
+import { createDoc, createElement, parseDoc, placementArea, printableArea, reshapeLine, serializeDoc, sizeLabel, usedFonts, type LineElement } from './model';
 
 describe('document model', () => {
+  it('turns a line while keeping its length and centre on the label', () => {
+    const label = { widthMm: 40, heightMm: 30 };
+    const line = { ...createElement('line', label), x: 5, y: 14.5, w: 20, h: 1 } as LineElement;
+    expect(reshapeLine(line, 'vertical', label)).toEqual({ direction: 'vertical', x: 14.5, y: 5, w: 1, h: 20 });
+    expect(reshapeLine(line, 'down', label)).toEqual({ direction: 'down', x: 7.9, y: 7.9, w: 14.1, h: 14.1 });
+    const tall = reshapeLine(line, 'vertical', { widthMm: 40, heightMm: 12 });
+    expect(tall).toMatchObject({ h: 12, y: 0 });
+  });
+
+  it('keeps a diagonal line box when switching between diagonals', () => {
+    const line = { ...createElement('line', { widthMm: 40, heightMm: 30 }), direction: 'down', x: 2, y: 2, w: 20, h: 10 } as LineElement;
+    expect(reshapeLine(line, 'up', { widthMm: 40, heightMm: 30 })).toMatchObject({ direction: 'up', w: 20, h: 10, x: 2, y: 2 });
+  });
+
+  it('opens older lines as horizontal', () => {
+    const doc = parseDoc({ version: 1, widthMm: 40, heightMm: 12, elements: [{ type: 'line', x: 1, y: 1, w: 10, h: 1 }] });
+    expect(doc.elements[0]).toMatchObject({ direction: 'horizontal' });
+  });
+
   it('sizes a new frame to the label with a small margin', () => {
     const frame = createElement('frame', { widthMm: 40, heightMm: 12 });
     expect(frame).toMatchObject({ type: 'frame', style: 'single', x: 0.5, y: 0.5, w: 39, h: 11 });

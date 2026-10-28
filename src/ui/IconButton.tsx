@@ -5,11 +5,13 @@ interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
   label: string;
   shortcut?: string;
   active?: boolean;
+  /** Where the tooltip appears. */
+  side?: 'top' | 'right' | 'bottom' | 'left';
   children: ReactNode;
 }
 
 export const IconButton = forwardRef<HTMLButtonElement, Props>(function IconButton(
-  { label, shortcut, active, children, className, ...rest },
+  { label, shortcut, active, side, children, className, ...rest },
   ref,
 ) {
   return (
@@ -27,7 +29,7 @@ export const IconButton = forwardRef<HTMLButtonElement, Props>(function IconButt
         </button>
       </Tooltip.Trigger>
       <Tooltip.Portal>
-        <Tooltip.Content className="tooltip" sideOffset={6}>
+        <Tooltip.Content className="tooltip" side={side} sideOffset={6}>
           {label}
           {shortcut && <kbd>{shortcut}</kbd>}
         </Tooltip.Content>

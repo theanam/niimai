@@ -246,5 +246,5 @@ function foldGuides(doc: LabelDoc): number[] {
 function hitArea(el: LabelElement): string {
   const pad = el.type === 'line' ? 1 : 0;
   const t = el.rotation ? ` transform="rotate(${el.rotation} ${el.x + el.w / 2} ${el.y + el.h / 2})"` : '';
-  return `<rect x="${el.x}" y="${el.y - pad}" width="${el.w}" height="${el.h + pad * 2}" fill="transparent"${t}/>`;
+  return `<rect x="${el.x - pad}" y="${el.y - pad}" width="${el.w + pad * 2}" height="${el.h + pad * 2}" fill="transparent"${t}/>`;
 }

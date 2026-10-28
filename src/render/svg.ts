@@ -102,9 +102,16 @@ export function elementSvg(el: LabelElement, opts: SvgOptions = {}): string {
     case 'frame':
       body = frameSvg(el.style, el, el.strokeWidth, INK);
       break;
-    case 'line':
-      body = `<line x1="${n(el.x)}" y1="${n(el.y + el.h / 2)}" x2="${n(el.x + el.w)}" y2="${n(el.y + el.h / 2)}" stroke="${INK}" stroke-width="${n(el.strokeWidth)}"/>`;
+    case 'line': {
+      const { x, y, w, h } = el;
+      const [x1, y1, x2, y2] =
+        el.direction === 'vertical' ? [x + w / 2, y, x + w / 2, y + h]
+        : el.direction === 'down' ? [x, y, x + w, y + h]
+        : el.direction === 'up' ? [x, y + h, x + w, y]
+        : [x, y + h / 2, x + w, y + h / 2];
+      body = `<line x1="${n(x1)}" y1="${n(y1)}" x2="${n(x2)}" y2="${n(y2)}" stroke="${INK}" stroke-width="${n(el.strokeWidth)}"/>`;
       break;
+    }
   }
   if (!el.rotation) return body;
   return `<g transform="rotate(${n(el.rotation)} ${n(el.x + el.w / 2)} ${n(el.y + el.h / 2)})">${body}</g>`;

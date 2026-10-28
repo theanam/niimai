@@ -33,7 +33,7 @@ const demo = {
   elements: [
     { id: id(), type: 'frame', x: 0.5, y: 0.5, w: 49, h: 29, rotation: 0, style: 'double', strokeWidth: 0.3 },
     { id: 'title', type: 'text', x: 3.5, y: 3, w: 27, h: 11, rotation: 0, text: 'Smoked\nPaprika', fontFamily: 'Fraunces', fontSize: 12, bold: true, italic: false, align: 'left', autoFit: true },
-    { id: id(), type: 'line', x: 3.5, y: 15.5, w: 27, h: 1, rotation: 0, strokeWidth: 0.4 },
+    { id: id(), type: 'line', x: 3.5, y: 15.5, w: 27, h: 1, rotation: 0, strokeWidth: 0.4, direction: 'horizontal' },
     { id: id(), type: 'text', x: 3.5, y: 17.5, w: 27, h: 3.5, rotation: 0, text: 'Best before 04 / 2027', fontFamily: 'Space Grotesk', fontSize: 8, bold: false, italic: false, align: 'left', autoFit: true },
     { id: id(), type: 'barcode', x: 3.5, y: 22, w: 27, h: 5.5, rotation: 0, value: 'PAP-0427', format: 'code128', showText: false },
     { id: id(), type: 'qr', x: 33, y: 7, w: 14, h: 14, rotation: 0, value: 'https://niimai.app/' },

@@ -35,9 +35,11 @@ export async function processImage(el: ImageElement, dpi: number): Promise<strin
   const [c, ctx] = canvas(width, height);
   ctx.fillStyle = '#fff';
   ctx.fillRect(0, 0, width, height);
-  const scale = Math.min(width / img.naturalWidth, height / img.naturalHeight);
-  const dw = img.naturalWidth * scale;
-  const dh = img.naturalHeight * scale;
+  // SVGs without a width and height have no natural size; fill the box, which was sized to their proportions.
+  const sized = img.naturalWidth > 0 && img.naturalHeight > 0;
+  const scale = sized ? Math.min(width / img.naturalWidth, height / img.naturalHeight) : 1;
+  const dw = sized ? img.naturalWidth * scale : width;
+  const dh = sized ? img.naturalHeight * scale : height;
   ctx.drawImage(img, (width - dw) / 2, (height - dh) / 2, dw, dh);
   const data = ctx.getImageData(0, 0, width, height);
   bitsToRgba(dither(toGray(data.data), width, height, el.dither, el.threshold), data.data, el.invert);

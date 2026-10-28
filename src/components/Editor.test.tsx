@@ -39,7 +39,7 @@ describe('editor', () => {
 
   it('adds elements from the toolbar and selects them', async () => {
     renderEditor();
-    await userEvent.click(screen.getByRole('button', { name: 'Add qr code' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Add QR code' }));
     expect(elements()).toHaveLength(2);
     expect(screen.getByRole('complementary', { name: 'QR code settings' })).toBeInTheDocument();
   });
@@ -104,6 +104,30 @@ describe('editor', () => {
     expect(within(styles).getByRole('option', { name: 'Dashed' })).toHaveAttribute('aria-selected', 'true');
     await userEvent.click(within(styles).getByRole('option', { name: 'Double' }));
     expect(within(styles).getByRole('option', { name: 'Double' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('turns a line vertical from the inspector', async () => {
+    renderEditor();
+    await userEvent.click(screen.getByRole('button', { name: 'Add line' }));
+    await userEvent.click(screen.getByRole('radio', { name: 'Vertical' }));
+    const w = screen.getByRole('spinbutton', { name: 'Width' }) as HTMLInputElement;
+    const h = screen.getByRole('spinbutton', { name: 'Height' }) as HTMLInputElement;
+    expect(Number(w.value)).toBe(1);
+    expect(Number(h.value)).toBeGreaterThan(1);
+  });
+
+  it('places pasted SVG markup as an image sized to its viewBox', async () => {
+    renderEditor();
+    const paste = new Event('paste', { bubbles: true, cancelable: true }) as ClipboardEvent;
+    Object.defineProperty(paste, 'clipboardData', {
+      value: { files: [], getData: () => '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 10"><path d="M0 0h40v10z"/></svg>' },
+    });
+    fireEvent(window, paste);
+    await waitFor(() => expect(elements()).toHaveLength(2));
+    const w = Number((screen.getByRole('spinbutton', { name: 'Width' }) as HTMLInputElement).value);
+    const h = Number((screen.getByRole('spinbutton', { name: 'Height' }) as HTMLInputElement).value);
+    expect(w / h).toBeCloseTo(4, 1);
+    expect(screen.getByRole('radio', { name: 'Threshold' })).toHaveAttribute('aria-checked', 'true');
   });
 
   it('undoes and redoes with keyboard shortcuts', async () => {

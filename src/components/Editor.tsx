@@ -8,6 +8,7 @@ import { printer } from '../printer';
 import type { ConnectionKind } from '../printer/client';
 import { effectivePaper, labelTypeOf } from '../printer/paper';
 import { allSizesFor, resolveRoll, sameSize, sizesForPrinter } from '../printer/roll';
+import { asSvgBlob, isImageFile, isSvgFile, looksLikeSvg, svgSize } from '../files/svg';
 import { browserPrint } from '../render/browserPrint';
 import { linkFont } from '../render/fonts';
 import { processImages, rasterize, standaloneSvg } from '../render/raster';
@@ -184,17 +185,21 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
 
   const addImage = useCallback(
     async (file: Blob, replaceId?: string) => {
-      const src = await readAsDataUrl(file);
-      const { w, h } = await imageSize(src);
+      const svg = isSvgFile(file);
+      const src = await readAsDataUrl(svg ? asSvgBlob(file) : file);
+      // SVGs sized only by a viewBox load at 0 × 0, so read their proportions from the markup.
+      const { w, h } = (svg && svgSize(await file.text())) || (await imageSize(src));
+      // Line art prints crisper with a plain threshold.
+      const look = svg ? { dither: 'threshold' as const } : {};
       if (replaceId) {
-        update(replaceId, { src });
+        update(replaceId, { src, ...look });
         return;
       }
       const max = Math.min(doc.widthMm, doc.heightMm) * 0.9;
       const scale = max / Math.max(w, h);
       const ew = round1(w * scale);
       const eh = round1(h * scale);
-      add('image', { src, w: ew, h: eh, x: round1((doc.widthMm - ew) / 2), y: round1((doc.heightMm - eh) / 2) });
+      add('image', { src, ...look, w: ew, h: eh, x: round1((doc.widthMm - ew) / 2), y: round1((doc.heightMm - eh) / 2) });
     },
     [add, update, doc.widthMm, doc.heightMm],
   );
@@ -361,10 +366,14 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
     const onPaste = (e: ClipboardEvent) => {
       const t = e.target as HTMLElement | null;
       if (t && (t.isContentEditable || ['INPUT', 'TEXTAREA'].includes(t.tagName))) return;
-      const file = [...(e.clipboardData?.files ?? [])].find((f) => f.type.startsWith('image/'));
+      const file = [...(e.clipboardData?.files ?? [])].find(isImageFile);
+      const text = e.clipboardData?.getData('text/plain') ?? '';
       if (file) {
         e.preventDefault();
         void addImage(file);
+      } else if (looksLikeSvg(text)) {
+        e.preventDefault();
+        void addImage(new Blob([text], { type: 'image/svg+xml' }));
       } else if (clipboard.current) {
         e.preventDefault();
         const el = clipboard.current;
@@ -380,7 +389,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
   }, [selected, open, save, dispatch, duplicate, update, addImage, view]);
 
   const onDrop = (e: DragEvent) => {
-    const file = [...e.dataTransfer.files].find((f) => f.type.startsWith('image/'));
+    const file = [...e.dataTransfer.files].find(isImageFile);
     if (!file) return;
     e.preventDefault();
     void addImage(file);

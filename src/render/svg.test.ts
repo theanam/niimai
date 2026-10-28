@@ -1,10 +1,19 @@
-import { createDoc, createElement, type TextElement } from '../doc/model';
+import { createDoc, createElement, type LineElement, type TextElement } from '../doc/model';
 import { ptToMm } from '../lib/units';
 import { elementSvg, fitFontSize, mirrorTransform, renderSvg } from './svg';
 
 const measure = (text: string) => text.length * 0.5;
 
 describe('svg renderer', () => {
+  it('draws lines across their box in every direction', () => {
+    const base = { ...createElement('line', createDoc()), x: 0, y: 0, w: 10, h: 4 } as LineElement;
+    const ends = (d: LineElement['direction']) => elementSvg({ ...base, direction: d }).match(/x1="([\d.]+)" y1="([\d.]+)" x2="([\d.]+)" y2="([\d.]+)"/)!.slice(1).map(Number);
+    expect(ends('horizontal')).toEqual([0, 2, 10, 2]);
+    expect(ends('vertical')).toEqual([5, 0, 5, 4]);
+    expect(ends('down')).toEqual([0, 0, 10, 4]);
+    expect(ends('up')).toEqual([0, 4, 10, 0]);
+  });
+
   it('renders frames in their chosen style', () => {
     const doc = createDoc();
     const frame = { ...createElement('frame', doc), style: 'ticket' as const };

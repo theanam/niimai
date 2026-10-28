@@ -79,9 +79,14 @@ export interface FrameElement extends Base {
   strokeWidth: number;
 }
 
+/** Which way a line crosses its box; diagonals run corner to corner. */
+export type LineDirection = 'horizontal' | 'vertical' | 'down' | 'up';
+export const LINE_DIRECTIONS: LineDirection[] = ['horizontal', 'vertical', 'down', 'up'];
+
 export interface LineElement extends Base {
   type: 'line';
   strokeWidth: number;
+  direction: LineDirection;
 }
 
 export type LabelElement =
@@ -227,7 +232,7 @@ export function createElement(type: ElementType, doc: LabelSize, extra: Partial<
       el = { ...box(square, square), type, strokeWidth: 0.5, fill: false };
       break;
     case 'line':
-      el = { ...box(fullW, 1), type, strokeWidth: 0.5 };
+      el = { ...box(fullW, 1), type, strokeWidth: 0.5, direction: 'horizontal' };
       break;
     case 'frame':
       // Hugs the edge, leaving room for the printer's margin.
@@ -260,6 +265,7 @@ export function parseDoc(input: unknown): LabelDoc {
       for (const k of ['x', 'y', 'w', 'h', 'rotation'] as const) if (!isNum(merged[k])) merged[k] = base[k];
       if (typeof merged.id !== 'string') merged.id = base.id;
       if (merged.type === 'icon') merged.body = sanitizeIconBody(String(merged.body ?? ''));
+      if (merged.type === 'line' && !LINE_DIRECTIONS.includes(merged.direction)) merged.direction = 'horizontal';
       if (merged.type === 'frame') {
         if (!isFrameStyle(merged.style)) merged.style = 'single';
         if (!isNum(merged.strokeWidth) || merged.strokeWidth <= 0) merged.strokeWidth = 0.5;
@@ -290,3 +296,29 @@ export const serializeDoc = (doc: LabelDoc): string => JSON.stringify(doc, null,
 export const usedFonts = (doc: LabelDoc): string[] => [
   ...new Set(doc.elements.flatMap((e) => (e.type === 'text' ? [e.fontFamily] : []))),
 ];
+
+/**
+ * The box for a line turned to a new direction: same length and centre,
+ * kept on the label. Diagonals get a square box.
+ */
+export function reshapeLine(el: LineElement, direction: LineDirection, label: LabelSize): Partial<LineElement> {
+  const length = Math.max(el.w, el.h, 2);
+  const thin = 1;
+  let w: number;
+  let h: number;
+  if (direction === 'horizontal') [w, h] = [Math.min(length, label.widthMm), thin];
+  else if (direction === 'vertical') [w, h] = [thin, Math.min(length, label.heightMm)];
+  else if (Math.min(el.w, el.h) >= 2) [w, h] = [el.w, el.h];
+  else {
+    const side = Math.min(length / Math.SQRT2, label.widthMm, label.heightMm);
+    [w, h] = [side, side];
+  }
+  const clamp = (v: number, size: number, max: number) => Math.min(Math.max(0, v), Math.max(0, max - size));
+  return {
+    direction,
+    w: round1(w),
+    h: round1(h),
+    x: round1(clamp(el.x + el.w / 2 - w / 2, w, label.widthMm)),
+    y: round1(clamp(el.y + el.h / 2 - h / 2, h, label.heightMm)),
+  };
+}

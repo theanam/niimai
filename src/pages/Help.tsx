@@ -96,6 +96,10 @@ export function Help() {
         <p>
           The icon button in the toolbar opens 1,500 icons. Bold and Fill print best on small labels; Regular suits larger ones.
         </p>
+        <p>
+          The frame button adds a border around the label. Pick a style when you add it, and switch styles or stroke width
+          from the side panel. Frames sit behind everything else.
+        </p>
       </section>
       <section>
         <h2>

@@ -15,6 +15,14 @@ describe('editor history', () => {
     expect(s.selectedId).toBe(el.id);
   });
 
+  it('puts new frames behind everything else', () => {
+    const { s, el } = setup();
+    const frame = createElement('frame', s.doc);
+    const next = editorReducer(s, { type: 'add', element: frame });
+    expect(next.doc.elements.map((e) => e.id)).toEqual([frame.id, el.id]);
+    expect(next.selectedId).toBe(frame.id);
+  });
+
   it('undoes and redoes', () => {
     const { s } = setup();
     const undone = editorReducer(s, { type: 'undo' });

@@ -50,7 +50,11 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
     case 'select':
       return { ...state, selectedId: action.id, lastKey: null };
     case 'add':
-      return { ...push(state, { ...doc, elements: [...doc.elements, action.element] }), selectedId: action.element.id };
+      // Frames go behind everything so they never cover what they surround.
+      return {
+        ...push(state, { ...doc, elements: action.element.type === 'frame' ? [action.element, ...doc.elements] : [...doc.elements, action.element] }),
+        selectedId: action.element.id,
+      };
     case 'update': {
       if (!doc.elements.some((e) => e.id === action.id)) return state;
       const elements = doc.elements.map((e) => (e.id === action.id ? ({ ...e, ...action.patch } as LabelElement) : e));

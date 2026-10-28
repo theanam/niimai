@@ -211,13 +211,13 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
     [addImage],
   );
 
-  const onAdd = (type: ElementType) => {
+  const onAdd = (type: ElementType, extra?: Partial<LabelElement>) => {
     if (type === 'image') void chooseImage();
     else if (type === 'icon') {
       setIconTarget(null);
       setDialog('icon');
     } else {
-      const el = add(type);
+      const el = add(type, extra);
       if (type === 'text') setEditing({ id: el.id, fresh: true });
     }
   };

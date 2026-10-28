@@ -1,4 +1,4 @@
-import { Barcode, Circle, Image, Minus, QrCode, Smile, Square, Type } from 'lucide-react';
+import { Barcode, Circle, Image, Minus, QrCode, Smile, Scan, Square, Type } from 'lucide-react';
 import type { ElementType } from '../doc/model';
 
 export const ELEMENT_META: Record<ElementType, { label: string; icon: typeof Type }> = {
@@ -10,6 +10,7 @@ export const ELEMENT_META: Record<ElementType, { label: string; icon: typeof Typ
   rect: { label: 'Rectangle', icon: Square },
   ellipse: { label: 'Ellipse', icon: Circle },
   line: { label: 'Line', icon: Minus },
+  frame: { label: 'Frame', icon: Scan },
 };
 
-export const ELEMENT_ORDER: ElementType[] = ['text', 'image', 'icon', 'qr', 'barcode', 'rect', 'ellipse', 'line'];
+export const ELEMENT_ORDER: ElementType[] = ['text', 'image', 'icon', 'qr', 'barcode', 'frame', 'rect', 'ellipse', 'line'];

@@ -5,6 +5,12 @@ import { elementSvg, fitFontSize, mirrorTransform, renderSvg } from './svg';
 const measure = (text: string) => text.length * 0.5;
 
 describe('svg renderer', () => {
+  it('renders frames in their chosen style', () => {
+    const doc = createDoc();
+    const frame = { ...createElement('frame', doc), style: 'ticket' as const };
+    expect(elementSvg(frame)).toMatch(/^<path d="M[^"]*A/);
+  });
+
   const doc = createDoc({ widthMm: 40, heightMm: 12 });
 
   it('sizes the document in millimetres', () => {

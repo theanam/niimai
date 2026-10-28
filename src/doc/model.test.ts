@@ -1,6 +1,16 @@
 import { createDoc, createElement, parseDoc, placementArea, printableArea, serializeDoc, sizeLabel, usedFonts } from './model';
 
 describe('document model', () => {
+  it('sizes a new frame to the label with a small margin', () => {
+    const frame = createElement('frame', { widthMm: 40, heightMm: 12 });
+    expect(frame).toMatchObject({ type: 'frame', style: 'single', x: 0.5, y: 0.5, w: 39, h: 11 });
+  });
+
+  it('repairs frames with an unknown style or stroke', () => {
+    const doc = parseDoc({ version: 1, widthMm: 40, heightMm: 12, elements: [{ type: 'frame', style: 'wavy', strokeWidth: -1 }] });
+    expect(doc.elements[0]).toMatchObject({ style: 'single', strokeWidth: 0.5 });
+  });
+
   const doc = createDoc({ widthMm: 40, heightMm: 12 });
 
   it('creates elements centred inside the label', () => {

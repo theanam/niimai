@@ -1,6 +1,7 @@
 import { flagWidth, isMirrored, type LabelDoc, type LabelElement, type TextElement } from '../doc/model';
 import { ptToMm } from '../lib/units';
 import { barcodeSymbol, qrSymbol, type Symbol2D } from './barcode';
+import { frameSvg } from './frames';
 import { measureText, type MeasureFn } from './measure';
 
 export interface SvgOptions {
@@ -98,6 +99,9 @@ export function elementSvg(el: LabelElement, opts: SvgOptions = {}): string {
         `fill="${el.fill ? INK : 'none'}" stroke="${el.fill ? 'none' : INK}" stroke-width="${n(s)}"/>`;
       break;
     }
+    case 'frame':
+      body = frameSvg(el.style, el, el.strokeWidth, INK);
+      break;
     case 'line':
       body = `<line x1="${n(el.x)}" y1="${n(el.y + el.h / 2)}" x2="${n(el.x + el.w)}" y2="${n(el.y + el.h / 2)}" stroke="${INK}" stroke-width="${n(el.strokeWidth)}"/>`;
       break;

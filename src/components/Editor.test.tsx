@@ -94,6 +94,18 @@ describe('editor', () => {
     expect(await screen.findByRole('textbox', { name: 'Edit text' })).toHaveFocus();
   });
 
+  it('adds a frame in the picked style and switches it later', async () => {
+    renderEditor();
+    await userEvent.click(screen.getByRole('button', { name: 'Add frame' }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Dashed' }));
+    expect(elements()).toHaveLength(2);
+    expect(document.querySelector('.canvas-el [stroke-dasharray]')).not.toBeNull();
+    const styles = screen.getByRole('listbox', { name: 'Frame styles' });
+    expect(within(styles).getByRole('option', { name: 'Dashed' })).toHaveAttribute('aria-selected', 'true');
+    await userEvent.click(within(styles).getByRole('option', { name: 'Double' }));
+    expect(within(styles).getByRole('option', { name: 'Double' })).toHaveAttribute('aria-selected', 'true');
+  });
+
   it('undoes and redoes with keyboard shortcuts', async () => {
     renderEditor();
     await userEvent.click(screen.getByRole('button', { name: 'Add rectangle' }));

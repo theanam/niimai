@@ -1,5 +1,6 @@
 import { sanitizeIconBody, type IconWeight } from '../icons/catalog';
 import { PAPER_TYPES, type PaperType } from '../printer/paper';
+import { isFrameStyle, type FrameStyle } from '../render/frames';
 import { round1, uid } from '../lib/units';
 
 export type Align = 'left' | 'center' | 'right';
@@ -72,6 +73,12 @@ export interface EllipseElement extends Base {
   fill: boolean;
 }
 
+export interface FrameElement extends Base {
+  type: 'frame';
+  style: FrameStyle;
+  strokeWidth: number;
+}
+
 export interface LineElement extends Base {
   type: 'line';
   strokeWidth: number;
@@ -85,7 +92,8 @@ export type LabelElement =
   | IconElement
   | RectElement
   | EllipseElement
-  | LineElement;
+  | LineElement
+  | FrameElement;
 
 export type ElementType = LabelElement['type'];
 
@@ -221,11 +229,15 @@ export function createElement(type: ElementType, doc: LabelSize, extra: Partial<
     case 'line':
       el = { ...box(fullW, 1), type, strokeWidth: 0.5 };
       break;
+    case 'frame':
+      // Hugs the edge, leaving room for the printer's margin.
+      el = { ...box(Math.max(1, doc.widthMm - 1), Math.max(1, doc.heightMm - 1)), type, style: 'single', strokeWidth: 0.5 };
+      break;
   }
   return { ...el, ...extra } as LabelElement;
 }
 
-const TYPES: ElementType[] = ['text', 'image', 'qr', 'barcode', 'icon', 'rect', 'ellipse', 'line'];
+const TYPES: ElementType[] = ['text', 'image', 'qr', 'barcode', 'icon', 'rect', 'ellipse', 'line', 'frame'];
 const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 
 /**
@@ -248,6 +260,10 @@ export function parseDoc(input: unknown): LabelDoc {
       for (const k of ['x', 'y', 'w', 'h', 'rotation'] as const) if (!isNum(merged[k])) merged[k] = base[k];
       if (typeof merged.id !== 'string') merged.id = base.id;
       if (merged.type === 'icon') merged.body = sanitizeIconBody(String(merged.body ?? ''));
+      if (merged.type === 'frame') {
+        if (!isFrameStyle(merged.style)) merged.style = 'single';
+        if (!isNum(merged.strokeWidth) || merged.strokeWidth <= 0) merged.strokeWidth = 0.5;
+      }
       return merged;
     });
   const now = Date.now();

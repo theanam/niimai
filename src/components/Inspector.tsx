@@ -31,6 +31,7 @@ import { IconButton } from '../ui/IconButton';
 import { ELEMENT_META } from './elementMeta';
 import { NumberField, Section, Segmented, Toggle } from './fields';
 import { FontPicker } from './FontPicker';
+import { FramePicker } from './FramePicker';
 import { LabelSizePicker } from './LabelSizePicker';
 
 interface Props {
@@ -284,6 +285,13 @@ export function Inspector({ doc, selected, roll, rollPaper, fitting = [], allSiz
           />
           {error && <p className="field-error">{error}</p>}
           {el.type === 'barcode' && <Toggle label="Show digits" checked={el.showText} onChange={(showText) => set({ showText })} />}
+        </Section>
+      )}
+
+      {el.type === 'frame' && (
+        <Section title="Style">
+          <FramePicker value={el.style} onPick={(style) => set({ style })} />
+          <NumberField label="Stroke width" icon={<SquareDashed size={13} />} value={el.strokeWidth} min={0.1} max={5} suffix="mm" onChange={(strokeWidth) => set({ strokeWidth }, 'stroke')} />
         </Section>
       )}
 

@@ -280,6 +280,17 @@ describe('editor', () => {
     expect(screen.getByRole('heading', { name: 'What are we labelling?' })).toBeInTheDocument();
   });
 
+  it('shows no open label on the start screen', async () => {
+    renderApp(<Editor initialDoc={starterDoc()} initialProfileId={null} initialDensity={2} initialView="start" />);
+    expect(screen.queryByRole('textbox', { name: 'Label name' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^print/i })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Library' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Blank 40 × 12 mm' }));
+    expect(screen.getByRole('textbox', { name: 'Label name' })).toBeInTheDocument();
+  });
+
   it('ignores editing shortcuts on the start screen', () => {
     renderApp(<Editor initialDoc={starterDoc()} initialProfileId={null} initialDensity={2} initialView="start" />);
     fireEvent.keyDown(window, { key: 'p', metaKey: true, ctrlKey: true });

@@ -18,13 +18,13 @@ import { LabelThumb, templateLabel, type TemplateSeed } from './LibraryDialog';
 interface Props {
   status: PrinterStatus;
   roll: RollState;
-  current: LabelDoc;
+  /** Size for blank labels and template suggestions when no roll is loaded. */
+  defaultSize: LabelSize;
   onConnect: (kind: ConnectionKind) => Promise<void>;
   onSetRollSize: () => void;
   onOpen: (doc: LabelDoc) => void;
   onBlank: (size: LabelSize) => void;
   onBrowseTemplates: (seed?: TemplateSeed) => void;
-  onContinue: () => void;
 }
 
 
@@ -203,7 +203,7 @@ function TemplatesCard({ size, onOpen, onBrowse }: { size: LabelSize; onOpen: (d
   );
 }
 
-function Recent({ current, onOpen, onContinue }: Pick<Props, 'current' | 'onOpen' | 'onContinue'>) {
+function Recent({ onOpen }: Pick<Props, 'onOpen'>) {
   const [labels, setLabels] = useState<LabelDoc[]>([]);
   const confirm = useConfirm();
   const refresh = () => listLabels().then((l) => setLabels(l.slice(0, 6)), () => {});
@@ -218,23 +218,17 @@ function Recent({ current, onOpen, onContinue }: Pick<Props, 'current' | 'onOpen
     <section className="start-recent" aria-labelledby="start-recent">
       <header>
         <h2 id="start-recent">Recent</h2>
-        <button className="btn btn-ghost" onClick={onContinue}>
-          Continue “{current.name}” <ArrowRight size={14} />
-        </button>
       </header>
       <ul className="start-templates" aria-label="Recent labels">
         {labels.map((d) => (
           <li key={d.id} className="recent-item">
-            <button onClick={() => (d.id === current.id ? onContinue() : onOpen(d))} aria-label={`Open ${d.name}`}>
+            <button onClick={() => onOpen(d)} aria-label={`Open ${d.name}`}>
               <LabelThumb doc={d} />
               <span>{d.name}</span>
             </button>
-            {/* The open label autosaves, so deleting it would only bring it back. */}
-            {d.id !== current.id && (
-              <IconButton label={`Delete ${d.name}`} className="recent-delete" onClick={() => void remove(d)}>
-                <Trash2 size={14} />
-              </IconButton>
-            )}
+            <IconButton label={`Delete ${d.name}`} className="recent-delete" onClick={() => void remove(d)}>
+              <Trash2 size={14} />
+            </IconButton>
           </li>
         ))}
       </ul>
@@ -244,7 +238,7 @@ function Recent({ current, onOpen, onContinue }: Pick<Props, 'current' | 'onOpen
 
 /** Where every session begins: connect, start blank, or pick a template. */
 export function StartScreen(props: Props) {
-  const size = props.roll.size ?? { widthMm: props.current.widthMm, heightMm: props.current.heightMm };
+  const size = props.roll.size ?? props.defaultSize;
   return (
     <main className="start">
       <div className="start-inner">
@@ -268,7 +262,7 @@ export function StartScreen(props: Props) {
           </ErrorBoundary>
         </div>
         <ErrorBoundary name="Recent labels">
-          <Recent current={props.current} onOpen={props.onOpen} onContinue={props.onContinue} />
+          <Recent onOpen={props.onOpen} />
         </ErrorBoundary>
       </div>
     </main>

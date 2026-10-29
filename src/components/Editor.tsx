@@ -481,6 +481,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
           canRedo={state.future.length > 0}
           preview={previewOn}
           printer={status}
+          home={view === 'start'}
           onHome={() => setView('start')}
           onAction={(a) => {
             if (a === 'open') void open();
@@ -500,13 +501,13 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
           <StartScreen
             status={status}
             roll={roll}
-            current={doc}
+            defaultSize={{ widthMm: doc.widthMm, heightMm: doc.heightMm }}
             onConnect={connect}
             onSetRollSize={() => setDialog('roll')}
-            onOpen={(d) => loadDoc(d)}
+            // The label still in memory reopens as it is, keeping its undo history.
+            onOpen={(d) => (d.id === doc.id ? setView('edit') : loadDoc(d))}
             onBlank={(size) => loadDoc(createDoc(size))}
             onBrowseTemplates={openTemplates}
-            onContinue={() => setView('edit')}
           />
         </ErrorBoundary>
       ) : (

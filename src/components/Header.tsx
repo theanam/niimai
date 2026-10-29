@@ -16,6 +16,8 @@ interface Props {
   canRedo: boolean;
   preview: boolean;
   printer: PrinterStatus;
+  /** On the start screen no label is open, so label tools are hidden. */
+  home?: boolean;
   onAction: (a: 'new' | 'open' | 'save' | 'library' | 'templates' | 'undo' | 'redo' | 'preview' | 'print' | 'printer') => void;
 }
 
@@ -29,7 +31,7 @@ const STATE_LABEL: Record<PrinterStatus['state'], string> = {
 type Action = Props['onAction'] extends (a: infer A) => void ? A : never;
 
 /** The phone-sized header keeps only print essentials; everything else lives here. */
-function MoreMenu({ canUndo, canRedo, preview, onAction }: Pick<Props, 'canUndo' | 'canRedo' | 'preview' | 'onAction'>) {
+function MoreMenu({ canUndo, canRedo, preview, home, onAction }: Pick<Props, 'canUndo' | 'canRedo' | 'preview' | 'home' | 'onAction'>) {
   const [open, setOpen] = useState(false);
   const item = (icon: ReactNode, label: string, action: Action, disabled = false) => (
     <button
@@ -59,13 +61,17 @@ function MoreMenu({ canUndo, canRedo, preview, onAction }: Pick<Props, 'canUndo'
       </Popover.Trigger>
       <Popover.Portal>
         <Popover.Content className="popover menu" role="menu" align="end" sideOffset={6} aria-label="More">
-          {item(<Undo2 size={17} />, 'Undo', 'undo', !canUndo)}
-          {item(<Redo2 size={17} />, 'Redo', 'redo', !canRedo)}
-          {item(<Eye size={17} />, preview ? 'Hide print preview' : 'Print preview', 'preview')}
-          <hr />
+          {!home && (
+            <>
+              {item(<Undo2 size={17} />, 'Undo', 'undo', !canUndo)}
+              {item(<Redo2 size={17} />, 'Redo', 'redo', !canRedo)}
+              {item(<Eye size={17} />, preview ? 'Hide print preview' : 'Print preview', 'preview')}
+              <hr />
+            </>
+          )}
           {item(<FilePlus2 size={17} />, 'New label', 'new')}
           {item(<FolderOpen size={17} />, 'Open file', 'open')}
-          {item(<Save size={17} />, 'Save file', 'save')}
+          {!home && item(<Save size={17} />, 'Save file', 'save')}
           {item(<LayoutTemplate size={17} />, 'Templates', 'templates')}
           {item(<Library size={17} />, 'Library', 'library')}
           <hr />
@@ -78,7 +84,7 @@ function MoreMenu({ canUndo, canRedo, preview, onAction }: Pick<Props, 'canUndo'
   );
 }
 
-export function Header({ name, onRename, onHome, canUndo, canRedo, preview, printer, onAction }: Props) {
+export function Header({ name, onRename, onHome, canUndo, canRedo, preview, printer, home = false, onAction }: Props) {
   const k = shortcutLabel;
   return (
     <header className="app-header">
@@ -94,7 +100,7 @@ export function Header({ name, onRename, onHome, canUndo, canRedo, preview, prin
       >
         <LogoLockup />
       </a>
-      <input className="doc-name" aria-label="Label name" value={name} onChange={(e) => onRename(e.target.value)} spellCheck={false} />
+      {!home && <input className="doc-name" aria-label="Label name" value={name} onChange={(e) => onRename(e.target.value)} spellCheck={false} />}
 
       <nav className="toolbar toolbar-wide" aria-label="File">
         <IconButton label="New" shortcut={k('Mod+N')} onClick={() => onAction('new')}>
@@ -103,23 +109,29 @@ export function Header({ name, onRename, onHome, canUndo, canRedo, preview, prin
         <IconButton label="Open" shortcut={k('Mod+O')} onClick={() => onAction('open')}>
           <FolderOpen size={18} />
         </IconButton>
-        <IconButton label="Save" shortcut={k('Mod+S')} onClick={() => onAction('save')}>
-          <Save size={18} />
-        </IconButton>
+        {!home && (
+          <IconButton label="Save" shortcut={k('Mod+S')} onClick={() => onAction('save')}>
+            <Save size={18} />
+          </IconButton>
+        )}
         <IconButton label="Library" shortcut={k('Mod+L')} onClick={() => onAction('library')}>
           <Library size={18} />
         </IconButton>
-        <span className="divider" />
-        <IconButton label="Undo" shortcut={k('Mod+Z')} disabled={!canUndo} onClick={() => onAction('undo')}>
-          <Undo2 size={18} />
-        </IconButton>
-        <IconButton label="Redo" shortcut={k('Mod+Shift+Z')} disabled={!canRedo} onClick={() => onAction('redo')}>
-          <Redo2 size={18} />
-        </IconButton>
-        <span className="divider" />
-        <IconButton label="Print preview" shortcut={k('Mod+E')} active={preview} onClick={() => onAction('preview')}>
-          <Eye size={18} />
-        </IconButton>
+        {!home && (
+          <>
+            <span className="divider" />
+            <IconButton label="Undo" shortcut={k('Mod+Z')} disabled={!canUndo} onClick={() => onAction('undo')}>
+              <Undo2 size={18} />
+            </IconButton>
+            <IconButton label="Redo" shortcut={k('Mod+Shift+Z')} disabled={!canRedo} onClick={() => onAction('redo')}>
+              <Redo2 size={18} />
+            </IconButton>
+            <span className="divider" />
+            <IconButton label="Print preview" shortcut={k('Mod+E')} active={preview} onClick={() => onAction('preview')}>
+              <Eye size={18} />
+            </IconButton>
+          </>
+        )}
       </nav>
 
       <button className="btn btn-soft templates-btn toolbar-wide" onClick={() => onAction('templates')}>
@@ -140,11 +152,13 @@ export function Header({ name, onRename, onHome, canUndo, canRedo, preview, prin
         </span>
         {printer.battery !== undefined && <span className="battery">{printer.battery}%</span>}
       </button>
-      <button className="btn btn-primary" onClick={() => onAction('print')} title={`Print (${k('Mod+P')})`}>
-        <Printer size={16} />
-        <span className="hide-sm">Print</span>
-      </button>
-      <MoreMenu canUndo={canUndo} canRedo={canRedo} preview={preview} onAction={onAction} />
+      {!home && (
+        <button className="btn btn-primary" onClick={() => onAction('print')} title={`Print (${k('Mod+P')})`}>
+          <Printer size={16} />
+          <span className="hide-sm">Print</span>
+        </button>
+      )}
+      <MoreMenu canUndo={canUndo} canRedo={canRedo} preview={preview} home={home} onAction={onAction} />
 
       <nav className="toolbar toolbar-wide" aria-label="Links">
         <a className="icon-btn" href="#/help" aria-label="Help" title="Help">

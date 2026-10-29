@@ -11,13 +11,12 @@ const renderStart = (onBrowseTemplates = vi.fn(), extra: Partial<Parameters<type
     <StartScreen
       status={{ state: 'disconnected', profile: null }}
       roll={{ size: null, key: null, needsSize: false }}
-      current={createDoc()}
+      defaultSize={{ widthMm: 50, heightMm: 30 }}
       onConnect={async () => {}}
       onSetRollSize={() => {}}
       onOpen={() => {}}
       onBlank={() => {}}
       onBrowseTemplates={onBrowseTemplates}
-      onContinue={() => {}}
       {...extra}
     />,
   );
@@ -75,19 +74,16 @@ describe('start screen', () => {
     expect(onSetRollSize).toHaveBeenCalled();
   });
 
-  it('deletes a recent label after confirming, but never the open one', async () => {
+  it('deletes any recent label after confirming', async () => {
     globalThis.indexedDB = new IDBFactory();
     resetDbConnection();
-    const open = { ...createDoc(), name: 'Open label' };
-    const old = { ...createDoc(), name: 'Old label' };
-    await saveLabel(open);
-    await saveLabel(old);
-    renderStart(vi.fn(), { current: open });
-    expect(await screen.findByRole('button', { name: 'Open Old label' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Delete Open label' })).toBeNull();
-    await userEvent.click(screen.getByRole('button', { name: 'Delete Old label' }));
+    await saveLabel({ ...createDoc(), name: 'Last used' });
+    await saveLabel({ ...createDoc(), name: 'Old label' });
+    renderStart();
+    await userEvent.click(await screen.findByRole('button', { name: 'Delete Last used' }));
     await userEvent.click(await screen.findByRole('button', { name: 'Delete' }));
-    await waitFor(() => expect(screen.queryByRole('button', { name: 'Open Old label' })).toBeNull());
-    expect((await listLabels()).map((d) => d.name)).toEqual(['Open label']);
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Open Last used' })).toBeNull());
+    expect(screen.getByRole('button', { name: 'Delete Old label' })).toBeInTheDocument();
+    expect((await listLabels()).map((d) => d.name)).toEqual(['Old label']);
   });
 });

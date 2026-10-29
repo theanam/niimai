@@ -1,5 +1,6 @@
 import { Bluetooth, Bug, Cable, Cat, Crosshair, Keyboard, LayoutTemplate, Mail, Printer, ScanLine, Sparkles } from 'lucide-react';
 import { CAT_MODELS, CAT_UNSUPPORTED, type Confidence } from '../printer/cat';
+import { ESCPOS_MODELS } from '../printer/escpos';
 import { replayTour } from '../tour/Tour';
 import { shortcutLabel } from '../shortcuts/shortcuts';
 import { CONTACT_EMAIL, ISSUES_URL } from '../ui/links';
@@ -147,12 +148,13 @@ export function Help() {
           <Cat size={18} /> Other Bluetooth thermal printers
         </h2>
         <p>
-          niimai is made for NIIMBOT, and also prints on small 57 mm thermal printers often called cat printers. Connect them
-          with Bluetooth like any other printer. They print on continuous paper up to 48 mm wide.
+          niimai is made for NIIMBOT, and also prints on small 58 mm Bluetooth thermal printers: ESC/POS mini printers and
+          cat printers. Connect them with Bluetooth like any other printer. They print on continuous paper up to 48 mm wide;
+          set the label's length in the side panel.
         </p>
         <table className="shortcuts">
           <tbody>
-            {CAT_MODELS.map((m) => (
+            {[...ESCPOS_MODELS, ...CAT_MODELS].map((m) => (
               <tr key={m.prefix}>
                 <td>{m.prefix}</td>
                 <td>{CONFIDENCE[m.confidence]}</td>
@@ -161,8 +163,8 @@ export function Help() {
           </tbody>
         </table>
         <p className="muted">
-          High: well known to work. Medium: reported to work, fewer reports. {CAT_UNSUPPORTED.map((u) => u.name).join(', ')} use other protocols and are not
-          supported.
+          Tested: printed with niimai. High: well known to work. Medium: reported to work, fewer reports.{' '}
+          {CAT_UNSUPPORTED.map((u) => u.name).join(', ')} use other protocols and are not supported.
         </p>
       </section>
       <section>

@@ -1,14 +1,16 @@
 import { createBleClient, requestPrinter } from './ble';
-import { CAT_MODELS, CAT_SERVICE, CatPrinterClient, catModelFor, webCatTransport } from './cat';
+import { CAT_MODELS, CAT_RX, CAT_SERVICE, CAT_TX, CatPrinterClient, catModelFor } from './cat';
+import { ESCPOS_MODELS, ESCPOS_SERVICE, ESCPOS_WRITE, EscPosPrinterClient, escposModelFor } from './escpos';
+import { webTransport } from './thermal';
 import type { ClientLike } from './client';
 
 type Lib = typeof import('@mmote/niimbluelib');
 
 /**
  * The Bluetooth printer behind the Connect button. One chooser lists NIIMBOT
- * printers and known cat printers; a known cat printer that offers the AE30
- * service gets the cat client, and everything else the NIIMBOT client exactly
- * as before.
+ * printers and the known extra thermal printers. A known cat printer offering
+ * AE30 gets the cat client, a known ESC/POS printer offering 18F0 the ESC/POS
+ * client, and everything else the NIIMBOT client exactly as before.
  */
 export class BluetoothPrinter implements ClientLike {
   private inner: ClientLike | null = null;
@@ -21,15 +23,18 @@ export class BluetoothPrinter implements ClientLike {
   }
 
   async connect() {
-    const device = await requestPrinter(CAT_MODELS.map((m) => m.prefix));
+    const device = await requestPrinter([...CAT_MODELS, ...ESCPOS_MODELS].map((m) => m.prefix));
     const cat = catModelFor(device.name);
-    if (cat && device.gatt) {
+    const escpos = escposModelFor(device.name);
+    if ((cat || escpos) && device.gatt) {
       const server = await device.gatt.connect();
-      const services = await server.getPrimaryServices().catch(() => []);
-      if (services.some((s) => s.uuid === CAT_SERVICE)) {
-        this.inner = new CatPrinterClient(await webCatTransport(device, server), cat);
-        return this.inner.connect();
+      const services = (await server.getPrimaryServices().catch(() => [])).map((s) => s.uuid);
+      if (cat && services.includes(CAT_SERVICE)) {
+        this.inner = new CatPrinterClient(await webTransport(device, server, { service: CAT_SERVICE, write: CAT_TX, notify: CAT_RX }), cat);
+      } else if (escpos && services.includes(ESCPOS_SERVICE)) {
+        this.inner = new EscPosPrinterClient(await webTransport(device, server, { service: ESCPOS_SERVICE, write: ESCPOS_WRITE }), escpos);
       }
+      if (this.inner) return this.inner.connect();
     }
     this.inner = createBleClient(await this.lib(), device) as unknown as ClientLike;
     return this.inner.connect();

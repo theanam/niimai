@@ -5,6 +5,7 @@ vi.mock('./ble', () => ({ createBleClient: (...a: unknown[]) => createBleClient(
 
 import { BluetoothPrinter } from './bluetooth';
 import { CAT_SERVICE } from './cat';
+import { ESCPOS_SERVICE } from './escpos';
 
 /** A Web Bluetooth device offering the given services. */
 function device(name: string, services: string[]) {
@@ -44,7 +45,7 @@ describe('bluetooth printer', () => {
     const printer = new BluetoothPrinter(async () => ({}) as never);
     await expect(printer.connect()).resolves.toEqual({ deviceName: 'MX06-1A2B' });
     expect(createBleClient).not.toHaveBeenCalled();
-    expect(printer.getModelMetadata()).toMatchObject({ model: 'MX06', kind: 'cat' });
+    expect(printer.getModelMetadata()).toMatchObject({ model: 'MX06', kind: 'thermal' });
     expect(typeof printer.encodePage).toBe('function');
   });
 
@@ -52,5 +53,19 @@ describe('bluetooth printer', () => {
     requestPrinter.mockResolvedValue(device('MX06-odd', ['e7810a71-73ae-499d-8c15-faa9aef0c3f2']));
     await new BluetoothPrinter(async () => ({}) as never).connect();
     expect(createBleClient).toHaveBeenCalled();
+  });
+
+  it('drives a known ESC/POS printer with the ESC/POS client, even though it also offers the NIIMBOT service', async () => {
+    requestPrinter.mockResolvedValue(device('MP583', ['e7810a71-73ae-499d-8c15-faa9aef0c3f2', ESCPOS_SERVICE]));
+    const printer = new BluetoothPrinter(async () => ({}) as never);
+    await expect(printer.connect()).resolves.toEqual({ deviceName: 'MP583' });
+    expect(createBleClient).not.toHaveBeenCalled();
+    expect(printer.getModelMetadata()).toMatchObject({ model: 'MP583', kind: 'thermal' });
+  });
+
+  it('lists known ESC/POS printers in the chooser', async () => {
+    requestPrinter.mockResolvedValue(device('D110-E331024479', []));
+    await new BluetoothPrinter(async () => ({}) as never).connect();
+    expect(requestPrinter.mock.calls[0][0]).toEqual(expect.arrayContaining(['MP583', 'PT-210']));
   });
 });

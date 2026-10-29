@@ -2832,3 +2832,71 @@ kbd {
   margin-top: 1px;
   color: color-mix(in srgb, var(--warn), #000 25%);
 }
+
+/* Print dialog: the printer at a glance */
+.print-printer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.print-printer:hover {
+  border-color: var(--primary);
+}
+.print-printer-icon {
+  position: relative;
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: var(--primary-soft);
+  color: var(--primary);
+}
+.print-printer-icon .pd-dot {
+  position: absolute;
+  right: -2px;
+  bottom: -2px;
+}
+.print-printer-text {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+.print-printer-text strong {
+  font-size: 14px;
+}
+.print-printer-text small {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.print-printer-text small span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.print-printer-go {
+  flex: none;
+  color: var(--muted);
+}
+.pd-dot-disconnected,
+.pd-dot-connecting {
+  background: var(--muted);
+}
+.print-printer-icon .pd-dot {
+  border-color: var(--surface-2);
+}

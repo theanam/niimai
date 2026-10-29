@@ -87,14 +87,17 @@ describe('start screen', () => {
     expect((await listLabels()).map((d) => d.name)).toEqual(['Old label']);
   });
 
-  it('offers a 48 mm label on continuous paper for a cat printer', async () => {
+  it('starts a 48 mm label of any length on continuous paper', async () => {
     const onBlank = vi.fn();
     renderStart(vi.fn(), {
-      status: { state: 'ready', profile: { id: 'auto:MX06', name: 'MX06', dpi: 203, printheadPixels: 384, printDirection: 'top', printTask: 'B1', densityMin: 1, densityMax: 5, densityDefault: 3, kind: 'cat' } },
+      status: { state: 'ready', profile: { id: 'auto:MX06', name: 'MX06', dpi: 203, printheadPixels: 384, printDirection: 'top', printTask: 'B1', densityMin: 1, densityMax: 5, densityDefault: 3, kind: 'thermal' } },
       onBlank,
     });
     expect(screen.getByText('Continuous paper')).toBeInTheDocument();
-    await userEvent.click(screen.getByRole('button', { name: /new 48 × 30 label/i }));
-    expect(onBlank).toHaveBeenCalledWith({ widthMm: 48, heightMm: 30 });
+    const length = screen.getByRole('spinbutton', { name: 'Length' });
+    await userEvent.clear(length);
+    await userEvent.type(length, '62');
+    await userEvent.click(screen.getByRole('button', { name: /new label/i }));
+    expect(onBlank).toHaveBeenCalledWith({ widthMm: 48, heightMm: 62 });
   });
 });

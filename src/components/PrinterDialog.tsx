@@ -166,7 +166,7 @@ function Connected(props: Props) {
           fraction={battery !== undefined ? battery / 100 : undefined}
           low={battery !== undefined && battery <= 20}
         />
-        {status.profile?.kind === 'cat' ? (
+        {status.profile?.kind === 'thermal' ? (
           <Meter icon={<ScanLine size={15} />} label="Paper" value="Continuous" detail={`${Math.round(printheadMm(status.profile))} mm print width`} />
         ) : (
           <Meter

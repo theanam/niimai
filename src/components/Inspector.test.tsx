@@ -78,4 +78,20 @@ describe('inspector', () => {
     expect(onDuplicate).toHaveBeenCalledWith(el);
     expect(onRemove).toHaveBeenCalledWith(el.id);
   });
+
+  it('sets width and length directly on continuous paper, with no presets', async () => {
+    const onDocChange = vi.fn();
+    renderApp(<Inspector {...base} doc={createDoc({ widthMm: 48, heightMm: 30 })} selected={null} onUpdate={noop} onDocChange={onDocChange} continuous />);
+    expect(screen.queryByRole('button', { name: /label size/i })).toBeNull();
+    expect(screen.queryByRole('combobox', { name: 'Paper type' })).toBeNull();
+    const length = screen.getByRole('spinbutton', { name: 'Length' });
+    await userEvent.clear(length);
+    await userEvent.type(length, '75');
+    expect(onDocChange).toHaveBeenLastCalledWith({ heightMm: 75 });
+    const width = screen.getByRole('spinbutton', { name: 'Width' });
+    await userEvent.clear(width);
+    await userEvent.type(width, '60');
+    // Never wider than the 48 mm print width.
+    expect(onDocChange).toHaveBeenLastCalledWith({ widthMm: 48 });
+  });
 });

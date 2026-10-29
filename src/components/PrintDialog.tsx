@@ -1,6 +1,6 @@
-import { Minus, Plus, Printer as PrinterIcon, FileText } from 'lucide-react';
+import { BatteryMedium, ChevronRight, Minus, Plus, Printer as PrinterIcon, FileText, ScanLine } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import type { LabelDoc, LabelSize } from '../doc/model';
+import { sizeLabel, type LabelDoc, type LabelSize } from '../doc/model';
 import { RollMismatchBanner } from './RollMismatchBanner';
 import type { PrinterStatus } from '../printer/service';
 import type { PrinterProfile } from '../printer/profiles';
@@ -15,16 +15,59 @@ interface Props {
   preview: string | null;
   density: number;
   onDensity: (d: number) => void;
-  onPrint: (copies: number) => Promise<void>;
-  onBrowserPrint: (copies: number) => Promise<void>;
+  /** Resolve false when the print failed, so the copies are kept for a retry. */
+  onPrint: (copies: number) => Promise<boolean | void>;
+  onBrowserPrint: (copies: number) => Promise<boolean | void>;
   onConnect: () => void;
   /** The loaded roll's size, when known. */
   rollSize?: LabelSize | null;
+  /** Product name of a recognised roll. */
+  rollName?: string;
   onMatchRoll?: () => void;
   /** Some of the design's dots fall outside the printhead. */
   clipped?: boolean;
   /** Elements with details too fine for the printer. */
   issueCount?: number;
+}
+
+/** The printer at a glance, at the top of the dialog. Opens printer settings. */
+function PrinterStrip({ status, rollSize, rollName, onOpen }: { status: PrinterStatus; rollSize: LabelSize | null; rollName?: string; onOpen: () => void }) {
+  const connected = status.state === 'ready' || status.state === 'printing';
+  const paper =
+    status.profile?.kind === 'thermal'
+      ? 'Continuous paper'
+      : rollSize
+        ? `${rollName ?? `${sizeLabel(rollSize)} mm roll`}`
+        : status.label
+          ? 'Roll size unknown'
+          : null;
+  return (
+    <button type="button" className="print-printer" onClick={onOpen} aria-label={connected ? 'Printer settings' : 'Connect a printer'}>
+      <span className="print-printer-icon">
+        <PrinterIcon size={18} />
+        <span className={`pd-dot pd-dot-${status.state}`} />
+      </span>
+      <span className="print-printer-text">
+        <strong>{connected ? (status.profile?.name ?? status.detectedModel ?? status.deviceName ?? 'Printer') : 'No printer connected'}</strong>
+        {connected && (
+          <small>
+            {status.battery !== undefined && (
+              <span>
+                <BatteryMedium size={13} /> {status.battery}%
+              </span>
+            )}
+            {paper && (
+              <span>
+                <ScanLine size={13} /> {paper}
+                {status.label?.remaining !== undefined && ` · ${status.label.remaining} left`}
+              </span>
+            )}
+          </small>
+        )}
+      </span>
+      <ChevronRight size={16} className="print-printer-go" />
+    </button>
+  );
 }
 
 /**
@@ -36,7 +79,7 @@ export function sizeWarning(profile: PrinterProfile | null, clipped: boolean): s
   return `Parts outside the ${Math.round(printheadMm(profile))} mm printhead will not print`;
 }
 
-export function PrintDialog({ open, onOpenChange, doc, status, preview, density, onDensity, onPrint, onBrowserPrint, onConnect, rollSize = null, onMatchRoll, clipped = false, issueCount = 0 }: Props) {
+export function PrintDialog({ open, onOpenChange, doc, status, preview, density, onDensity, onPrint, onBrowserPrint, onConnect, rollSize = null, rollName, onMatchRoll, clipped = false, issueCount = 0 }: Props) {
   const [copies, setCopies] = useState(1);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
@@ -48,10 +91,11 @@ export function PrintDialog({ open, onOpenChange, doc, status, preview, density,
   const warning = sizeWarning(profile, clipped);
   const printing = status.state === 'printing';
 
-  const run = async (fn: (c: number) => Promise<void>) => {
+  const run = async (fn: (c: number) => Promise<boolean | void>) => {
     setBusy(true);
     try {
-      await fn(copies);
+      // Every print starts again from one copy.
+      if ((await fn(copies)) !== false) setCopies(1);
     } finally {
       setBusy(false);
     }
@@ -80,6 +124,7 @@ export function PrintDialog({ open, onOpenChange, doc, status, preview, density,
         </>
       }
     >
+      <PrinterStrip status={status} rollSize={rollSize} rollName={rollName} onOpen={onConnect} />
       {onMatchRoll && <RollMismatchBanner doc={doc} rollSize={rollSize} rollPaper={status.label?.paper} onMatch={onMatchRoll} />}
       <div className="print-preview">
         {preview ? <img src={preview} alt="Print preview" /> : <div className="print-preview-empty" />}
@@ -101,7 +146,8 @@ export function PrintDialog({ open, onOpenChange, doc, status, preview, density,
             <Plus size={16} />
           </button>
         </div>
-        {profile && (
+        {/* Printers with a single heat setting (ESC/POS) have nothing to adjust. */}
+        {profile && profile.densityMax > profile.densityMin && (
           <label className="field field-range" title="Density">
             <span className="field-label-text">Density</span>
             <input

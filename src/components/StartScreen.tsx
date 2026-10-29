@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { LABEL_PRESETS, type LabelDoc, type LabelSize, sizeLabel } from '../doc/model';
 import { supportsBluetooth, supportsSerial, unsupportedReason, type ConnectionKind } from '../printer/client';
-import { CAT_DEFAULT_SIZE } from '../printer/cat';
+import { THERMAL_DEFAULT_SIZE } from '../printer/thermal';
 import { sameSize, type RollState } from '../printer/roll';
 import type { PrinterStatus } from '../printer/service';
 import { ensureFont } from '../render/fonts';
@@ -31,6 +31,8 @@ interface Props {
 
 function PrinterCard({ status, roll, onConnect, onSetRollSize, onBlank, onBrowseTemplates }: Pick<Props, 'status' | 'roll' | 'onConnect' | 'onSetRollSize' | 'onBlank' | 'onBrowseTemplates'>) {
   const [busy, setBusy] = useState(false);
+  /** Length of a new label on continuous paper. */
+  const [length, setLength] = useState(THERMAL_DEFAULT_SIZE.heightMm);
   const connected = status.state === 'ready' || status.state === 'printing';
   const connect = async (kind: ConnectionKind) => {
     setBusy(true);
@@ -61,12 +63,12 @@ function PrinterCard({ status, roll, onConnect, onSetRollSize, onBlank, onBrowse
               </li>
             )}
           </ul>
-          {status.profile?.kind === 'cat' ? (
+          {status.profile?.kind === 'thermal' ? (
             <div className="start-roll">
-              <LabelSilhouette size={CAT_DEFAULT_SIZE} box={64} />
+              <LabelSilhouette size={{ widthMm: THERMAL_DEFAULT_SIZE.widthMm, heightMm: length }} box={64} />
               <div className="start-roll-text">
                 <strong>Continuous paper</strong>
-                <small className="muted">{CAT_DEFAULT_SIZE.widthMm} mm print width</small>
+                <small className="muted">{THERMAL_DEFAULT_SIZE.widthMm} mm print width</small>
               </div>
             </div>
           ) : roll.size ? (
@@ -81,10 +83,11 @@ function PrinterCard({ status, roll, onConnect, onSetRollSize, onBlank, onBrowse
             <p className="muted">{roll.needsSize ? 'This printer does not report the roll size.' : 'No roll detected. Load one to start from it.'}</p>
           )}
           <div className="start-actions start-roll-actions">
-            {status.profile?.kind === 'cat' ? (
+            {status.profile?.kind === 'thermal' ? (
               <>
-                <button className="btn btn-primary" onClick={() => onBlank(CAT_DEFAULT_SIZE)}>
-                  <FilePlus2 size={16} /> New {sizeLabel(CAT_DEFAULT_SIZE)} label
+                <NumberField label="Length" icon="Length" value={length} min={5} max={500} step={1} suffix="mm" onChange={setLength} />
+                <button className="btn btn-primary" onClick={() => onBlank({ widthMm: THERMAL_DEFAULT_SIZE.widthMm, heightMm: length })}>
+                  <FilePlus2 size={16} /> New label
                 </button>
                 <button className="btn" onClick={() => onBrowseTemplates()}>
                   <LayoutTemplate size={16} /> Templates

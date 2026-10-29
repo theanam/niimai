@@ -334,8 +334,10 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
       await printer.print(canvas, { density, copies, offset, labelType: labelTypeOf(effectivePaper(doc.paper, status.label?.paper)) });
       toast.success(copies > 1 ? `Printed ${copies} labels` : 'Printed');
       setDialog(null);
+      return true;
     } catch (err) {
       toast.error((err as Error).message);
+      return false;
     }
   };
 
@@ -343,8 +345,10 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
     try {
       // Original images: an office printer can reproduce more than the thermal head.
       browserPrint(doc, await standaloneSvg(doc, dpi, {}), copies);
+      return true;
     } catch (err) {
       toast.error((err as Error).message);
+      return false;
     }
   };
 
@@ -559,6 +563,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
             onReplaceImage={(id) => void chooseImage(id)}
             onEditText={(id) => setEditing({ id, fresh: false })}
             printIssue={selected ? issues[selected.id] : null}
+            continuous={status.profile?.kind === 'thermal'}
             onReplaceIcon={(id) => {
               setIconTarget(id);
               setDialog('icon');
@@ -616,6 +621,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
         onBrowserPrint={printFromBrowser}
         onConnect={() => setDialog('printer')}
         rollSize={roll.size}
+        rollName={roll.name}
         onMatchRoll={matchRoll}
         clipped={clipped}
         issueCount={Object.keys(issues).length}

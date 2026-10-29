@@ -1,36 +1,26 @@
 /**
  * "Cat printers": the small Bluetooth thermal printers sold as GB01, MX06 and
- * the like, printing on 57 mm continuous paper with a 384-dot head. niimai's
- * focus is NIIMBOT; this is an extra, kept apart so NIIMBOT printing never
- * goes through it.
+ * the like. See thermal.ts for what they share with other extras.
  *
  * Protocol, from rbaron/catprinter and NaitLee/Cat-Printer: packets are
  * 51 78 <cmd> 00 <len> 00 <payload> <crc8(payload)> FF over service AE30,
  * written to AE01. The printer sends flow control on AE02.
  */
-import type { PrinterModelMeta, PrintTaskName } from '@mmote/niimbluelib';
-import type { LabelSize } from '../doc/model';
-import type { ClientLike, PrintTaskLike } from './client';
+import { modelFor, packRows, THERMAL_HEAD_DOTS, ThermalPrinterClient, type Confidence, type Pace, type ThermalModel, type ThermalTransport } from './thermal';
 
 export const CAT_SERVICE = '0000ae30-0000-1000-8000-00805f9b34fb';
 export const CAT_TX = '0000ae01-0000-1000-8000-00805f9b34fb';
 export const CAT_RX = '0000ae02-0000-1000-8000-00805f9b34fb';
 
-/** Dots across the head: 48 mm at 203 dpi. */
-export const CAT_HEAD_DOTS = 384;
-const ROW_BYTES = CAT_HEAD_DOTS / 8;
+const ROW_BYTES = THERMAL_HEAD_DOTS / 8;
 
-export type Confidence = 'tested' | 'high' | 'medium';
+export type { Confidence };
 
-export interface CatModel {
-  /** Bluetooth name prefix. */
-  prefix: string;
-  confidence: Confidence;
+export interface CatModel extends ThermalModel {
   /** Takes the newer "start printing" command. */
   newKind?: boolean;
   /** Mishandles the feed command, so the paper is fed with blank rows. */
   feedWithRows?: boolean;
-  note?: string;
 }
 
 /**
@@ -55,25 +45,14 @@ export const CAT_MODELS: CatModel[] = [
   { prefix: 'SC03h', confidence: 'medium' },
 ];
 
-/** Look-alikes that use other protocols. */
+/** Look-alikes that use other protocols. Listed in Help and docs/thermal-printers.md. */
 export const CAT_UNSUPPORTED: { name: string; note: string }[] = [
   { name: 'MXW01', note: 'Newer protocol' },
   { name: 'PeriPage', note: 'Different protocol' },
   { name: 'Phomemo M02 / T02', note: 'Different protocol' },
 ];
 
-/** The known model a Bluetooth name belongs to, longest prefix first. */
-export function catModelFor(name: string | undefined): CatModel | null {
-  if (!name) return null;
-  return [...CAT_MODELS].sort((a, b) => b.prefix.length - a.prefix.length).find((m) => name.startsWith(m.prefix)) ?? null;
-}
-
-/** Sizes that suit continuous 57 mm paper: the full 48 mm print width at common lengths. */
-export const CAT_SIZES: LabelSize[] = [15, 20, 30, 48, 80].map((heightMm) => ({
-  widthMm: 48,
-  heightMm,
-}));
-export const CAT_DEFAULT_SIZE: LabelSize = { widthMm: 48, heightMm: 30 };
+export const catModelFor = (name: string | undefined): CatModel | null => modelFor(CAT_MODELS, name);
 
 // CRC-8, polynomial 0x07, as the printers expect.
 const CRC_TABLE = Array.from({ length: 256 }, (_, i) => {
@@ -120,25 +99,8 @@ const FEED_AFTER = 128;
 /** Blank rows between copies. */
 const GAP_BETWEEN = 24;
 
-/**
- * Packs a 1-bit page (RGBA, dark = black) into 384-dot rows, leftmost dot in
- * the lowest bit, centred across the head.
- */
-export function encodeRows(data: ArrayLike<number>, width: number, height: number): Uint8Array[] {
-  const offset = Math.max(0, Math.floor((CAT_HEAD_DOTS - width) / 2));
-  const rows: Uint8Array[] = [];
-  for (let y = 0; y < height; y++) {
-    const row = new Uint8Array(ROW_BYTES);
-    for (let x = 0; x < width && x + offset < CAT_HEAD_DOTS; x++) {
-      if (data[(y * width + x) * 4] < 128) {
-        const dot = x + offset;
-        row[dot >> 3] |= 1 << (dot & 7);
-      }
-    }
-    rows.push(row);
-  }
-  return rows;
-}
+/** Rows for a cat printer: leftmost dot in the lowest bit. */
+export const encodeRows = (data: ArrayLike<number>, width: number, height: number): Uint8Array[] => packRows(data, width, height, 'lsb');
 
 /** Everything sent for one job: setup, the rows for each copy, then feed and finish. */
 export function printJob(rows: Uint8Array[], { density, copies, model }: { density: number; copies: number; model: CatModel | null }): Uint8Array {
@@ -166,175 +128,31 @@ export function printJob(rows: Uint8Array[], { density, copies, model }: { densi
   return Uint8Array.from(out);
 }
 
-/** The Bluetooth link, kept narrow so tests can stand in for it. */
-export interface CatTransport {
-  name?: string;
-  write(chunk: Uint8Array): Promise<void>;
-  onNotify(fn: (data: Uint8Array) => void): void;
-  onDisconnect(fn: () => void): void;
-  disconnect(): Promise<void>;
-}
-
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-const same = (a: ArrayLike<number>, b: number[]) => a.length === b.length && b.every((v, i) => a[i] === v);
-
-/**
- * A cat printer behind the same interface as a NIIMBOT client, so the printer
- * service drives both. It reports itself through model metadata with
- * kind "cat"; it has no roll tags, battery or heartbeat to offer.
- */
-export class CatPrinterClient implements ClientLike {
-  private listeners = new Map<string, Set<(e: unknown) => void>>();
-  private paused = false;
-  private connected = false;
-  /** Bytes per write. Starts large and halves if the link refuses it. */
-  private chunk = 180;
+/** A cat printer: the shared thermal client with cat packets and flow control. */
+export class CatPrinterClient extends ThermalPrinterClient {
+  protected readonly densityLevels = ENERGY.length;
+  protected readonly modelName: string;
 
   constructor(
-    private transport: CatTransport,
+    transport: ThermalTransport,
     readonly model: CatModel | null,
-    private pace = { chunkMs: 20, pauseMs: 100 },
+    pace: Pace = { chunkMs: 20, pauseMs: 100 },
   ) {
+    super(transport, pace, 180);
+    this.modelName = model?.prefix ?? (transport.name || 'Cat printer');
     transport.onNotify((data) => {
       if (same(data, FLOW_PAUSE)) this.paused = true;
       else if (same(data, FLOW_RESUME)) this.paused = false;
     });
-    transport.onDisconnect(() => {
-      this.connected = false;
-      this.emit('disconnect', {});
-    });
   }
 
-  async connect() {
-    this.connected = true;
-    return { deviceName: this.transport.name };
+  protected encodeRows(data: ArrayLike<number>, width: number, height: number) {
+    return encodeRows(data, width, height);
   }
 
-  async disconnect() {
-    this.connected = false;
-    await this.transport.disconnect();
+  protected job(rows: Uint8Array[], density: number, copies: number) {
+    return printJob(rows, { density, copies, model: this.model });
   }
-
-  isConnected() {
-    return this.connected;
-  }
-
-  on(event: string, fn: (e: unknown) => void) {
-    if (!this.listeners.has(event)) this.listeners.set(event, new Set());
-    this.listeners.get(event)!.add(fn);
-  }
-
-  off(event: string, fn: (e: unknown) => void) {
-    this.listeners.get(event)?.delete(fn);
-  }
-
-  private emit(event: string, e: unknown) {
-    this.listeners.get(event)?.forEach((fn) => fn(e));
-  }
-
-  getPrinterInfo() {
-    return {};
-  }
-
-  getModelMetadata(): PrinterModelMeta {
-    return {
-      model: this.model?.prefix ?? (this.transport.name || 'Thermal printer'),
-      kind: 'cat',
-      dpi: 203,
-      printheadPixels: CAT_HEAD_DOTS,
-      printDirection: 'top',
-      densityMin: 1,
-      densityMax: ENERGY.length,
-      densityDefault: 3,
-    } as unknown as PrinterModelMeta;
-  }
-
-  getPrintTaskType(): PrintTaskName {
-    // The service needs a task name; the cat client prints the same way whatever it is.
-    return 'B1' as PrintTaskName;
-  }
-
-  getRfidInfo() {
-    return {};
-  }
-
-  async fetchRfidInfo() {}
-  startHeartbeat() {}
-  stopHeartbeat() {}
-
-  /** Pages arrive as 1-bit canvases; the service hands them here instead of to niimbluelib's encoder. */
-  encodePage(canvas: HTMLCanvasElement): Uint8Array[] {
-    const ctx = canvas.getContext('2d');
-    if (!ctx) throw new Error('Canvas is unavailable');
-    return encodeRows(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height);
-  }
-
-  /** Sends bytes in chunks, waiting while the printer asks for a pause. */
-  async send(bytes: Uint8Array): Promise<void> {
-    for (let i = 0; i < bytes.length;) {
-      while (this.paused) await sleep(this.pace.pauseMs);
-      const part = bytes.subarray(i, i + this.chunk);
-      try {
-        await this.transport.write(part);
-      } catch (err) {
-        if (this.chunk <= 20) throw err;
-        this.chunk = Math.max(20, this.chunk >> 1);
-        continue;
-      }
-      i += part.length;
-      await sleep(this.pace.chunkMs);
-    }
-  }
-
-  protocol = {
-    printEnd: async () => true,
-    newPrintTask: (_name: PrintTaskName, options: Record<string, unknown>): PrintTaskLike => {
-      const density = Number(options.density ?? 3);
-      return {
-        printInit: async () => {},
-        printPage: async (image, quantity = 1) => {
-          const rows = image as Uint8Array[];
-          await this.send(
-            printJob(rows, {
-              density,
-              copies: Math.max(1, quantity),
-              model: this.model,
-            }),
-          );
-          this.emit('printprogress', {
-            page: quantity,
-            pagesTotal: quantity,
-            pagePrintProgress: 100,
-            pageFeedProgress: 100,
-          });
-        },
-        waitForFinished: async () => {},
-        printEnd: async () => true,
-      };
-    },
-  };
 }
 
-/** A Web Bluetooth link to a connected cat printer. */
-export async function webCatTransport(device: BluetoothDevice, server: BluetoothRemoteGATTServer): Promise<CatTransport> {
-  const service = await server.getPrimaryService(CAT_SERVICE);
-  const tx = await service.getCharacteristic(CAT_TX);
-  const rx = await service.getCharacteristic(CAT_RX);
-  const notify: ((d: Uint8Array) => void)[] = [];
-  rx.addEventListener('characteristicvaluechanged', (e) => {
-    const v = (e.target as BluetoothRemoteGATTCharacteristic).value;
-    if (v) notify.forEach((fn) => fn(new Uint8Array(v.buffer.slice(v.byteOffset, v.byteOffset + v.byteLength))));
-  });
-  await rx.startNotifications();
-  return {
-    name: device.name,
-    write: async (chunk) => {
-      const buf = chunk.slice().buffer;
-      if (tx.properties.writeWithoutResponse) await tx.writeValueWithoutResponse(buf);
-      else await tx.writeValueWithResponse(buf);
-    },
-    onNotify: (fn) => notify.push(fn),
-    onDisconnect: (fn) => device.addEventListener('gattserverdisconnected', fn),
-    disconnect: async () => server.disconnect(),
-  };
-}
+const same = (a: ArrayLike<number>, b: number[]) => a.length === b.length && b.every((v, i) => a[i] === v);

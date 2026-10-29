@@ -13,8 +13,8 @@ export interface PrinterProfile {
   densityMin: number;
   densityMax: number;
   densityDefault: number;
-  /** Cat printers: continuous paper, no roll tags. Unset for NIIMBOT. */
-  kind?: 'cat';
+  /** Extra thermal printers (cat, ESC/POS): continuous paper, no roll tags. Unset for NIIMBOT. */
+  kind?: 'thermal';
 }
 
 /** Manual profiles for printers niimbluelib does not recognise yet. Each mirrors a known model family. */
@@ -63,7 +63,7 @@ export function resolveProfile(
     densityMin: meta.densityMin,
     densityMax: meta.densityMax,
     densityDefault: meta.densityDefault,
-    ...((meta as { kind?: string }).kind === 'cat' ? { kind: 'cat' as const } : {}),
+    ...((meta as { kind?: string }).kind === 'thermal' ? { kind: 'thermal' as const } : {}),
   };
 }
 

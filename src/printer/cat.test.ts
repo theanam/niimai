@@ -1,4 +1,5 @@
-import { CAT_SIZES, CatPrinterClient, catModelFor, crc8, encodeRows, FLOW_PAUSE, FLOW_RESUME, packet, printJob, type CatTransport } from './cat';
+import { CatPrinterClient, catModelFor, crc8, encodeRows, FLOW_PAUSE, FLOW_RESUME, packet, printJob } from './cat';
+import { THERMAL_SIZES, type ThermalTransport } from './thermal';
 import { resolveProfile } from './profiles';
 import { sizesForPrinter } from './roll';
 import { PrinterService } from './service';
@@ -10,7 +11,7 @@ function fakeTransport(opts: { maxChunk?: number } = {}) {
   const writes: Uint8Array[] = [];
   let notify: (d: Uint8Array) => void = () => {};
   let dropped: () => void = () => {};
-  const t: CatTransport = {
+  const t: ThermalTransport = {
     name: 'MX06-ABCD',
     write: async (chunk) => {
       if (opts.maxChunk && chunk.length > opts.maxChunk) throw new Error('GATT operation failed');
@@ -72,8 +73,8 @@ describe('cat printers', () => {
   it('describes itself as a continuous-paper printer with a 48 mm head', () => {
     const client = new CatPrinterClient(fakeTransport().t, catModelFor('MX06'));
     const profile = resolveProfile(client.getModelMetadata(), client.getPrintTaskType());
-    expect(profile).toMatchObject({ name: 'MX06', kind: 'cat', printheadPixels: 384, printDirection: 'top', dpi: 203 });
-    expect(sizesForPrinter(profile)).toEqual(CAT_SIZES);
+    expect(profile).toMatchObject({ name: 'MX06', kind: 'thermal', printheadPixels: 384, printDirection: 'top', dpi: 203 });
+    expect(sizesForPrinter(profile)).toEqual(THERMAL_SIZES);
     expect(client.getRfidInfo()).toEqual({});
   });
 

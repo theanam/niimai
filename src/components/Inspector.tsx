@@ -28,6 +28,7 @@ import { sameSize } from '../printer/roll';
 import type { BarcodeFormat, DitherMode, FoldMode, LabelDoc, LabelElement, LineDirection } from '../doc/model';
 import { LABEL_PRESETS, placementArea, reshapeLine, type LabelSize } from '../doc/model';
 import { PAPER_TYPES, paperName, type PaperType } from '../printer/paper';
+import { THERMAL_HEAD_MM } from '../printer/thermal';
 import type { RollState } from '../printer/roll';
 import { symbolError } from '../render/barcode';
 import { IconButton } from '../ui/IconButton';
@@ -60,6 +61,8 @@ interface Props {
   onEditText?: (id: string) => void;
   /** Why the selected element would print badly, if it would. */
   printIssue?: string | null;
+  /** Continuous paper (ESC/POS and cat printers): the label is set by width and length, with no presets. */
+  continuous?: boolean;
 }
 
 const FORMATS: { value: BarcodeFormat; label: string }[] = [
@@ -69,7 +72,21 @@ const FORMATS: { value: BarcodeFormat; label: string }[] = [
   { value: 'upca', label: 'UPC-A' },
 ];
 
-export function Inspector({ doc, selected, roll, rollPaper, fitting = [], allSizes = LABEL_PRESETS, onSetRollSize, onUpdate, onDocChange, onDuplicate, onRemove, onReorder, onReplaceImage, onReplaceIcon, onEditText, printIssue }: Props) {
+export function Inspector({ doc, selected, roll, rollPaper, fitting = [], allSizes = LABEL_PRESETS, onSetRollSize, onUpdate, onDocChange, onDuplicate, onRemove, onReorder, onReplaceImage, onReplaceIcon, onEditText, printIssue, continuous = false }: Props) {
+  if (!selected && continuous) {
+    return (
+      <aside className="inspector" aria-label="Label settings">
+        <Section title="Label">
+          <p className="muted small">Continuous paper, up to {THERMAL_HEAD_MM} mm wide.</p>
+          <div className="grid-2">
+            <NumberField label="Width" icon="W" value={doc.widthMm} min={5} max={THERMAL_HEAD_MM} step={1} suffix="mm" onChange={(widthMm) => onDocChange({ widthMm })} />
+            <NumberField label="Length" icon="L" value={doc.heightMm} min={5} max={500} step={1} suffix="mm" onChange={(heightMm) => onDocChange({ heightMm })} />
+          </div>
+        </Section>
+      </aside>
+    );
+  }
+
   if (!selected) {
     const isPreset = [...(roll.size ? [roll.size] : []), ...allSizes].some((p) => sameSize(p, doc));
     return (

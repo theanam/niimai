@@ -1,4 +1,4 @@
-import { openLabelFile, safeFileName, saveTextAs, supportsFileSystemAccess, writeToHandle, type FileHandle } from './fs-access';
+import { baseName, openLabelFile, safeFileName, saveTextAs, supportsFileSystemAccess, writeToHandle, type FileHandle } from './fs-access';
 
 const w = window as unknown as Record<string, unknown>;
 
@@ -73,5 +73,11 @@ describe('file access', () => {
   it('makes safe file names', () => {
     expect(safeFileName('a/b:c')).toBe('a-b-c');
     expect(safeFileName('  ')).toBe('label');
+  });
+
+  it('drops the label extension from a file name', () => {
+    expect(baseName('Jars.niimai')).toBe('Jars');
+    expect(baseName('Jars.JSON')).toBe('Jars');
+    expect(baseName('notes.txt')).toBe('notes.txt');
   });
 });

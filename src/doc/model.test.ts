@@ -102,4 +102,11 @@ describe('document model', () => {
     };
     expect(usedFonts(d)).toEqual(['Lobster']);
   });
+
+  it('keeps the file name and printer a label was saved with', () => {
+    expect(parseDoc({ ...createDoc(), fileName: 'Jars', printer: 'D110' })).toMatchObject({ fileName: 'Jars', printer: 'D110' });
+    const bare = parseDoc({ ...createDoc(), fileName: 3, printer: '' });
+    expect(bare.fileName).toBeUndefined();
+    expect(bare.printer).toBeUndefined();
+  });
 });

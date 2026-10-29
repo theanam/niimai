@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { sizeLabel, type LabelDoc, type LabelSize } from '../doc/model';
 import { uid } from '../lib/units';
 import { ensureFont } from '../render/fonts';
+import { processImages } from '../render/raster';
 import { renderSvg } from '../render/svg';
 import { deleteLabel, listLabels, saveLabel } from '../storage/db';
 import {
@@ -44,11 +45,42 @@ export interface TemplateSeed {
   category?: string | null;
 }
 
+/** Resolution thumbnails process images at: the common NIIMBOT head. */
+const THUMB_DPI = 203;
+/** Processed images by label version, so reopening a list draws them at once. */
+const thumbImages = new Map<string, Record<string, string>>();
+
+/** Images as they will print (dithered, thresholded, inverted); none until ready. */
+function usePrintedImages(doc: LabelDoc): Record<string, string> | undefined {
+  const key = `${doc.id}:${doc.updatedAt}`;
+  const hasImages = doc.elements.some((e) => e.type === 'image' && e.src);
+  const [images, setImages] = useState(() => thumbImages.get(key));
+  useEffect(() => {
+    if (!hasImages) return;
+    const cached = thumbImages.get(key);
+    if (cached) return setImages(cached);
+    let live = true;
+    processImages(doc, THUMB_DPI).then(
+      (imgs) => {
+        thumbImages.set(key, imgs);
+        if (live) setImages(imgs);
+      },
+      () => {},
+    );
+    return () => {
+      live = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key, hasImages]);
+  return hasImages ? images : undefined;
+}
+
 /** A label drawn to fit its card, whatever its proportions. */
 export function LabelThumb({ doc }: { doc: LabelDoc }) {
   const fonts = useFontsVersion();
+  const images = usePrintedImages(doc);
   // Auto-fit text is measured with whatever fonts are loaded, so re-render as more arrive.
-  const svg = useMemo(() => renderSvg(doc, { physicalSize: false }), [doc, fonts]);
+  const svg = useMemo(() => renderSvg(doc, { physicalSize: false, images }), [doc, fonts, images]);
   // Cards are 3:2. Wider labels fill the width, taller ones the height.
   const wide = doc.widthMm / doc.heightMm >= 1.5;
   return (
@@ -95,7 +127,7 @@ function MyLabels({ currentId, onOpen }: { currentId: string; onOpen: (d: LabelD
 
   const duplicate = async (doc: LabelDoc) => {
     const now = Date.now();
-    await saveLabel({ ...doc, id: uid(), name: `${doc.name} copy`, createdAt: now, updatedAt: now });
+    await saveLabel({ ...doc, id: uid(), name: `${doc.name} copy`, fileName: undefined, createdAt: now, updatedAt: now });
     toast.success('Duplicated');
     void refresh();
   };
@@ -112,7 +144,7 @@ function MyLabels({ currentId, onOpen }: { currentId: string; onOpen: (d: LabelD
             <div className="card-text">
               <strong title={doc.name}>{doc.name}</strong>
               <small>
-                {sizeLabel(doc)} mm
+                {sizeLabel(doc)} mm{doc.printer && ` · ${doc.printer}`}
               </small>
             </div>
             <IconButton label="Duplicate" onClick={() => void duplicate(doc)}>

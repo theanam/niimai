@@ -87,6 +87,20 @@ describe('start screen', () => {
     expect((await listLabels()).map((d) => d.name)).toEqual(['Old label']);
   });
 
+  it('shows the printer each recent label was made for, and every label on request', async () => {
+    globalThis.indexedDB = new IDBFactory();
+    resetDbConnection();
+    for (let i = 1; i <= 8; i++) await saveLabel({ ...createDoc(), name: `Label ${i}`, updatedAt: i, ...(i === 8 ? { printer: 'D110' } : {}) });
+    renderStart();
+    const recent = await screen.findByRole('list', { name: 'Recent labels' });
+    expect(recent.children).toHaveLength(6);
+    expect(screen.getByRole('button', { name: 'Open Label 8' })).toHaveTextContent('D110');
+    await userEvent.click(screen.getByRole('button', { name: 'Show all 8' }));
+    expect(recent.children).toHaveLength(8);
+    await userEvent.click(screen.getByRole('button', { name: 'Show fewer' }));
+    expect(recent.children).toHaveLength(6);
+  });
+
   it('starts a 48 mm label of any length on continuous paper', async () => {
     const onBlank = vi.fn();
     renderStart(vi.fn(), {

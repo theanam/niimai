@@ -1,13 +1,17 @@
 import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { IDBFactory } from 'fake-indexeddb';
-import { createDoc } from '../doc/model';
+import { createDoc, createElement } from '../doc/model';
 import { resetDbConnection, saveLabel } from '../storage/db';
 import { templatesForSize } from '../templates';
 import { renderApp } from '../test/render';
 import { LibraryDialog } from './LibraryDialog';
 
 vi.mock('../render/fonts', () => ({ ensureFont: async () => {}, linkFont: async () => {} }));
+vi.mock('../render/raster', () => ({
+  processImages: async (doc: { elements: { id: string; type: string }[] }) =>
+    Object.fromEntries(doc.elements.filter((e) => e.type === 'image').map((e) => [e.id, 'data:image/png;base64,PRINTED'])),
+}));
 
 beforeEach(() => {
   globalThis.indexedDB = new IDBFactory();
@@ -33,6 +37,14 @@ describe('library', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Open Spice rack' }));
     expect(onOpen).toHaveBeenCalledWith(doc);
     expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
+  it('draws images in thumbnails as they will print', async () => {
+    const doc = createDoc({ widthMm: 50, heightMm: 30 });
+    await saveLabel({ ...doc, name: 'Coffee', elements: [{ ...createElement('image', doc), src: 'data:image/png;base64,ORIGINAL' } as never] });
+    setup();
+    await screen.findByRole('button', { name: 'Open Coffee' });
+    await waitFor(() => expect(document.querySelector('.thumb image')?.getAttribute('href')).toBe('data:image/png;base64,PRINTED'));
   });
 
   it('asks before deleting a saved label', async () => {

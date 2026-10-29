@@ -17,6 +17,8 @@ export type EditorAction =
   | { type: 'remove'; id: string }
   | { type: 'reorder'; id: string; direction: 'up' | 'down' }
   | { type: 'setDoc'; patch: Partial<Pick<LabelDoc, 'name' | 'widthMm' | 'heightMm' | 'tailMm' | 'fold' | 'paper'>> }
+  /** Facts about the label (its file, its printer) that undo leaves alone. */
+  | { type: 'meta'; patch: Partial<Pick<LabelDoc, 'name' | 'fileName' | 'printer'>> }
   | { type: 'commit' }
   | { type: 'undo' }
   | { type: 'redo' };
@@ -75,6 +77,10 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
     }
     case 'setDoc':
       return push(state, { ...doc, ...action.patch }, `doc:${Object.keys(action.patch).join(',')}`);
+    case 'meta': {
+      const apply = (d: LabelDoc) => ({ ...d, ...action.patch });
+      return { ...state, doc: apply(doc), past: state.past.map(apply), future: state.future.map(apply) };
+    }
     case 'commit':
       return { ...state, lastKey: null };
     case 'undo': {

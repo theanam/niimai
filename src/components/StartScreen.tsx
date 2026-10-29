@@ -1,4 +1,4 @@
-import { ArrowRight, Battery, Bluetooth, Check, FilePlus2, FlaskConical, LayoutTemplate, Plug, Printer, ScanLine, Search, Trash2 } from 'lucide-react';
+import { ArrowRight, Battery, Bluetooth, Check, ChevronDown, ChevronUp, FilePlus2, FlaskConical, LayoutTemplate, Plug, Printer, ScanLine, Search, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { LABEL_PRESETS, type LabelDoc, type LabelSize, sizeLabel } from '../doc/model';
@@ -227,10 +227,14 @@ function TemplatesCard({ size, onOpen, onBrowse, continuous = false }: { size: L
   );
 }
 
+/** Recent labels shown before the rest are folded away. */
+export const RECENT_SHOWN = 6;
+
 function Recent({ onOpen }: Pick<Props, 'onOpen'>) {
   const [labels, setLabels] = useState<LabelDoc[]>([]);
+  const [all, setAll] = useState(false);
   const confirm = useConfirm();
-  const refresh = () => listLabels().then((l) => setLabels(l.slice(0, 6)), () => {});
+  const refresh = () => listLabels().then(setLabels, () => {});
   useEffect(() => void refresh(), []);
   const remove = async (doc: LabelDoc) => {
     if (!(await confirm({ title: `Delete “${doc.name}”?`, confirmLabel: 'Delete', danger: true }))) return;
@@ -238,17 +242,36 @@ function Recent({ onOpen }: Pick<Props, 'onOpen'>) {
     void refresh();
   };
   if (!labels.length) return null;
+  const shown = all ? labels : labels.slice(0, RECENT_SHOWN);
   return (
     <section className="start-recent" aria-labelledby="start-recent">
       <header>
         <h2 id="start-recent">Recent</h2>
+        {labels.length > RECENT_SHOWN && (
+          <button className="btn btn-ghost btn-sm" onClick={() => setAll((a) => !a)} aria-expanded={all}>
+            {all ? (
+              <>
+                <ChevronUp size={15} /> Show fewer
+              </>
+            ) : (
+              <>
+                <ChevronDown size={15} /> Show all {labels.length}
+              </>
+            )}
+          </button>
+        )}
       </header>
       <ul className="start-templates" aria-label="Recent labels">
-        {labels.map((d) => (
+        {shown.map((d) => (
           <li key={d.id} className="recent-item">
             <button onClick={() => onOpen(d)} aria-label={`Open ${d.name}`}>
               <LabelThumb doc={d} />
               <span>{d.name}</span>
+              {d.printer && (
+                <span className="recent-printer">
+                  <Printer size={11} aria-hidden="true" /> {d.printer}
+                </span>
+              )}
             </button>
             <IconButton label={`Delete ${d.name}`} className="recent-delete" onClick={() => void remove(d)}>
               <Trash2 size={14} />

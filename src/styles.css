@@ -207,11 +207,17 @@ kbd {
   text-decoration: none;
   margin-right: 4px;
 }
-.doc-name {
+.doc-title {
   /* Gives way first when the header runs short of room. */
   flex: 0 1 180px;
   width: 180px;
   min-width: 90px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.doc-name {
+  width: 100%;
   height: 32px;
   border: 1px solid transparent;
   border-radius: 8px;
@@ -221,6 +227,30 @@ kbd {
 }
 .doc-name:hover {
   border-color: var(--border);
+}
+.doc-title:has(.doc-printer) .doc-name {
+  height: 24px;
+}
+.doc-name-file {
+  font: inherit;
+  font-weight: 500;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.doc-printer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 9px;
+  font-size: 11px;
+  line-height: 14px;
+  color: var(--muted);
+  overflow: hidden;
+  white-space: nowrap;
 }
 .doc-name:focus {
   outline: none;
@@ -1246,7 +1276,7 @@ kbd {
 }
 
 @media (max-width: 900px) {
-  .doc-name,
+  .doc-title,
   .hide-sm,
   .printer-chip-text,
   .battery {
@@ -1492,6 +1522,15 @@ kbd {
 .start-recent h2 {
   margin: 0;
   font-size: 16px;
+}
+.start-templates .recent-printer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: -6px;
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--muted);
 }
 @media (max-width: 900px) {
   .start-grid {
@@ -2826,6 +2865,10 @@ kbd {
 /* Start screen: recent labels */
 .recent-item {
   position: relative;
+}
+/* Cards with and without a printer line line up. */
+.recent-item > button:first-child {
+  height: 100%;
 }
 /* The card rule above styles every button in the list; the delete button keeps its own centred layout. */
 .start-templates .recent-delete.icon-btn {

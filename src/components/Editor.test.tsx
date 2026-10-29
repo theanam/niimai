@@ -452,6 +452,49 @@ describe('editor', () => {
     expect(screen.getByRole('textbox', { name: 'Edit text' })).toHaveFocus();
   });
 
+  it('takes the file name once saved, records the printer, and renames only through Save as', async () => {
+    const { printer, restore } = await useEscPosPrinter();
+    onTestFinished(restore);
+    const written: string[] = [];
+    const handle = (name: string) => ({
+      name,
+      getFile: async () => new File([], name),
+      createWritable: async () => ({ write: async (t: string) => void written.push(t), close: async () => {} }),
+    });
+    const picker = vi.fn(async () => handle('Pantry jars.niimai'));
+    (window as unknown as { showSaveFilePicker: unknown }).showSaveFilePicker = picker;
+    onTestFinished(() => void delete (window as unknown as { showSaveFilePicker?: unknown }).showSaveFilePicker);
+    renderApp(<Editor initialDoc={{ ...starterDoc(), widthMm: 48, heightMm: 30 }} initialProfileId={null} initialDensity={2} />);
+    expect(document.title).toBe('My label · niimai');
+    await act(() => printer.connect('bluetooth'));
+    await userEvent.keyboard('{Control>}s{/Control}');
+    await waitFor(() => expect(screen.queryByRole('textbox', { name: 'Label name' })).toBeNull());
+    const name = screen.getByRole('button', { name: 'Pantry jars' });
+    expect(document.querySelector('.doc-printer')).toHaveTextContent('MP583');
+    expect(document.title).toBe('Pantry jars · niimai');
+    expect(JSON.parse(written[0])).toMatchObject({ printer: 'MP583' });
+    // Undo leaves the file name alone.
+    await userEvent.click(screen.getByRole('button', { name: 'Add rectangle' }));
+    await userEvent.keyboard('{Control>}z{/Control}');
+    expect(screen.getByRole('button', { name: 'Pantry jars' })).toBeInTheDocument();
+    picker.mockResolvedValueOnce(handle('Spice jars.niimai'));
+    await userEvent.click(name);
+    expect(await screen.findByRole('button', { name: 'Spice jars' })).toBeInTheDocument();
+  });
+
+  it('names an opened label after its file and keeps the demo out of it', async () => {
+    const text = JSON.stringify({ ...starterDoc(), name: 'Inside name', printer: 'D110' });
+    const file = { name: 'Garage shelf.niimai', getFile: async () => new File([text], 'Garage shelf.niimai'), createWritable: async () => ({ write: async () => {}, close: async () => {} }) };
+    (window as unknown as { showOpenFilePicker: unknown }).showOpenFilePicker = async () => [file];
+    onTestFinished(() => void delete (window as unknown as { showOpenFilePicker?: unknown }).showOpenFilePicker);
+    renderEditor();
+    await connectDemo();
+    expect(document.querySelector('.doc-printer')).toBeNull();
+    await userEvent.keyboard('{Control>}o{/Control}');
+    expect(await screen.findByRole('button', { name: 'Garage shelf' })).toBeInTheDocument();
+    expect(document.querySelector('.doc-printer')).toHaveTextContent('D110');
+  });
+
   it('offers the file and help actions from the More menu', async () => {
     renderEditor();
     await userEvent.click(screen.getByRole('button', { name: 'More' }));

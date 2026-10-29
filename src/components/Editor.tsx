@@ -3,7 +3,7 @@ import { type DragEvent, useCallback, useEffect, useMemo, useRef, useState, useS
 import { toast } from 'sonner';
 import { createDoc, createElement, parseDoc, serializeDoc, usedFonts, type ElementType, type LabelDoc, type LabelElement, type LabelSize } from '../doc/model';
 import { useEditor } from '../doc/useEditor';
-import { LABEL_EXT, openImageFile, openLabelFile, readAsDataUrl, safeFileName, saveTextAs, writeToHandle, type FileHandle } from '../files/fs-access';
+import { baseName, LABEL_EXT, openImageFile, openLabelFile, readAsDataUrl, safeFileName, saveTextAs, writeToHandle, type FileHandle } from '../files/fs-access';
 import { round1, uid } from '../lib/units';
 import { printer } from '../printer';
 import type { ConnectionKind } from '../printer/client';
@@ -30,7 +30,7 @@ import { inkOutsideHead } from '../printer/profiles';
 import { THERMAL_HEAD_MM } from '../printer/thermal';
 import { fitBorders, safeArea } from '../printer/safeArea';
 import { alignmentDoc } from '../printer/alignment';
-import type { PrintOffset } from '../printer/service';
+import { DEMO_NAME, type PrintOffset } from '../printer/service';
 import { TEMPLATES } from '../templates';
 import { RollMismatchBanner } from './RollMismatchBanner';
 import { ContinuousDialog } from './ContinuousDialog';
@@ -110,6 +110,24 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
   const offset = (printerKey && offsets[printerKey]) || { x: 0, y: 0 };
 
   useEffect(() => printer.setManualProfile(initialProfileId), [initialProfileId]);
+
+  // The printer a label is for: the one connected while it is made. The demo is no real printer.
+  const connectedPrinter =
+    (status.state === 'ready' || status.state === 'printing') && status.profile?.name !== DEMO_NAME
+      ? (status.profile?.name ?? status.detectedModel)
+      : undefined;
+  useEffect(() => {
+    if (view === 'edit' && connectedPrinter && !doc.printer) dispatch({ type: 'meta', patch: { printer: connectedPrinter } });
+  }, [view, connectedPrinter, doc.printer, dispatch]);
+
+  // The window title follows the open label.
+  useEffect(() => {
+    const base = document.title;
+    if (view === 'edit') document.title = `${doc.name} · niimai`;
+    return () => {
+      document.title = base;
+    };
+  }, [view, doc.name]);
 
   // Autosave to the library.
   useEffect(() => {
@@ -321,26 +339,35 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
 
   const save = useCallback(
     async (as = false) => {
-      const text = serializeDoc(doc);
-      if (!as && fileHandle.current && (await writeToHandle(fileHandle.current, text))) {
+      // Saving records the printer in use; once saved, the label takes the file's name.
+      const printerPatch = connectedPrinter ? { printer: connectedPrinter } : {};
+      const named = (fileName: string) => dispatch({ type: 'meta', patch: { name: fileName, fileName, ...printerPatch } });
+      const text = (name: string) => serializeDoc({ ...doc, ...printerPatch, name, fileName: name });
+      if (!as && fileHandle.current && (await writeToHandle(fileHandle.current, text(baseName(fileHandle.current.name))))) {
+        named(baseName(fileHandle.current.name));
         toast.success(`Saved ${fileHandle.current.name}`);
         return;
       }
-      const outcome = await saveTextAs(`${safeFileName(doc.name)}${LABEL_EXT}`, text);
+      const suggested = safeFileName(doc.name);
+      const outcome = await saveTextAs(`${suggested}${LABEL_EXT}`, text(suggested));
       if (outcome.status === 'saved') {
         fileHandle.current = outcome.handle;
+        named(baseName(outcome.handle.name));
         toast.success(`Saved ${outcome.handle.name}`);
-      } else if (outcome.status === 'downloaded') toast.success('Downloaded');
-      else if (outcome.status === 'failed') toast.error(outcome.reason);
+      } else if (outcome.status === 'downloaded') {
+        named(suggested);
+        toast.success('Downloaded');
+      } else if (outcome.status === 'failed') toast.error(outcome.reason);
     },
-    [doc],
+    [doc, connectedPrinter, dispatch],
   );
 
   const open = useCallback(async () => {
     try {
       const opened = await openLabelFile();
       if (!opened) return;
-      loadDoc(parseDoc(JSON.parse(await opened.file.text())), opened.handle ?? null);
+      const fileName = baseName(opened.name);
+      loadDoc({ ...parseDoc(JSON.parse(await opened.file.text())), name: fileName, fileName }, opened.handle ?? null);
     } catch (err) {
       toast.error(err instanceof SyntaxError ? 'Not a label file' : (err as Error).message);
     }
@@ -512,7 +539,10 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
       <ErrorBoundary name="Toolbar">
         <Header
           name={doc.name}
+          fileName={doc.fileName}
+          docPrinter={doc.printer}
           onRename={(name) => dispatch({ type: 'setDoc', patch: { name } })}
+          onSaveAs={() => void save(true)}
           canUndo={state.past.length > 0}
           canRedo={state.future.length > 0}
           preview={previewOn}

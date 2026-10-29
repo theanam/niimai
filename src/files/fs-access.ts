@@ -131,6 +131,9 @@ function pickWithInput(accept: string): Promise<File | null> {
   });
 }
 
+/** A file's name without the label extension. */
+export const baseName = (fileName: string): string => fileName.replace(/\.(niimai|json)$/i, '') || fileName;
+
 export const safeFileName = (name: string): string => (name.trim() || 'label').replace(/[\\/:*?"<>|]+/g, '-');
 
 export function readAsDataUrl(file: Blob): Promise<string> {

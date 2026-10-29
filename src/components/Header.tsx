@@ -1,6 +1,7 @@
 import * as Popover from '@radix-ui/react-popover';
 import { CircleHelp, Ellipsis, Eye, FilePlus2, FolderOpen, Info, LayoutTemplate, Library, Printer, Redo2, Save, Undo2 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
+import { LABEL_EXT } from '../files/fs-access';
 import type { PrinterStatus } from '../printer/service';
 import { shortcutLabel } from '../shortcuts/shortcuts';
 import { GitHubMark } from '../ui/GitHubMark';
@@ -10,7 +11,12 @@ import { LogoLockup } from '../ui/Logo';
 
 interface Props {
   name: string;
+  /** Set once the label is saved or opened from a file; the name then follows the file. */
+  fileName?: string;
+  /** The printer the label was made for. */
+  docPrinter?: string;
   onRename: (name: string) => void;
+  onSaveAs: () => void;
   onHome: () => void;
   canUndo: boolean;
   canRedo: boolean;
@@ -84,7 +90,7 @@ function MoreMenu({ canUndo, canRedo, preview, home, onAction }: Pick<Props, 'ca
   );
 }
 
-export function Header({ name, onRename, onHome, canUndo, canRedo, preview, printer, home = false, onAction }: Props) {
+export function Header({ name, fileName, docPrinter, onRename, onSaveAs, onHome, canUndo, canRedo, preview, printer, home = false, onAction }: Props) {
   const k = shortcutLabel;
   return (
     <header className="app-header">
@@ -100,7 +106,22 @@ export function Header({ name, onRename, onHome, canUndo, canRedo, preview, prin
       >
         <LogoLockup />
       </a>
-      {!home && <input className="doc-name" aria-label="Label name" value={name} onChange={(e) => onRename(e.target.value)} spellCheck={false} />}
+      {!home && (
+        <div className="doc-title">
+          {fileName ? (
+            <button type="button" className="doc-name doc-name-file" onClick={onSaveAs} title={`${fileName}${LABEL_EXT} · Save as to rename (${k('Mod+Shift+S')})`}>
+              {name}
+            </button>
+          ) : (
+            <input className="doc-name" aria-label="Label name" value={name} onChange={(e) => onRename(e.target.value)} spellCheck={false} />
+          )}
+          {docPrinter && (
+            <small className="doc-printer" title="Made for this printer">
+              <Printer size={11} aria-hidden="true" /> {docPrinter}
+            </small>
+          )}
+        </div>
+      )}
 
       <nav className="toolbar toolbar-wide" aria-label="File">
         <IconButton label="New" shortcut={k('Mod+N')} onClick={() => onAction('new')}>

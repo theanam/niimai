@@ -114,6 +114,10 @@ export interface LabelDoc {
   fold?: FoldMode;
   /** Paper to print on; unset follows what the loaded roll reports. */
   paper?: PaperType;
+  /** The file this label was last saved as or opened from, without the extension. Its name follows the file. */
+  fileName?: string;
+  /** The printer connected when the label was made or last saved, for telling files apart later. */
+  printer?: string;
   elements: LabelElement[];
   createdAt: number;
   updatedAt: number;
@@ -276,6 +280,8 @@ export function parseDoc(input: unknown): LabelDoc {
   const tail = isNum(raw.tailMm) && raw.tailMm > 0 && raw.tailMm < size.widthMm ? { tailMm: raw.tailMm } : {};
   const fold = FOLD_MODES.includes(raw.fold as FoldMode) ? { fold: raw.fold as FoldMode } : {};
   const paper = PAPER_TYPES.some((p) => p.value === raw.paper) ? { paper: raw.paper as PaperType } : {};
+  const fileName = typeof raw.fileName === 'string' && raw.fileName ? { fileName: raw.fileName } : {};
+  const printer = typeof raw.printer === 'string' && raw.printer ? { printer: raw.printer } : {};
   return {
     version: 1,
     id: typeof raw.id === 'string' ? raw.id : uid(),
@@ -284,6 +290,8 @@ export function parseDoc(input: unknown): LabelDoc {
     ...tail,
     ...fold,
     ...paper,
+    ...fileName,
+    ...printer,
     elements,
     createdAt: isNum(raw.createdAt) ? raw.createdAt : now,
     updatedAt: isNum(raw.updatedAt) ? raw.updatedAt : now,

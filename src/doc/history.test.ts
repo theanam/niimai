@@ -76,4 +76,15 @@ describe('editor history', () => {
     expect(s.doc.widthMm).toBe(50);
     expect(editorReducer(s, { type: 'undo' }).doc.widthMm).toBe(40);
   });
+
+  it('records file facts on every step, so undo keeps them', () => {
+    let s = initialState(createDoc());
+    s = editorReducer(s, { type: 'setDoc', patch: { widthMm: 50 } });
+    s = editorReducer(s, { type: 'meta', patch: { name: 'Jars', fileName: 'Jars', printer: 'D110' } });
+    expect(s.past).toHaveLength(1);
+    s = editorReducer(s, { type: 'undo' });
+    expect(s.doc).toMatchObject({ name: 'Jars', fileName: 'Jars', printer: 'D110' });
+    s = editorReducer(s, { type: 'redo' });
+    expect(s.doc).toMatchObject({ widthMm: 50, fileName: 'Jars' });
+  });
 });

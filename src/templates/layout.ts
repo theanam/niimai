@@ -1,5 +1,6 @@
 import { createElement, type Align, type LabelElement, type LabelSize, type TextElement } from '../doc/model';
 import { clamp, round1 } from '../lib/units';
+import { printIssue } from '../render/printability';
 
 export type TemplateStyle = 'plain' | 'border' | 'round' | 'divider' | 'warning';
 
@@ -48,19 +49,44 @@ const text = (box: Box, value: string, font: string, bold: boolean, align: Align
 });
 
 const size = { widthMm: 1, heightMm: 1 };
+
+/** Labels whose short side is under this get no border. */
+export const SMALL_LABEL_MM = 20;
 const place = <T extends LabelElement>(el: T, box: Box): T => ({ ...el, x: round1(box.x), y: round1(box.y), w: round1(box.w), h: round1(box.h) });
 
+/** Templates are laid out for the most common thermal resolution. */
+const TEMPLATE_DPI = 203;
+
 /**
- * Lays template content out on a label of the given size. Wide strips put
- * codes beside the text and keep at most one detail line; taller labels stack
- * text and put barcodes underneath.
+ * Lays template content out on a label of the given size, then trims what
+ * would print badly there: a code too fine to scan goes first, then detail
+ * lines too small to read, so small labels keep a clean, legible title.
  */
-export function layoutTemplate(c: TemplateContent, { widthMm: W, heightMm: H }: LabelSize): LabelElement[] {
+export function layoutTemplate(c: TemplateContent, size: LabelSize): LabelElement[] {
+  let content = c;
+  for (;;) {
+    const out = layoutOnce(content, size);
+    const bad = out.filter((el) => printIssue(el, TEMPLATE_DPI));
+    if (!bad.length) return out;
+    if (content.code && bad.some((el) => el.type === 'qr' || el.type === 'barcode')) content = { ...content, code: undefined };
+    else if (content.lines?.length) content = { ...content, lines: content.lines.slice(0, -1) };
+    else if (content.pre) content = { ...content, pre: undefined };
+    else return out;
+  }
+}
+
+/**
+ * Wide strips put codes beside the text and keep at most one detail line;
+ * taller labels stack text and put barcodes underneath.
+ */
+function layoutOnce(c: TemplateContent, { widthMm: W, heightMm: H }: LabelSize): LabelElement[] {
   const out: LabelElement[] = [];
   const m = clamp(Math.min(W, H) * 0.1, 1, 3);
   let box: Box = { x: m, y: m, w: W - 2 * m, h: H - 2 * m };
 
-  if (c.style === 'border' || c.style === 'round' || c.style === 'warning') {
+  // Small labels skip the border: it costs room the text needs, and on narrow strips the printhead may not reach the edge.
+  const bordered = (c.style === 'border' || c.style === 'round' || c.style === 'warning') && Math.min(W, H) >= SMALL_LABEL_MM;
+  if (bordered) {
     const stroke = c.style === 'warning' ? clamp(Math.min(W, H) * 0.06, 0.6, 1.4) : 0.4;
     const inset = m * 0.5;
     out.push(

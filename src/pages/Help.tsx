@@ -1,4 +1,4 @@
-import { Bluetooth, Bug, Cable, Keyboard, LayoutTemplate, Mail, Printer, ScanLine, Sparkles } from 'lucide-react';
+import { Bluetooth, Bug, Cable, Crosshair, Keyboard, LayoutTemplate, Mail, Printer, ScanLine, Sparkles } from 'lucide-react';
 import { replayTour } from '../tour/Tour';
 import { shortcutLabel } from '../shortcuts/shortcuts';
 import { CONTACT_EMAIL, ISSUES_URL } from '../ui/links';
@@ -73,6 +73,21 @@ export function Help() {
       </section>
       <section>
         <h2>
+          <Crosshair size={18} /> Print off-centre?
+        </h2>
+        <p>
+          First check the label matches the roll. When the design's size or paper differs from what the printer has
+          loaded, a banner above the label says so; choose Match the roll.
+        </p>
+        <p>
+          Then open the printer panel and choose Print test. It prints a millimetre ruler at each end of the label. If one
+          end is cut off, move the print away from that end by the first number you can read, using Move right or Move
+          down. niimai remembers the offset for each printer model.
+        </p>
+        <p>If a print lands across two labels after reloading the roll, print once more; the printer finds the gap again.</p>
+      </section>
+      <section>
+        <h2>
           <Cable size={18} /> Cable labels
         </h2>
         <p>
@@ -90,8 +105,8 @@ export function Help() {
           <LayoutTemplate size={18} /> Templates
         </h2>
         <p>
-          Open the library and switch to Templates. It shows every template laid out for your current label size. Choose
-          All sizes to browse the full catalog.
+          Search templates on the start screen, or press Templates in the top bar. Templates are laid
+          out for your current label size; choose All sizes to browse the full catalogue.
         </p>
         <p>
           The icon button in the toolbar opens 1,500 icons. Bold and Fill print best on small labels; Regular suits larger ones.
@@ -108,6 +123,15 @@ export function Help() {
         <p>
           Everything prints in black and white. Use the preview toggle to see exactly which dots will print, and the
           image darkness slider to tune photos and logos. Browser printing produces a vector document sized to the label.
+        </p>
+        <p>
+          Some labels are wider than the printhead. Once a printer is connected, the strips it cannot reach are shaded on
+          the label, and borders move inside the printable area. Small templates come without borders.
+        </p>
+        <p>
+          The screen shows everything crisply, but a thermal printer prints in dots about 0.13 mm wide. Lines, letters,
+          icon strokes and barcode bars finer than that fade or vanish, so niimai marks them with an amber badge and the
+          side panel says what to change.
         </p>
         <p>
           The image tool takes PNG, JPEG, GIF, WebP and SVG files. You can also drop them on the label, or paste SVG code

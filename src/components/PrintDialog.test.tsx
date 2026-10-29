@@ -6,11 +6,11 @@ import { renderApp } from '../test/render';
 import { PrintDialog, sizeWarning } from './PrintDialog';
 
 describe('print dialog', () => {
-  it('warns when the label is wider than the printhead', () => {
+  it('warns only when part of the design falls outside the printhead', () => {
     const d11 = findManualProfile('d11')!;
-    expect(sizeWarning({ widthMm: 40, heightMm: 12 }, d11)).toBeNull();
-    expect(sizeWarning({ widthMm: 40, heightMm: 30 }, d11)).toMatch(/12 mm printhead/);
-    expect(sizeWarning({ widthMm: 40, heightMm: 30 }, null)).toBeNull();
+    expect(sizeWarning(d11, false)).toBeNull();
+    expect(sizeWarning(d11, true)).toMatch(/12 mm printhead will not print/);
+    expect(sizeWarning(null, true)).toBeNull();
   });
 
   it('prints the chosen number of copies', async () => {

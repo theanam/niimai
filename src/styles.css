@@ -2569,3 +2569,259 @@ kbd {
   height: auto;
   display: block;
 }
+
+/* Printer dialog: print position */
+.pd-section {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+.pd-section-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.pd-test-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.pd-offset {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Templates entry points */
+.btn-soft {
+  background: var(--primary-soft);
+  border-color: transparent;
+  color: var(--primary-hover);
+}
+.btn-soft:hover {
+  background: color-mix(in srgb, var(--primary-soft), var(--primary) 12%);
+}
+.templates-btn {
+  margin-left: 6px;
+}
+.stage {
+  position: relative;
+}
+.stage-templates {
+  position: absolute;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.stage-templates svg {
+  color: var(--primary);
+}
+.stage-templates:hover {
+  border-color: var(--primary);
+}
+
+/* Start screen: templates */
+.start-templates-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.start-template-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  width: 220px;
+  max-width: 100%;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--muted);
+}
+.start-template-search:focus-within {
+  border-color: var(--primary);
+}
+.start-template-search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font: inherit;
+  font-size: 14px;
+  color: var(--text);
+}
+
+/* Design and loaded roll disagree */
+.roll-mismatch {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 8px 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--warn), transparent 40%);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--warn), var(--surface) 85%);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.35;
+}
+.roll-mismatch > svg {
+  flex: none;
+  color: color-mix(in srgb, var(--warn), #000 25%);
+}
+.roll-mismatch-text {
+  flex: 1;
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.roll-mismatch .btn {
+  flex: none;
+}
+.btn-sm {
+  height: 30px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+.stage-banner {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  width: max-content;
+  max-width: calc(100% - 24px);
+  box-shadow: var(--shadow);
+}
+.dialog .roll-mismatch {
+  margin-bottom: 12px;
+}
+
+/* Parts of the label the printhead does not reach */
+.unsafe-zone {
+  pointer-events: none;
+}
+.unsafe-zone pattern rect {
+  fill: rgb(28 26 23 / 0.16);
+}
+.unsafe-zone line {
+  stroke: var(--muted);
+}
+
+/* Start screen: connected printer */
+.start-facts-inline {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  color: var(--muted);
+  font-size: 14px;
+}
+.start-roll {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+.start-roll .silhouette {
+  flex: none;
+}
+.start-roll-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+.start-roll-text strong {
+  font-size: 18px;
+  letter-spacing: -0.01em;
+}
+.start-roll-actions {
+  margin-top: auto;
+}
+
+/* Start screen: recent labels */
+.recent-item {
+  position: relative;
+}
+.recent-delete.icon-btn {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 28px;
+  height: 28px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+.recent-item:hover .recent-delete,
+.recent-delete:focus-visible {
+  opacity: 1;
+}
+@media (pointer: coarse) {
+  .recent-delete.icon-btn {
+    opacity: 1;
+  }
+}
+
+/* Details too fine for the printer */
+.print-issue-mark {
+  pointer-events: none;
+}
+.print-issue-mark rect {
+  fill: none;
+  stroke: var(--warn);
+}
+.print-issue-mark circle {
+  fill: var(--warn);
+}
+.print-issue-mark path {
+  fill: none;
+  stroke: #fff;
+}
+.print-issue {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--warn), var(--surface) 85%);
+  font-size: 13px;
+  line-height: 1.35;
+}
+.print-issue svg {
+  flex: none;
+  margin-top: 1px;
+  color: color-mix(in srgb, var(--warn), #000 25%);
+}

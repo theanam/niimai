@@ -1,4 +1,4 @@
-import { ArrowRight, Battery, Bluetooth, Check, FilePlus2, FlaskConical, LayoutTemplate, Plug, Printer, ScanLine } from 'lucide-react';
+import { ArrowRight, Battery, Bluetooth, Check, FilePlus2, FlaskConical, LayoutTemplate, Plug, Printer, ScanLine, Search, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { LABEL_PRESETS, type LabelDoc, type LabelSize, sizeLabel } from '../doc/model';
@@ -6,11 +6,14 @@ import { supportsBluetooth, supportsSerial, unsupportedReason, type ConnectionKi
 import { sameSize, type RollState } from '../printer/roll';
 import type { PrinterStatus } from '../printer/service';
 import { ensureFont } from '../render/fonts';
-import { listLabels } from '../storage/db';
-import { labelFromTemplate, TEMPLATE_FONTS, templatePreview, templatesForSize } from '../templates';
+import { deleteLabel, listLabels } from '../storage/db';
+import { useConfirm } from '../ui/Dialog';
+import { IconButton } from '../ui/IconButton';
+import { filterTemplates, labelFromTemplate, TEMPLATE_FONTS, TEMPLATES, templatePreview, templatesForSize } from '../templates';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
 import { NumberField } from './fields';
-import { LabelThumb, templateLabel } from './LibraryDialog';
+import { LabelSilhouette } from './LabelSizePicker';
+import { LabelThumb, templateLabel, type TemplateSeed } from './LibraryDialog';
 
 interface Props {
   status: PrinterStatus;
@@ -20,12 +23,12 @@ interface Props {
   onSetRollSize: () => void;
   onOpen: (doc: LabelDoc) => void;
   onBlank: (size: LabelSize) => void;
-  onBrowseTemplates: () => void;
+  onBrowseTemplates: (seed?: TemplateSeed) => void;
   onContinue: () => void;
 }
 
 
-function PrinterCard({ status, roll, onConnect, onSetRollSize }: Pick<Props, 'status' | 'roll' | 'onConnect' | 'onSetRollSize'>) {
+function PrinterCard({ status, roll, onConnect, onSetRollSize, onBlank, onBrowseTemplates }: Pick<Props, 'status' | 'roll' | 'onConnect' | 'onSetRollSize' | 'onBlank' | 'onBrowseTemplates'>) {
   const [busy, setBusy] = useState(false);
   const connected = status.state === 'ready' || status.state === 'printing';
   const connect = async (kind: ConnectionKind) => {
@@ -44,26 +47,49 @@ function PrinterCard({ status, roll, onConnect, onSetRollSize }: Pick<Props, 'st
       <span className="start-step">{connected ? <Check size={16} /> : 1}</span>
       <h2 id="start-printer">{connected ? (status.profile?.name ?? status.deviceName ?? 'Printer') : 'Connect your printer'}</h2>
       {connected ? (
-        <ul className="start-facts">
-          {status.battery !== undefined && (
-            <li>
-              <Battery size={15} /> {status.battery}%
-            </li>
-          )}
-          <li>
-            <ScanLine size={15} />
-            {roll.size ? (
-              `${sizeLabel(roll.size)} mm roll`
-            ) : roll.needsSize ? (
-              <button className="link-btn" onClick={onSetRollSize}>
-                Set roll size
-              </button>
-            ) : (
-              'No roll detected'
+        <>
+          <ul className="start-facts start-facts-inline">
+            {status.battery !== undefined && (
+              <li>
+                <Battery size={15} /> {status.battery}%
+              </li>
             )}
-            {status.label?.remaining !== undefined && <span className="muted"> · {status.label.remaining} left</span>}
-          </li>
-        </ul>
+            {status.label?.remaining !== undefined && (
+              <li>
+                <ScanLine size={15} /> {status.label.remaining} labels left
+              </li>
+            )}
+          </ul>
+          {roll.size ? (
+            <div className="start-roll">
+              <LabelSilhouette size={roll.size} box={64} />
+              <div className="start-roll-text">
+                <strong>{sizeLabel(roll.size)} mm</strong>
+                <small className="muted">{roll.name ?? 'Loaded roll'}</small>
+              </div>
+            </div>
+          ) : (
+            <p className="muted">{roll.needsSize ? 'This printer does not report the roll size.' : 'No roll detected. Load one to start from it.'}</p>
+          )}
+          <div className="start-actions start-roll-actions">
+            {roll.size ? (
+              <>
+                <button className="btn btn-primary" onClick={() => onBlank(roll.size!)}>
+                  <FilePlus2 size={16} /> New {sizeLabel(roll.size)} label
+                </button>
+                <button className="btn" onClick={() => onBrowseTemplates()}>
+                  <LayoutTemplate size={16} /> Templates for this roll
+                </button>
+              </>
+            ) : (
+              roll.needsSize && (
+                <button className="btn btn-primary" onClick={onSetRollSize}>
+                  <ScanLine size={16} /> Set roll size
+                </button>
+              )
+            )}
+          </div>
+        </>
       ) : (
         <>
           <p className="muted">Bluetooth or USB, straight from the browser.</p>
@@ -120,8 +146,11 @@ function BlankCard({ size, roll, onBlank }: { size: LabelSize; roll: RollState; 
   );
 }
 
-function TemplatesCard({ size, onOpen, onBrowse }: { size: LabelSize; onOpen: (d: LabelDoc) => void; onBrowse: () => void }) {
+const TEMPLATE_COUNT = TEMPLATES.length.toLocaleString();
+
+function TemplatesCard({ size, onOpen, onBrowse }: { size: LabelSize; onOpen: (d: LabelDoc) => void; onBrowse: (seed?: TemplateSeed) => void }) {
   const [ready, setReady] = useState(false);
+  const [query, setQuery] = useState('');
   useEffect(() => {
     let live = true;
     void Promise.race([Promise.allSettled(TEMPLATE_FONTS.map(ensureFont)), new Promise((r) => setTimeout(r, 2500))]).then(() => live && setReady(true));
@@ -129,33 +158,46 @@ function TemplatesCard({ size, onOpen, onBrowse }: { size: LabelSize; onOpen: (d
       live = false;
     };
   }, []);
-  // A spread across categories reads better than the first few pantry jars.
+  const forSize = useMemo(() => templatesForSize(size), [size]);
   const picks = useMemo(() => {
-    // Icon versions first: they show off more of what a label can hold.
-    const all = templatesForSize(size).filter((t) => t.variant === 'icon');
+    const q = query.trim();
+    // Searching shows the best matches; otherwise a spread across categories, icon versions first.
+    if (q) return filterTemplates(forSize, { query: q }).slice(0, 6);
     const seen = new Set<string>();
-    return all.filter((t) => !seen.has(t.category) && seen.add(t.category)).slice(0, 6);
-  }, [size]);
+    return forSize.filter((t) => t.variant === 'icon' && !seen.has(t.category) && seen.add(t.category)).slice(0, 6);
+  }, [forSize, query]);
 
   return (
     <section className="start-card start-card-wide" aria-labelledby="start-templates">
       <span className="start-step">3</span>
-      <h2 id="start-templates">Or begin from a template</h2>
-      <p className="muted">
-        Laid out for {sizeLabel(size)} mm.
-      </p>
-      <ul className="start-templates" aria-label="Suggested templates">
-        {picks.map((t) => (
-          <li key={t.id}>
-            <button onClick={() => onOpen(labelFromTemplate(t))} aria-label={templateLabel(t)}>
-              {ready ? <LabelThumb doc={templatePreview(t)} /> : <div className="thumb" />}
-              <span>{t.name}</span>
-            </button>
-          </li>
-        ))}
-      </ul>
-      <button className="btn btn-ghost start-more" onClick={onBrowse}>
-        <LayoutTemplate size={16} /> All templates <ArrowRight size={14} />
+      <div className="start-templates-head">
+        <div>
+          <h2 id="start-templates">Or begin from a template</h2>
+          <p className="muted">
+            {TEMPLATE_COUNT} templates, laid out for {sizeLabel(size)} mm.
+          </p>
+        </div>
+        <label className="start-template-search">
+          <Search size={15} aria-hidden="true" />
+          <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search templates" aria-label="Search templates" />
+        </label>
+      </div>
+      {picks.length ? (
+        <ul className="start-templates" aria-label={query.trim() ? 'Matching templates' : 'Suggested templates'}>
+          {picks.map((t) => (
+            <li key={t.id}>
+              <button onClick={() => onOpen(labelFromTemplate(t))} aria-label={templateLabel(t)}>
+                {ready ? <LabelThumb doc={templatePreview(t)} /> : <div className="thumb" />}
+                <span>{t.name}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="muted">No templates match at this size.</p>
+      )}
+      <button className="btn btn-ghost start-more" onClick={() => onBrowse(query.trim() ? { query: query.trim() } : undefined)}>
+        <LayoutTemplate size={16} /> {query.trim() ? 'See all matches' : `All ${TEMPLATE_COUNT} templates`} <ArrowRight size={14} />
       </button>
     </section>
   );
@@ -163,9 +205,14 @@ function TemplatesCard({ size, onOpen, onBrowse }: { size: LabelSize; onOpen: (d
 
 function Recent({ current, onOpen, onContinue }: Pick<Props, 'current' | 'onOpen' | 'onContinue'>) {
   const [labels, setLabels] = useState<LabelDoc[]>([]);
-  useEffect(() => {
-    listLabels().then((l) => setLabels(l.slice(0, 6)), () => {});
-  }, []);
+  const confirm = useConfirm();
+  const refresh = () => listLabels().then((l) => setLabels(l.slice(0, 6)), () => {});
+  useEffect(() => void refresh(), []);
+  const remove = async (doc: LabelDoc) => {
+    if (!(await confirm({ title: `Delete “${doc.name}”?`, confirmLabel: 'Delete', danger: true }))) return;
+    await deleteLabel(doc.id);
+    void refresh();
+  };
   if (!labels.length) return null;
   return (
     <section className="start-recent" aria-labelledby="start-recent">
@@ -177,11 +224,17 @@ function Recent({ current, onOpen, onContinue }: Pick<Props, 'current' | 'onOpen
       </header>
       <ul className="start-templates" aria-label="Recent labels">
         {labels.map((d) => (
-          <li key={d.id}>
+          <li key={d.id} className="recent-item">
             <button onClick={() => (d.id === current.id ? onContinue() : onOpen(d))} aria-label={`Open ${d.name}`}>
               <LabelThumb doc={d} />
               <span>{d.name}</span>
             </button>
+            {/* The open label autosaves, so deleting it would only bring it back. */}
+            {d.id !== current.id && (
+              <IconButton label={`Delete ${d.name}`} className="recent-delete" onClick={() => void remove(d)}>
+                <Trash2 size={14} />
+              </IconButton>
+            )}
           </li>
         ))}
       </ul>
@@ -198,7 +251,14 @@ export function StartScreen(props: Props) {
         <h1>What are we labelling?</h1>
         <div className="start-grid">
           <ErrorBoundary name="Printer">
-            <PrinterCard status={props.status} roll={props.roll} onConnect={props.onConnect} onSetRollSize={props.onSetRollSize} />
+            <PrinterCard
+              status={props.status}
+              roll={props.roll}
+              onConnect={props.onConnect}
+              onSetRollSize={props.onSetRollSize}
+              onBlank={props.onBlank}
+              onBrowseTemplates={props.onBrowseTemplates}
+            />
           </ErrorBoundary>
           <ErrorBoundary name="Blank label">
             <BlankCard size={size} roll={props.roll} onBlank={props.onBlank} />

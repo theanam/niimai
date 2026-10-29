@@ -1,5 +1,5 @@
 import * as Popover from '@radix-ui/react-popover';
-import { CircleHelp, Ellipsis, Eye, FilePlus2, FolderOpen, Info, Library, Printer, Redo2, Save, Undo2 } from 'lucide-react';
+import { CircleHelp, Ellipsis, Eye, FilePlus2, FolderOpen, Info, LayoutTemplate, Library, Printer, Redo2, Save, Undo2 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import type { PrinterStatus } from '../printer/service';
 import { shortcutLabel } from '../shortcuts/shortcuts';
@@ -16,7 +16,7 @@ interface Props {
   canRedo: boolean;
   preview: boolean;
   printer: PrinterStatus;
-  onAction: (a: 'new' | 'open' | 'save' | 'library' | 'undo' | 'redo' | 'preview' | 'print' | 'printer') => void;
+  onAction: (a: 'new' | 'open' | 'save' | 'library' | 'templates' | 'undo' | 'redo' | 'preview' | 'print' | 'printer') => void;
 }
 
 const STATE_LABEL: Record<PrinterStatus['state'], string> = {
@@ -66,6 +66,7 @@ function MoreMenu({ canUndo, canRedo, preview, onAction }: Pick<Props, 'canUndo'
           {item(<FilePlus2 size={17} />, 'New label', 'new')}
           {item(<FolderOpen size={17} />, 'Open file', 'open')}
           {item(<Save size={17} />, 'Save file', 'save')}
+          {item(<LayoutTemplate size={17} />, 'Templates', 'templates')}
           {item(<Library size={17} />, 'Library', 'library')}
           <hr />
           {link(<CircleHelp size={17} />, 'Help', '#/help')}
@@ -120,6 +121,10 @@ export function Header({ name, onRename, onHome, canUndo, canRedo, preview, prin
           <Eye size={18} />
         </IconButton>
       </nav>
+
+      <button className="btn btn-soft templates-btn toolbar-wide" onClick={() => onAction('templates')}>
+        <LayoutTemplate size={16} /> Templates
+      </button>
 
       <span className="spacer" />
 

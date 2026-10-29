@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type DragEvent } from 'react';
+import { LayoutTemplate } from 'lucide-react';
+import { type DragEvent, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
 import { createDoc, createElement, parseDoc, serializeDoc, usedFonts, type ElementType, type LabelDoc, type LabelElement, type LabelSize } from '../doc/model';
 import { useEditor } from '../doc/useEditor';
@@ -20,10 +21,17 @@ import { Canvas } from './Canvas';
 import { Header } from './Header';
 import { Inspector } from './Inspector';
 import { IconPicker, type PickedIcon } from './IconPicker';
-import { LibraryDialog } from './LibraryDialog';
+import { LibraryDialog, type TemplateSeed } from './LibraryDialog';
 import { SizeDialog } from './SizeDialog';
 import { StartScreen } from './StartScreen';
 import { PrintDialog } from './PrintDialog';
+import { printIssues } from '../render/printability';
+import { inkOutsideHead } from '../printer/profiles';
+import { fitBorders, safeArea } from '../printer/safeArea';
+import { alignmentDoc } from '../printer/alignment';
+import type { PrintOffset } from '../printer/service';
+import { TEMPLATES } from '../templates';
+import { RollMismatchBanner } from './RollMismatchBanner';
 import { PrinterDialog } from './PrinterDialog';
 
 type DialogName = 'new' | 'roll' | 'library' | 'print' | 'printer' | 'icon' | null;
@@ -55,13 +63,15 @@ interface Props {
   /** Undefined until the user picks one; the printer's default applies until then. */
   initialDensity?: number;
   initialRollSizes?: Record<string, LabelSize>;
+  initialOffsets?: Record<string, PrintOffset>;
   /** The app opens on the start screen; tests can start in the editor. */
   initialView?: 'start' | 'edit';
 }
 
-export function Editor({ initialDoc, initialProfileId, initialDensity, initialRollSizes = {}, initialView = 'edit' }: Props) {
+export function Editor({ initialDoc, initialProfileId, initialDensity, initialRollSizes = {}, initialOffsets = {}, initialView = 'edit' }: Props) {
   const [view, setView] = useState(initialView);
   const [libraryTab, setLibraryTab] = useState<'mine' | 'templates'>('mine');
+  const [templateSeed, setTemplateSeed] = useState<TemplateSeed>({});
   const editor = useEditor(initialDoc);
   const { state, dispatch, selected, add, update, duplicate } = editor;
   const { doc } = state;
@@ -72,6 +82,8 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
   const [dialog, setDialog] = useState<DialogName>(null);
   const [previewOn, setPreviewOn] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
+  /** The latest raster has dots the printhead cannot reach. */
+  const [clipped, setClipped] = useState(false);
   const [images, setImages] = useState<Record<string, string>>({});
   const [fontsVersion, setFontsVersion] = useState(0);
   const [manualProfileId, setManualProfileId] = useState<string | null>(initialProfileId);
@@ -86,6 +98,10 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
   const [rollSizes, setRollSizes] = useState(initialRollSizes);
   const roll = resolveRoll(status.label, rollSizes);
   const appliedRoll = useRef<string | null>(null);
+  const [offsets, setOffsets] = useState(initialOffsets);
+  // Offsets belong to the printer model: each one's paper path sits a little differently.
+  const printerKey = status.detectedModel ?? status.profile?.id ?? null;
+  const offset = (printerKey && offsets[printerKey]) || { x: 0, y: 0 };
 
   useEffect(() => printer.setManualProfile(initialProfileId), [initialProfileId]);
 
@@ -116,6 +132,36 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roll.key, roll.size?.widthMm, roll.size?.heightMm, status.state]);
+
+  // What the printhead reaches. Borders past it print with sides missing, so they move inside once per border.
+  const safe = safeArea(docSize, status.profile);
+  // Details thinner than the printer's dots look crisp on screen but vanish on paper. Fonts change the text measurements.
+  const issues = useMemo(() => printIssues(doc, dpi), [doc, dpi, fontsVersion]);
+  const fittedBorders = useRef<string | null>(null);
+  // Read before effects run: when the label is about to follow a new roll, wait for that size.
+  const resizePending = !!roll.key && appliedRoll.current !== roll.key && !!roll.size && !sameSize(roll.size, docSize);
+  useEffect(() => {
+    if (resizePending) return;
+    const boxes = fitBorders(doc.elements, docSize, safe);
+    const ids = Object.keys(boxes);
+    if (!ids.length || !status.profile) return;
+    const key = `${status.profile.id}:${doc.id}:${doc.widthMm}x${doc.heightMm}:${ids.sort().join(',')}`;
+    if (fittedBorders.current === key) return;
+    fittedBorders.current = key;
+    for (const id of ids) dispatch({ type: 'update', id, patch: boxes[id], key: 'safe-area' });
+    dispatch({ type: 'commit' });
+    toast(ids.length > 1 ? 'Borders moved inside the printable area' : 'Border moved inside the printable area', {
+      action: { label: 'Undo', onClick: () => ids.forEach(() => dispatch({ type: 'undo' })) },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doc, status.profile?.id]);
+
+  /** Puts the design on the loaded roll: its size, and paper that follows the roll. */
+  const matchRoll = () => {
+    const patch = { ...(roll.size ? asPatch(roll.size) : {}), ...(doc.paper && status.label?.paper && doc.paper !== status.label.paper ? { paper: undefined } : {}) };
+    dispatch({ type: 'setDoc', patch });
+    dispatch({ type: 'commit' });
+  };
 
   const saveRollSize = (size: LabelSize) => {
     const barcode = status.label?.barcode;
@@ -164,7 +210,13 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
     let live = true;
     const t = setTimeout(() => {
       rasterize(doc, dpi, images).then(
-        (c) => live && setPreview(c.toDataURL()),
+        (c) => {
+          if (!live) return;
+          setPreview(c.toDataURL());
+          const profile = printer.getStatus().profile;
+          const data = profile && c.getContext('2d')?.getImageData(0, 0, c.width, c.height).data;
+          setClipped(!!data && inkOutsideHead(data, c.width, c.height, profile!));
+        },
         (err: Error) => live && toast.error(err.message),
       );
     }, 150);
@@ -172,7 +224,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
       live = false;
       clearTimeout(t);
     };
-  }, [wantRaster, doc, dpi, images, fontsVersion]);
+  }, [wantRaster, doc, dpi, images, fontsVersion, status.profile?.id]);
 
   const loadDoc = useCallback(
     (next: LabelDoc, handle: FileHandle | null = null) => {
@@ -270,10 +322,16 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
 
   const createNew = (size: LabelSize) => loadDoc(createDoc(size));
 
+  const openTemplates = (seed: TemplateSeed = {}) => {
+    setTemplateSeed(seed);
+    setLibraryTab('templates');
+    setDialog('library');
+  };
+
   const printToPrinter = async (copies: number) => {
     try {
       const canvas = await rasterize(doc, dpi, images);
-      await printer.print(canvas, { density, copies, labelType: labelTypeOf(effectivePaper(doc.paper, status.label?.paper)) });
+      await printer.print(canvas, { density, copies, offset, labelType: labelTypeOf(effectivePaper(doc.paper, status.label?.paper)) });
       toast.success(copies > 1 ? `Printed ${copies} labels` : 'Printed');
       setDialog(null);
     } catch (err) {
@@ -290,10 +348,28 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
     }
   };
 
+  /** Prints the alignment test label on the loaded roll, with the current offset. */
+  const printAlignmentTest = async () => {
+    try {
+      const test = alignmentDoc(roll.size ?? docSize);
+      const canvas = await rasterize(test, dpi, {});
+      await printer.print(canvas, { density, copies: 1, offset, labelType: labelTypeOf(effectivePaper(doc.paper, status.label?.paper)) });
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  };
+
   const connect = async (kind: ConnectionKind) => {
     await printer.connect(kind);
     const s = printer.getStatus();
     toast.success(`Connected to ${s.deviceName ?? 'printer'}`);
+  };
+
+  const changeOffset = (next: PrintOffset) => {
+    if (!printerKey) return;
+    const all = { ...offsets, [printerKey]: next };
+    setOffsets(all);
+    void setSetting('printOffsets', all).catch(() => {});
   };
 
   const chooseProfile = (id: string | null) => {
@@ -411,6 +487,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
             else if (a === 'save') void save();
             else if (a === 'undo' || a === 'redo') dispatch({ type: a });
             else if (a === 'preview') setPreviewOn((p) => !p);
+            else if (a === 'templates') openTemplates();
             else {
               if (a === 'library') setLibraryTab('mine');
               setDialog(a);
@@ -424,17 +501,11 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
             status={status}
             roll={roll}
             current={doc}
-            onConnect={async (kind) => {
-              await printer.connect(kind);
-              toast.success(`Connected to ${printer.getStatus().deviceName ?? 'printer'}`);
-            }}
+            onConnect={connect}
             onSetRollSize={() => setDialog('roll')}
             onOpen={(d) => loadDoc(d)}
             onBlank={(size) => loadDoc(createDoc(size))}
-            onBrowseTemplates={() => {
-              setLibraryTab('templates');
-              setDialog('library');
-            }}
+            onBrowseTemplates={openTemplates}
             onContinue={() => setView('edit')}
           />
         </ErrorBoundary>
@@ -444,6 +515,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
           <AddBar onAdd={onAdd} />
         </ErrorBoundary>
         <main className="stage" onDragOver={(e) => e.preventDefault()} onDrop={onDrop}>
+          <RollMismatchBanner className="stage-banner" doc={doc} rollSize={roll.size} rollPaper={status.label?.paper} onMatch={matchRoll} />
           <ErrorBoundary name="Canvas" resetKeys={[doc]}>
             <Canvas
               doc={doc}
@@ -459,8 +531,15 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
                 setEditing({ id, fresh: false });
               }}
               onEditEnd={endEditing}
+              safeArea={safe}
+              issues={issues}
             />
           </ErrorBoundary>
+          {doc.elements.length === 0 && !previewOn && (
+            <button className="stage-templates" onClick={() => openTemplates()}>
+              <LayoutTemplate size={16} /> Start from one of {TEMPLATES.length.toLocaleString()} templates
+            </button>
+          )}
         </main>
         <ErrorBoundary name="Inspector" resetKeys={[state.selectedId]}>
           <Inspector
@@ -478,6 +557,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
             onReorder={(id, direction) => dispatch({ type: 'reorder', id, direction })}
             onReplaceImage={(id) => void chooseImage(id)}
             onEditText={(id) => setEditing({ id, fresh: false })}
+            printIssue={selected ? issues[selected.id] : null}
             onReplaceIcon={(id) => {
               setIconTarget(id);
               setDialog('icon');
@@ -520,6 +600,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
         currentId={doc.id}
         currentSize={roll.size ?? docSize}
         initialTab={libraryTab}
+        templateSeed={templateSeed}
         onOpen={(d) => loadDoc(d)}
       />
       <PrintDialog
@@ -533,6 +614,10 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
         onPrint={printToPrinter}
         onBrowserPrint={printFromBrowser}
         onConnect={() => setDialog('printer')}
+        rollSize={roll.size}
+        onMatchRoll={matchRoll}
+        clipped={clipped}
+        issueCount={Object.keys(issues).length}
       />
       <PrinterDialog
         open={dialog === 'printer'}
@@ -544,6 +629,9 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
         onSetRollSize={() => setDialog('roll')}
         manualProfileId={manualProfileId}
         onConnect={connect}
+        onAlignmentTest={printAlignmentTest}
+        offset={offset}
+        onOffset={changeOffset}
         onDisconnect={() => printer.disconnect()}
         onManualProfile={chooseProfile}
       />
@@ -560,16 +648,18 @@ export function EditorLoader() {
       let profileId: string | null = null;
       let density: number | undefined;
       let rollSizes: Record<string, LabelSize> = {};
+      let offsets: Record<string, PrintOffset> = {};
       try {
         const lastId = await getSetting('lastLabelId');
         if (lastId) doc = await getLabel(lastId);
         profileId = (await getSetting('manualProfileId')) ?? null;
         density = await getSetting('density');
         rollSizes = (await getSetting('rollSizes')) ?? {};
+        offsets = (await getSetting('printOffsets')) ?? {};
       } catch {
         // Private windows can block IndexedDB; the editor still works without it.
       }
-      setBoot({ initialDoc: doc ?? starterDoc(), initialProfileId: profileId, initialDensity: density, initialRollSizes: rollSizes });
+      setBoot({ initialDoc: doc ?? starterDoc(), initialProfileId: profileId, initialDensity: density, initialRollSizes: rollSizes, initialOffsets: offsets });
     })();
   }, []);
   if (!boot) return <div className="app-loading" aria-busy="true" />;

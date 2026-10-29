@@ -19,6 +19,7 @@ import {
   Cable,
   Pencil,
   FoldHorizontal,
+  TriangleAlert,
   Minus,
   Slash,
 } from 'lucide-react';
@@ -57,6 +58,8 @@ interface Props {
   onReplaceIcon: (id: string) => void;
   /** Opens in-place editing for a text element. */
   onEditText?: (id: string) => void;
+  /** Why the selected element would print badly, if it would. */
+  printIssue?: string | null;
 }
 
 const FORMATS: { value: BarcodeFormat; label: string }[] = [
@@ -66,7 +69,7 @@ const FORMATS: { value: BarcodeFormat; label: string }[] = [
   { value: 'upca', label: 'UPC-A' },
 ];
 
-export function Inspector({ doc, selected, roll, rollPaper, fitting = [], allSizes = LABEL_PRESETS, onSetRollSize, onUpdate, onDocChange, onDuplicate, onRemove, onReorder, onReplaceImage, onReplaceIcon, onEditText }: Props) {
+export function Inspector({ doc, selected, roll, rollPaper, fitting = [], allSizes = LABEL_PRESETS, onSetRollSize, onUpdate, onDocChange, onDuplicate, onRemove, onReorder, onReplaceImage, onReplaceIcon, onEditText, printIssue }: Props) {
   if (!selected) {
     const isPreset = [...(roll.size ? [roll.size] : []), ...allSizes].some((p) => sameSize(p, doc));
     return (
@@ -178,6 +181,11 @@ export function Inspector({ doc, selected, roll, rollPaper, fitting = [], allSiz
           </>
         }
       >
+        {printIssue && (
+          <p className="print-issue" role="status">
+            <TriangleAlert size={15} aria-hidden="true" /> {printIssue}
+          </p>
+        )}
         <div className="grid-2">
           <NumberField label="X" value={el.x} suffix="mm" onChange={(x) => set({ x }, 'x')} />
           <NumberField label="Y" value={el.y} suffix="mm" onChange={(y) => set({ y }, 'y')} />

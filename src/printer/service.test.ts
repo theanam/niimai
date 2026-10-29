@@ -1,5 +1,5 @@
 import { DEMO_META, MockClient } from './mock';
-import { friendlyError, PrinterService } from './service';
+import { friendlyError, PrinterService, shiftCanvas } from './service';
 
 const setup = (meta?: ConstructorParameters<typeof MockClient>[0] | null) => {
   const client = new MockClient(meta === undefined ? undefined : meta);
@@ -140,5 +140,31 @@ describe('printer service', () => {
   it('maps common error messages', () => {
     expect(friendlyError(new Error('GATT Server is disconnected'))).toBe('Printer disconnected');
     expect(friendlyError('weird')).toBe('weird');
+  });
+
+  it('shifts the page by the print offset', async () => {
+    const draws: number[][] = [];
+    const ctx = { fillRect() {}, drawImage: (_c: unknown, x: number, y: number) => draws.push([x, y]), fillStyle: '' };
+    const spy = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(ctx as never);
+    const page = canvas();
+    expect(shiftCanvas(page, 0, 0.3)).toBe(page);
+    const moved = shiftCanvas(page, 8.4, -4);
+    expect(moved).not.toBe(page);
+    expect(draws).toEqual([[8, -4]]);
+    spy.mockRestore();
+  });
+
+  it('applies the offset in printer dots before sending', async () => {
+    const { service, encode } = setup();
+    await service.connect('demo');
+    const draws: number[][] = [];
+    const ctx = { fillRect() {}, drawImage: (_c: unknown, x: number, y: number) => draws.push([x, y]), fillStyle: '', getImageData: () => ({ data: [] }) };
+    const spy = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(ctx as never);
+    const page = Object.assign(canvas(), { width: 320, height: 96 });
+    await service.print(page, { density: 2, copies: 1, offset: { x: 1, y: -0.5 } });
+    // 203 dpi: 1 mm is 8 dots.
+    expect(draws[0]).toEqual([8, -4]);
+    expect((encode.mock.calls[0] as unknown[])[0]).not.toBe(page);
+    spy.mockRestore();
   });
 });

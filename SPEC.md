@@ -140,6 +140,8 @@ Builds on `niimbluelib` for the printer protocol and replaces the UI with someth
 ### Hardware notes (D110, verified on device)
 - Model id 2304, protocol 2, standard NIIMBOT BLE service.
 - Paper info (`0x59`) is also unsupported here, so roll sizes come from `src/printer/known-rolls.json` (by RFID barcode) or from the user, once per roll.
+- Label positioning calibration (`0x8E`, value = paper type, 1 for gaps) answers `0x8F` with 1 at once, then feeds labels until it stops at a gap. Afterwards prints alternated between split across two labels and "paper out", even after recalibrating with the label type set first (`0x23`). niimai does not send it.
+- Prints land about 1.5–3.5 mm toward the start of the label along the feed; the per-printer offset and the ruler test (`src/printer/alignment.ts`) correct for it.
 
 ### Hardware notes (D11, verified on device)
 - Model id 512; prints with the library's D110 task on protocol 1. Paper info is unsupported too.

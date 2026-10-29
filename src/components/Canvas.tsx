@@ -4,6 +4,7 @@ import { flagWidth, isMirrored, printableArea, sizeLabel, type LabelDoc, type La
 import { HANDLES, resizeBox, snapBox, type Guide, type Handle } from '../doc/snap';
 import { round1 } from '../lib/units';
 import { elementSvg, mirroredSvg } from '../render/svg';
+import type { Area } from '../printer/safeArea';
 import { TextEditor } from './TextEditor';
 
 interface Props {
@@ -21,6 +22,10 @@ interface Props {
   editingFresh: boolean;
   onEditStart: (id: string) => void;
   onEditEnd: () => void;
+  /** What the connected printer's head reaches; null when it reaches the whole label. */
+  safeArea?: Area | null;
+  /** Elements with details too fine for the printer, by id. */
+  issues?: Record<string, string>;
 }
 
 type Drag =
@@ -30,7 +35,7 @@ type Drag =
 const PADDING = 48;
 const SNAP_PX = 6;
 
-export function Canvas({ doc, selectedId, dispatch, images, preview, fontsVersion, editingId, editingFresh, onEditStart, onEditEnd }: Props) {
+export function Canvas({ doc, selectedId, dispatch, images, preview, fontsVersion, editingId, editingFresh, onEditStart, onEditEnd, safeArea = null, issues = {} }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const [zoom, setZoom] = useState(10);
@@ -175,6 +180,30 @@ export function Canvas({ doc, selectedId, dispatch, images, preview, fontsVersio
                 <line x1={doc.widthMm - doc.tailMm} x2={doc.widthMm - doc.tailMm} y1={0} y2={doc.heightMm} strokeWidth={1 / zoom} />
               </g>
             )}
+            {safeArea && (
+              <g className="unsafe-zone" aria-label="Outside the printable area">
+                <defs>
+                  <pattern id="unsafe-hatch" width={1.2} height={1.2} patternUnits="userSpaceOnUse" patternTransform="rotate(-45)">
+                    <rect width={0.35} height={1.2} />
+                  </pattern>
+                </defs>
+                {safeArea.y > 0 ? (
+                  <>
+                    <rect width={doc.widthMm} height={safeArea.y} fill="url(#unsafe-hatch)" />
+                    <rect y={safeArea.y + safeArea.h} width={doc.widthMm} height={doc.heightMm - safeArea.y - safeArea.h} fill="url(#unsafe-hatch)" />
+                    <line x1={0} x2={doc.widthMm} y1={safeArea.y} y2={safeArea.y} strokeWidth={1 / zoom} strokeDasharray={`${3 / zoom} ${2 / zoom}`} />
+                    <line x1={0} x2={doc.widthMm} y1={safeArea.y + safeArea.h} y2={safeArea.y + safeArea.h} strokeWidth={1 / zoom} strokeDasharray={`${3 / zoom} ${2 / zoom}`} />
+                  </>
+                ) : (
+                  <>
+                    <rect width={safeArea.x} height={doc.heightMm} fill="url(#unsafe-hatch)" />
+                    <rect x={safeArea.x + safeArea.w} width={doc.widthMm - safeArea.x - safeArea.w} height={doc.heightMm} fill="url(#unsafe-hatch)" />
+                    <line x1={safeArea.x} x2={safeArea.x} y1={0} y2={doc.heightMm} strokeWidth={1 / zoom} strokeDasharray={`${3 / zoom} ${2 / zoom}`} />
+                    <line x1={safeArea.x + safeArea.w} x2={safeArea.x + safeArea.w} y1={0} y2={doc.heightMm} strokeWidth={1 / zoom} strokeDasharray={`${3 / zoom} ${2 / zoom}`} />
+                  </>
+                )}
+              </g>
+            )}
             {guides.map((g, i) =>
               g.axis === 'x' ? (
                 <line key={i} className="guide" x1={g.at} x2={g.at} y1={-100} y2={doc.heightMm + 100} strokeWidth={1 / zoom} />
@@ -182,6 +211,22 @@ export function Canvas({ doc, selectedId, dispatch, images, preview, fontsVersio
                 <line key={i} className="guide" y1={g.at} y2={g.at} x1={-100} x2={doc.widthMm + 100} strokeWidth={1 / zoom} />
               ),
             )}
+            {!preview &&
+              doc.elements
+                .filter((el) => issues[el.id])
+                .map((el) => {
+                  // A 16 px badge at any zoom: the 24-unit icon below scaled to 8 px radius.
+                  const badge = 8 / zoom / 12;
+                  return (
+                    <g key={`issue-${el.id}`} className="print-issue-mark" aria-hidden="true" transform={el.rotation ? `rotate(${el.rotation} ${el.x + el.w / 2} ${el.y + el.h / 2})` : undefined}>
+                      <rect x={el.x} y={el.y} width={el.w} height={el.h} strokeWidth={1.5 / zoom} strokeDasharray={`${3 / zoom} ${2 / zoom}`} />
+                      <g transform={`translate(${el.x + el.w} ${el.y}) scale(${badge})`}>
+                        <circle r={12} />
+                        <path d="M0 -6.5V1.5M0 5.5V6" strokeWidth={2.6} strokeLinecap="round" />
+                      </g>
+                    </g>
+                  );
+                })}
             {selected && (
               <g transform={`rotate(${selected.rotation} ${selected.x + selected.w / 2} ${selected.y + selected.h / 2})`}>
                 <rect

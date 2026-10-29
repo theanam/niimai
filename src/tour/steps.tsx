@@ -27,14 +27,14 @@ export const TOUR_STEPS: TourStep[] = [
     id: 'printer',
     title: 'Connect in one click',
     body: 'Pair over Bluetooth or USB straight from the browser. niimai recognises your model and reads the loaded roll.',
-    highlights: ['Roll size, paper type and labels left, read from the RFID tag', 'Remembers rolls that do not report a size', 'Demo printer to try everything first'],
+    highlights: ['Roll size, paper type and labels left, read from the RFID tag', 'Warns when your design does not match the loaded roll', 'Demo printer to try everything first'],
     Visual: PrinterVisual,
   },
   {
     id: 'templates',
     title: `${TEMPLATES.length.toLocaleString()} ready-made templates`,
     body: `Pantry jars, cable flags, asset tags, shipping labels and more, across ${CATEGORIES.length} categories.`,
-    highlights: ['Laid out for the roll you have loaded', 'Icon versions for most labels', 'Search by name or wording, edit everything'],
+    highlights: ['Search from the start screen or the Templates button', 'Laid out for the roll you have loaded', 'Icon versions for most labels, all editable'],
     Visual: TemplatesVisual,
   },
   {
@@ -55,7 +55,7 @@ export const TOUR_STEPS: TourStep[] = [
     id: 'preview',
     title: 'See every dot before it prints',
     body: 'Thermal printers print black dots only. The preview shows the exact pattern your printer will produce.',
-    highlights: ['Photos are dithered for print', 'Adjust darkness per image', 'Warns when a label is wider than the printhead'],
+    highlights: ['Photos are dithered for print', 'Adjust darkness per image', 'Flags details too fine for the printer, and edges it cannot reach'],
     Visual: DitherVisual,
   },
   {

@@ -1,6 +1,7 @@
 import { Minus, Plus, Printer as PrinterIcon, FileText } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import type { LabelDoc } from '../doc/model';
+import type { LabelDoc, LabelSize } from '../doc/model';
+import { RollMismatchBanner } from './RollMismatchBanner';
 import type { PrinterStatus } from '../printer/service';
 import type { PrinterProfile } from '../printer/profiles';
 import { printheadMm } from '../printer/profiles';
@@ -17,17 +18,25 @@ interface Props {
   onPrint: (copies: number) => Promise<void>;
   onBrowserPrint: (copies: number) => Promise<void>;
   onConnect: () => void;
+  /** The loaded roll's size, when known. */
+  rollSize?: LabelSize | null;
+  onMatchRoll?: () => void;
+  /** Some of the design's dots fall outside the printhead. */
+  clipped?: boolean;
+  /** Elements with details too fine for the printer. */
+  issueCount?: number;
 }
 
-/** Labels wider than the printhead print clipped; flag it before paper is wasted. */
-export function sizeWarning(doc: Pick<LabelDoc, 'widthMm' | 'heightMm'>, profile: PrinterProfile | null): string | null {
-  if (!profile) return null;
-  const head = printheadMm(profile);
-  const across = profile.printDirection === 'left' ? doc.heightMm : doc.widthMm;
-  return across > head + 0.5 ? `Wider than the ${Math.round(head)} mm printhead` : null;
+/**
+ * Flags a design that reaches past the printhead before paper is wasted. A
+ * label wider than the head is fine as long as nothing prints outside it.
+ */
+export function sizeWarning(profile: PrinterProfile | null, clipped: boolean): string | null {
+  if (!profile || !clipped) return null;
+  return `Parts outside the ${Math.round(printheadMm(profile))} mm printhead will not print`;
 }
 
-export function PrintDialog({ open, onOpenChange, doc, status, preview, density, onDensity, onPrint, onBrowserPrint, onConnect }: Props) {
+export function PrintDialog({ open, onOpenChange, doc, status, preview, density, onDensity, onPrint, onBrowserPrint, onConnect, rollSize = null, onMatchRoll, clipped = false, issueCount = 0 }: Props) {
   const [copies, setCopies] = useState(1);
   const [busy, setBusy] = useState(false);
   useEffect(() => {
@@ -36,7 +45,7 @@ export function PrintDialog({ open, onOpenChange, doc, status, preview, density,
 
   const connected = status.state === 'ready' || status.state === 'printing';
   const profile = status.profile;
-  const warning = sizeWarning(doc, profile);
+  const warning = sizeWarning(profile, clipped);
   const printing = status.state === 'printing';
 
   const run = async (fn: (c: number) => Promise<void>) => {
@@ -71,6 +80,7 @@ export function PrintDialog({ open, onOpenChange, doc, status, preview, density,
         </>
       }
     >
+      {onMatchRoll && <RollMismatchBanner doc={doc} rollSize={rollSize} rollPaper={status.label?.paper} onMatch={onMatchRoll} />}
       <div className="print-preview">
         {preview ? <img src={preview} alt="Print preview" /> : <div className="print-preview-empty" />}
       </div>
@@ -107,6 +117,9 @@ export function PrintDialog({ open, onOpenChange, doc, status, preview, density,
         )}
       </div>
       {warning && <p className="field-error">{warning}</p>}
+      {issueCount > 0 && (
+        <p className="field-error">{issueCount === 1 ? 'One item has details too fine to print.' : `${issueCount} items have details too fine to print.`} The marked items show what to change.</p>
+      )}
       {connected && !profile && <p className="field-error">Pick your printer type in printer settings.</p>}
     </Dialog>
   );

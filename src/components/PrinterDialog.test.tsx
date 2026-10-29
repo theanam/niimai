@@ -13,6 +13,9 @@ const base = {
   onConnect: async () => {},
   onDisconnect: async () => {},
   onManualProfile: () => {},
+  onAlignmentTest: async () => {},
+  offset: { x: 0, y: 0 },
+  onOffset: () => {},
 };
 const ready = (extra: Partial<PrinterStatus> = {}): PrinterStatus => ({
   state: 'ready',
@@ -70,5 +73,24 @@ describe('printer dialog', () => {
     renderApp(<PrinterDialog {...base} status={ready()} onDisconnect={onDisconnect} />);
     await userEvent.click(screen.getByRole('button', { name: /disconnect/i }));
     expect(onDisconnect).toHaveBeenCalled();
+  });
+
+  it('prints a ruler test and nudges the print position', async () => {
+    const onAlignmentTest = vi.fn(async () => {});
+    const onOffset = vi.fn();
+    renderApp(<PrinterDialog {...base} status={ready()} onAlignmentTest={onAlignmentTest} onOffset={onOffset} offset={{ x: 0.5, y: 0 }} />);
+    expect(screen.queryByRole('button', { name: /calibrat/i })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: /print test/i }));
+    expect(onAlignmentTest).toHaveBeenCalled();
+    await userEvent.clear(screen.getByRole('spinbutton', { name: 'Move down' }));
+    await userEvent.type(screen.getByRole('spinbutton', { name: 'Move down' }), '-1');
+    expect(onOffset).toHaveBeenLastCalledWith({ x: 0.5, y: -1 });
+    await userEvent.click(screen.getByRole('button', { name: 'Reset position' }));
+    expect(onOffset).toHaveBeenLastCalledWith({ x: 0, y: 0 });
+  });
+
+  it('cannot print a test while printing', () => {
+    renderApp(<PrinterDialog {...base} status={ready({ state: 'printing' })} />);
+    expect(screen.getByRole('button', { name: /print test/i })).toBeDisabled();
   });
 });

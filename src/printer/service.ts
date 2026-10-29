@@ -1,4 +1,5 @@
 import type { ClientLike, ConnectionKind, PrintTaskLike } from './client';
+import { mmToPx } from '../lib/units';
 import { paperFromLabelType, type PaperType } from './paper';
 import { findManualProfile, printheadCrop, resolveProfile, type PrinterProfile } from './profiles';
 
@@ -21,10 +22,17 @@ export interface PrinterStatus {
   progress?: { page: number; total: number };
 }
 
+/** Nudges the printed image, in mm: positive x moves right, positive y moves down. */
+export interface PrintOffset {
+  x: number;
+  y: number;
+}
+
 export interface PrintOptions {
   density: number;
   copies: number;
   labelType?: number;
+  offset?: PrintOffset;
 }
 
 type Encoder = (canvas: HTMLCanvasElement, direction: PrinterProfile['printDirection']) => unknown | Promise<unknown>;
@@ -35,6 +43,21 @@ const DISCONNECTED: PrinterStatus = { state: 'disconnected', profile: null };
 const PRINT_TIMEOUT_MS = 20_000;
 const PAGE_TIMEOUT_MS = 10_000;
 const PRINT_END_POLL_MS = 300;
+/** The page moved by whole pixels on a white canvas of the same size. */
+export function shiftCanvas(canvas: HTMLCanvasElement, dx: number, dy: number): HTMLCanvasElement {
+  dx = Math.round(dx);
+  dy = Math.round(dy);
+  if (!dx && !dy) return canvas;
+  const out = document.createElement('canvas');
+  out.width = canvas.width;
+  out.height = canvas.height;
+  const ctx = out.getContext('2d');
+  if (!ctx) return canvas;
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, out.width, out.height);
+  ctx.drawImage(canvas, dx, dy);
+  return out;
+}
 
 /** Crops the page to what the printhead covers. Returns the canvas itself when it already fits. */
 export function fitToPrinthead(canvas: HTMLCanvasElement, profile: PrinterProfile): HTMLCanvasElement {
@@ -239,7 +262,9 @@ export class PrinterService {
     client.stopHeartbeat();
     this.set({ state: 'printing', progress: { page: 0, total: copies } });
     try {
-      const page = fitToPrinthead(canvas, profile);
+      const offset = opts.offset ?? { x: 0, y: 0 };
+      const shifted = shiftCanvas(canvas, mmToPx(offset.x, profile.dpi), mmToPx(offset.y, profile.dpi));
+      const page = fitToPrinthead(shifted, profile);
       const image = await this.encode(page, profile.printDirection);
       console.info('[niimai] print', {
         profile: profile.id,

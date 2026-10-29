@@ -1,11 +1,12 @@
 import * as RD from '@radix-ui/react-dialog';
-import { BatteryMedium, Bluetooth, ChevronRight, FlaskConical, Loader2, Plug, Printer, ScanLine, TriangleAlert, Unplug, X } from 'lucide-react';
+import { BatteryMedium, Bluetooth, ChevronRight, Crosshair, Ruler, FlaskConical, Loader2, MoveHorizontal, MoveVertical, Plug, Printer, RotateCcw, ScanLine, TriangleAlert, Unplug, X } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { sizeLabel, type LabelSize } from '../doc/model';
 import { unsupportedReason, type ConnectionKind } from '../printer/client';
 import { MANUAL_PROFILES, printheadMm } from '../printer/profiles';
-import type { PrinterStatus } from '../printer/service';
+import type { PrintOffset, PrinterStatus } from '../printer/service';
+import { NumberField } from './fields';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
 
 interface Props {
@@ -21,6 +22,11 @@ interface Props {
   onSetRollSize?: () => void;
   manualProfileId: string | null;
   onConnect: (kind: ConnectionKind) => Promise<void>;
+  /** Prints a ruler label for reading the offset. */
+  onAlignmentTest: () => Promise<void>;
+  /** Print position nudge for the connected printer. */
+  offset: PrintOffset;
+  onOffset: (offset: PrintOffset) => void;
   onDisconnect: () => Promise<void>;
   onManualProfile: (id: string | null) => void;
 }
@@ -96,7 +102,32 @@ function Connect({ onConnect }: Pick<Props, 'onConnect'>) {
   );
 }
 
-function Connected({ status, rollSize, rollName, rollNeedsSize, onSetRollSize, onDisconnect }: Pick<Props, 'status' | 'rollSize' | 'rollName' | 'rollNeedsSize' | 'onSetRollSize' | 'onDisconnect'>) {
+function PrintPosition({ status, onAlignmentTest, offset, onOffset }: Pick<Props, 'status' | 'onAlignmentTest' | 'offset' | 'onOffset'>) {
+  const moved = offset.x !== 0 || offset.y !== 0;
+  return (
+    <section className="pd-section" aria-labelledby="pd-position">
+      <h3 id="pd-position" className="pd-section-title">
+        <Crosshair size={15} /> Print position
+      </h3>
+      <div className="pd-test-row">
+        <button className="btn" onClick={() => void onAlignmentTest()} disabled={status.state === 'printing'}>
+          <Ruler size={16} /> Print test
+        </button>
+        <small className="muted">If a ruler end is cut off, move the print away from it by the first number you can read.</small>
+      </div>
+      <div className="pd-offset">
+        <NumberField label="Move right" icon={<MoveHorizontal size={14} />} value={offset.x} min={-5} max={5} step={0.25} suffix="mm" onChange={(x) => onOffset({ ...offset, x })} />
+        <NumberField label="Move down" icon={<MoveVertical size={14} />} value={offset.y} min={-5} max={5} step={0.25} suffix="mm" onChange={(y) => onOffset({ ...offset, y })} />
+        <button className="icon-btn" aria-label="Reset position" title="Reset position" disabled={!moved} onClick={() => onOffset({ x: 0, y: 0 })}>
+          <RotateCcw size={15} />
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function Connected(props: Props) {
+  const { status, rollSize, rollName, rollNeedsSize, onSetRollSize, onDisconnect } = props;
   const label = status.label;
   const battery = status.battery;
   const used = label?.remaining !== undefined && label.capacity ? label.remaining / label.capacity : undefined;
@@ -155,6 +186,8 @@ function Connected({ status, rollSize, rollName, rollNeedsSize, onSetRollSize, o
           <ChevronRight size={18} />
         </button>
       )}
+
+      <PrintPosition {...props} />
 
       <button className="btn btn-ghost pd-disconnect" onClick={() => void onDisconnect()}>
         <Unplug size={16} /> Disconnect

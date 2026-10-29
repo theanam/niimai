@@ -59,6 +59,18 @@ export function resolveRoll(label: PrinterStatus['label'], saved: Record<string,
   return { size, key: label.barcode, needsSize: !size, ...(entry?.name ? { name: entry.name } : {}) };
 }
 
+/** How a design differs from the loaded roll. Fold mode is a design choice, so it never counts. */
+export interface RollMismatch {
+  size: boolean;
+  paper: boolean;
+}
+
+export function rollMismatch(doc: LabelSize & { paper?: PaperType }, rollSize: LabelSize | null, rollPaper: PaperType | undefined): RollMismatch | null {
+  const size = !!rollSize && (rollSize.widthMm !== doc.widthMm || rollSize.heightMm !== doc.heightMm || (rollSize.tailMm ?? 0) !== (doc.tailMm ?? 0));
+  const paper = !!rollPaper && !!doc.paper && doc.paper !== rollPaper;
+  return size || paper ? { size, paper } : null;
+}
+
 export function sameSize(a: LabelSize, b: LabelSize): boolean {
   return a.widthMm === b.widthMm && a.heightMm === b.heightMm && (a.tailMm ?? 0) === (b.tailMm ?? 0) && (a.fold ?? null) === (b.fold ?? null);
 }

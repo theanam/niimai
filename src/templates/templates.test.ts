@@ -3,6 +3,8 @@ import { parseCatalog } from '../fonts/catalog';
 import { symbolError } from '../render/barcode';
 import { CATEGORIES, filterTemplates, labelFromTemplate, TEMPLATE_FONTS, TEMPLATE_SIZES, TEMPLATES, templatePreview, templatesForSize } from '.';
 import { KINDS } from './kinds';
+import { SMALL_LABEL_MM } from './layout';
+import { printIssues } from '../render/printability';
 import KIND_ICONS from './kind-icons.json';
 import ICON_SHAPES from './icon-shapes.json';
 
@@ -86,6 +88,21 @@ describe('template catalog', () => {
       for (const el of templatePreview(t).elements) expect(el.x + el.w, t.id).toBeLessThanOrEqual(37.05);
     }
     expect(labelFromTemplate(list[0]).tailMm).toBe(35);
+  });
+
+  it('leaves borders off small labels and keeps them on larger ones', () => {
+    const outlines = (t: (typeof TEMPLATES)[number]) => templatePreview(t).elements.filter((e) => e.type === 'rect' && !e.fill).length;
+    const kitchen = TEMPLATES.filter((t) => t.category === 'kitchen' && t.variant === 'text');
+    const small = kitchen.filter((t) => Math.min(t.size.widthMm, t.size.heightMm) < SMALL_LABEL_MM);
+    const large = kitchen.filter((t) => Math.min(t.size.widthMm, t.size.heightMm) >= SMALL_LABEL_MM);
+    expect(small.length).toBeGreaterThan(0);
+    expect(small.every((t) => outlines(t) === 0)).toBe(true);
+    expect(large.some((t) => outlines(t) > 0)).toBe(true);
+  });
+
+  it('trims what would print badly, so almost every template prints cleanly', () => {
+    const flagged = TEMPLATES.filter((t) => Object.keys(printIssues(templatePreview(t), 203)).length);
+    expect(flagged.length).toBeLessThan(TEMPLATES.length * 0.005);
   });
 
   it('makes a fresh editable label each time', () => {

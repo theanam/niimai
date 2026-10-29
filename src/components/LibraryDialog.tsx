@@ -32,6 +32,13 @@ interface Props {
   currentSize: LabelSize;
   onOpen: (doc: LabelDoc) => void;
   initialTab?: Tab;
+  /** Where the Templates tab starts: a search, or one category. */
+  templateSeed?: TemplateSeed;
+}
+
+export interface TemplateSeed {
+  query?: string;
+  category?: string | null;
 }
 
 /** A label drawn to fit its card, whatever its proportions. */
@@ -118,11 +125,11 @@ function MyLabels({ currentId, onOpen }: { currentId: string; onOpen: (d: LabelD
   );
 }
 
-function Templates({ currentSize, onOpen }: { currentSize: LabelSize; onOpen: (d: LabelDoc) => void }) {
+function Templates({ currentSize, onOpen, seed }: { currentSize: LabelSize; onOpen: (d: LabelDoc) => void; seed?: TemplateSeed }) {
   const [allSizes, setAllSizes] = useState(false);
   const [size, setSize] = useState<LabelSize | null>(null);
-  const [category, setCategory] = useState<string | null>(null);
-  const [query, setQuery] = useState('');
+  const [category, setCategory] = useState<string | null>(seed?.category ?? null);
+  const [query, setQuery] = useState(seed?.query ?? '');
   const [fontsReady, setFontsReady] = useState(false);
 
   // Auto-fit text measures with the real fonts, so thumbnails wait for them (briefly).
@@ -220,7 +227,7 @@ function Templates({ currentSize, onOpen }: { currentSize: LabelSize; onOpen: (d
   );
 }
 
-export function LibraryDialog({ open, onOpenChange, currentId, currentSize, onOpen, initialTab = 'mine' }: Props) {
+export function LibraryDialog({ open, onOpenChange, currentId, currentSize, onOpen, initialTab = 'mine', templateSeed }: Props) {
   const [tab, setTab] = useState<Tab>(initialTab);
   useEffect(() => {
     if (open) setTab(initialTab);
@@ -242,7 +249,7 @@ export function LibraryDialog({ open, onOpenChange, currentId, currentSize, onOp
         </button>
       </div>
       <div className="tab-panel" role="tabpanel">
-        {tab === 'mine' ? <MyLabels currentId={currentId} onOpen={openDoc} /> : <Templates currentSize={currentSize} onOpen={openDoc} />}
+        {tab === 'mine' ? <MyLabels currentId={currentId} onOpen={openDoc} /> : <Templates currentSize={currentSize} onOpen={openDoc} seed={templateSeed} />}
       </div>
     </Dialog>
   );

@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { IDBFactory } from 'fake-indexeddb';
 import { resetDbConnection } from '../storage/db';
 import { renderApp } from '../test/render';
+import { createElement } from '../doc/model';
 import { Editor, starterDoc } from './Editor';
 
 vi.mock('../render/raster', () => ({
@@ -165,6 +166,62 @@ describe('editor', () => {
     expect(elements()).toHaveLength(0);
   });
 
+  it('opens templates from the header and from an empty label', async () => {
+    renderApp(<Editor initialDoc={{ ...starterDoc(), elements: [] }} initialProfileId={null} initialDensity={2} />);
+    await userEvent.click(screen.getByRole('button', { name: /start from one of [\d,]+ templates/i }));
+    expect(await screen.findByRole('tab', { name: /templates/i })).toHaveAttribute('aria-selected', 'true');
+    await userEvent.keyboard('{Escape}');
+    await userEvent.click(screen.getByRole('button', { name: 'Templates' }));
+    expect(await screen.findByRole('tab', { name: /templates/i })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('nags while the design does not fit the loaded roll', async () => {
+    renderApp(<Editor initialDoc={{ ...starterDoc(), widthMm: 50, heightMm: 30 }} initialProfileId={null} initialDensity={2} />);
+    await connectDemo();
+    // The design follows the roll on connect; undo puts the mismatch back.
+    expect(screen.queryByRole('alert')).toBeNull();
+    fireEvent.keyDown(window, { key: 'z', metaKey: true, ctrlKey: true });
+    expect(await screen.findByRole('alert')).toHaveTextContent('Design is 50 × 30 mm, the printer has 40 × 12 mm labels.');
+    await userEvent.click(screen.getByRole('button', { name: 'Match the roll' }));
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('prints the alignment test with the saved offset for the printer', async () => {
+    const { printer } = await import('../printer');
+    const print = vi.spyOn(printer, 'print');
+    renderApp(<Editor initialDoc={starterDoc()} initialProfileId={null} initialDensity={2} initialOffsets={{ D11: { x: 1.5, y: 0 } }} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Connect printer' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Demo printer' }));
+    await userEvent.click(await screen.findByRole('button', { name: /print test/i }));
+    await waitFor(() => expect(print).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ copies: 1, offset: { x: 1.5, y: 0 } })));
+    print.mockRestore();
+  });
+
+  it('shades what the printhead misses and moves borders inside it', async () => {
+    const frame = { ...createElement('frame', { widthMm: 30, heightMm: 15 }), id: 'border' };
+    renderApp(<Editor initialDoc={{ ...starterDoc(), widthMm: 30, heightMm: 15, elements: [frame] }} initialProfileId={null} initialDensity={2} />);
+    expect(document.querySelector('.unsafe-zone')).toBeNull();
+    await connectDemo();
+    // The design follows the 40 × 12 roll on connect; undo returns to 30 × 15, wider than the 12 mm head.
+    fireEvent.keyDown(window, { key: 'z', metaKey: true, ctrlKey: true });
+    await waitFor(() => expect(document.querySelector('.unsafe-zone')).not.toBeNull());
+    fireEvent.pointerDown(document.querySelector('.canvas-el')!, { button: 0 });
+    fireEvent.pointerUp(window);
+    const y = Number((screen.getByRole('spinbutton', { name: 'Y' }) as HTMLInputElement).value);
+    expect(y).toBeGreaterThanOrEqual(1.5);
+  });
+
+  it('marks details too fine for the printer and says what to change', async () => {
+    renderEditor();
+    await userEvent.click(screen.getByRole('button', { name: 'Add line' }));
+    expect(document.querySelector('.print-issue-mark')).toBeNull();
+    const stroke = screen.getByRole('spinbutton', { name: 'Stroke width' });
+    await userEvent.clear(stroke);
+    await userEvent.type(stroke, '0.1');
+    expect(document.querySelector('.print-issue-mark')).not.toBeNull();
+    expect(screen.getByRole('status')).toHaveTextContent('Thinner than one printer dot');
+  });
+
   it('connects to the demo printer', async () => {
     renderEditor();
     await connectDemo();
@@ -217,8 +274,8 @@ describe('editor', () => {
   it('connects from the start screen and returns to it from the logo', async () => {
     renderApp(<Editor initialDoc={starterDoc()} initialProfileId={null} initialDensity={2} initialView="start" />);
     await userEvent.click(screen.getByRole('button', { name: /demo/i }));
-    await waitFor(() => expect(screen.getByText('40 × 12 mm roll')).toBeInTheDocument());
-    await userEvent.click(screen.getByRole('button', { name: 'Blank 40 × 12 mm' }));
+    await userEvent.click(await screen.findByRole('button', { name: /new 40 × 12 label/i }));
+    expect(screen.getByRole('img', { name: /40 × 12 mm/ })).toBeInTheDocument();
     await userEvent.click(screen.getByRole('link', { name: 'Start screen' }));
     expect(screen.getByRole('heading', { name: 'What are we labelling?' })).toBeInTheDocument();
   });

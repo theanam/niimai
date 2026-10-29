@@ -80,3 +80,23 @@ export function printheadCrop(width: number, height: number, p: Pick<PrinterProf
     ? { x: offset, y: 0, width: keep, height, cropped: keep < across }
     : { x: 0, y: offset, width, height: keep, cropped: keep < across };
 }
+
+/**
+ * True when any black pixel of a page (RGBA, as from getImageData) falls
+ * outside what the printhead covers, so part of the design would not print.
+ */
+export function inkOutsideHead(data: ArrayLike<number>, width: number, height: number, p: Pick<PrinterProfile, 'printheadPixels' | 'printDirection'>): boolean {
+  const crop = printheadCrop(width, height, p);
+  if (!crop.cropped) return false;
+  for (let y = 0; y < height; y++) {
+    const insideRow = y >= crop.y && y < crop.y + crop.height;
+    for (let x = 0; x < width; x++) {
+      if (insideRow && x >= crop.x && x < crop.x + crop.width) {
+        x = crop.x + crop.width - 1;
+        continue;
+      }
+      if (data[(y * width + x) * 4] < 128) return true;
+    }
+  }
+  return false;
+}

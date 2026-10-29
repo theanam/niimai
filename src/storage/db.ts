@@ -1,5 +1,6 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type { LabelDoc, LabelSize } from '../doc/model';
+import type { PrintOffset } from '../printer/service';
 
 interface Schema extends DBSchema {
   labels: { key: string; value: LabelDoc; indexes: { updatedAt: number } };
@@ -13,6 +14,8 @@ export interface Settings {
   recentFonts?: string[];
   /** Roll sizes the user confirmed, by RFID barcode, for printers that do not report size. */
   rollSizes?: Record<string, LabelSize>;
+  /** Print position nudges, by printer model. */
+  printOffsets?: Record<string, PrintOffset>;
 }
 
 let dbPromise: Promise<IDBPDatabase<Schema>> | null = null;

@@ -27,14 +27,16 @@ import { StartScreen } from './StartScreen';
 import { PrintDialog } from './PrintDialog';
 import { printIssues } from '../render/printability';
 import { inkOutsideHead } from '../printer/profiles';
+import { THERMAL_HEAD_MM } from '../printer/thermal';
 import { fitBorders, safeArea } from '../printer/safeArea';
 import { alignmentDoc } from '../printer/alignment';
 import type { PrintOffset } from '../printer/service';
 import { TEMPLATES } from '../templates';
 import { RollMismatchBanner } from './RollMismatchBanner';
+import { ContinuousDialog } from './ContinuousDialog';
 import { PrinterDialog } from './PrinterDialog';
 
-type DialogName = 'new' | 'roll' | 'library' | 'print' | 'printer' | 'icon' | null;
+type DialogName = 'new' | 'roll' | 'continuous' | 'library' | 'print' | 'printer' | 'icon' | null;
 
 const DEFAULT_DPI = 203;
 
@@ -90,7 +92,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
   const [savedDensity, setDensity] = useState(initialDensity);
   const fileHandle = useRef<FileHandle | null>(null);
   const clipboard = useRef<LabelElement | null>(null);
-  const [editing, setEditing] = useState<{ id: string; fresh: boolean } | null>(null);
+  const [editing, setEditing] = useState<{ id: string } | null>(null);
   /** The icon element the picker replaces; null adds a new one. */
   const [iconTarget, setIconTarget] = useState<string | null>(null);
   const dpi = status.profile?.dpi ?? DEFAULT_DPI;
@@ -155,6 +157,23 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doc, status.profile?.id]);
+
+  // Continuous-paper printers print 48 mm wide; offer to move a label of another width over, once per label and connection.
+  const offeredContinuous = useRef<string | null>(null);
+  useEffect(() => {
+    if (status.state === 'disconnected') offeredContinuous.current = null;
+    if (status.profile?.kind !== 'thermal' || view !== 'edit' || doc.widthMm === THERMAL_HEAD_MM) return;
+    const key = `${status.profile.id}:${doc.id}`;
+    if (offeredContinuous.current === key) return;
+    offeredContinuous.current = key;
+    setDialog((d) => d ?? 'continuous');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status.state, status.profile?.id, doc.id, doc.widthMm, view]);
+
+  const switchToContinuous = (size: LabelSize) => {
+    dispatch({ type: 'setDoc', patch: { widthMm: size.widthMm, heightMm: size.heightMm, tailMm: undefined, fold: undefined, paper: undefined } });
+    dispatch({ type: 'commit' });
+  };
 
   /** Puts the design on the loaded roll: its size, and paper that follows the roll. */
   const matchRoll = () => {
@@ -275,7 +294,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
       setDialog('icon');
     } else {
       const el = add(type, extra);
-      if (type === 'text') setEditing({ id: el.id, fresh: true });
+      if (type === 'text') setEditing({ id: el.id });
     }
   };
 
@@ -420,7 +439,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
         case 'deselect':
           return dispatch({ type: 'select', id: null });
         case 'edit':
-          if (sel?.type === 'text') setEditing({ id: sel.id, fresh: false });
+          if (sel?.type === 'text') setEditing({ id: sel.id });
           return;
         case 'copy':
           if (sel) clipboard.current = sel;
@@ -530,10 +549,9 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
               preview={previewOn ? preview : null}
               fontsVersion={fontsVersion}
               editingId={editing?.id ?? null}
-              editingFresh={editing?.fresh ?? false}
               onEditStart={(id) => {
                 dispatch({ type: 'select', id });
-                setEditing({ id, fresh: false });
+                setEditing({ id });
               }}
               onEditEnd={endEditing}
               safeArea={safe}
@@ -561,7 +579,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
             onRemove={(id) => dispatch({ type: 'remove', id })}
             onReorder={(id, direction) => dispatch({ type: 'reorder', id, direction })}
             onReplaceImage={(id) => void chooseImage(id)}
-            onEditText={(id) => setEditing({ id, fresh: false })}
+            onEditText={(id) => setEditing({ id })}
             printIssue={selected ? issues[selected.id] : null}
             continuous={status.profile?.kind === 'thermal'}
             onReplaceIcon={(id) => {
@@ -581,6 +599,13 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
         actionLabel="Create"
         rollSize={roll.size}
         onPick={createNew}
+      />
+      <ContinuousDialog
+        open={dialog === 'continuous'}
+        onOpenChange={(o) => setDialog(o ? 'continuous' : null)}
+        printerName={status.profile?.name ?? 'This printer'}
+        current={docSize}
+        onSwitch={switchToContinuous}
       />
       <SizeDialog
         key={dialog === 'roll' ? 'roll' : 'roll-closed'}

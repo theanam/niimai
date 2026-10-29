@@ -1,7 +1,7 @@
 {
   "name": "niimai",
   "short_name": "niimai",
-  "description": "Label designer for NIIMBOT printers",
+  "description": "Label designer for NIIMBOT and other thermal printers",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#f6f5f3",

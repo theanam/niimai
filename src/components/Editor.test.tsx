@@ -1,4 +1,5 @@
-import { fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, screen, waitFor, within } from '@testing-library/react';
+import { onTestFinished } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { IDBFactory } from 'fake-indexeddb';
 import { resetDbConnection } from '../storage/db';
@@ -26,6 +27,22 @@ async function connectDemo() {
   await userEvent.click(await screen.findByRole('button', { name: 'Demo printer' }));
   await screen.findByRole('button', { name: /disconnect/i });
   await userEvent.keyboard('{Escape}');
+}
+
+/** Points the app's printer at a stand-in MP583 for one test. Returns the undo. */
+async function useEscPosPrinter() {
+  const { printer } = await import('../printer');
+  const { EscPosPrinterClient, escposModelFor } = await import('../printer/escpos');
+  const link = { name: 'MP583', write: async () => {}, onNotify: () => {}, onDisconnect: () => {}, disconnect: async () => {} };
+  const target = printer as unknown as { createClient: () => Promise<unknown> };
+  const original = target.createClient;
+  target.createClient = async () => new EscPosPrinterClient(link, escposModelFor('MP583'));
+  return {
+    printer,
+    restore: () => {
+      target.createClient = original;
+    },
+  };
 }
 
 const renderEditor = () => renderApp(<Editor initialDoc={starterDoc()} initialProfileId={null} initialDensity={2} />);
@@ -78,6 +95,17 @@ describe('editor', () => {
     await userEvent.keyboard('Price');
     await userEvent.keyboard('{Escape}');
     expect(elements()[1].querySelector('text')?.textContent).toBe('Price');
+  });
+
+  it('selects all of an existing text on double-click, so typing replaces it', async () => {
+    renderEditor();
+    fireEvent.doubleClick(elements()[0]);
+    const box = (await screen.findByRole('textbox', { name: 'Edit text' })) as HTMLTextAreaElement;
+    expect(box).toHaveFocus();
+    expect([box.selectionStart, box.selectionEnd]).toEqual([0, 'Hello, label!'.length]);
+    await userEvent.keyboard('Spices');
+    await userEvent.keyboard('{Escape}');
+    expect(elements()[0].querySelector('text')?.textContent).toBe('Spices');
   });
 
   it('removes a text element left empty', async () => {
@@ -220,6 +248,34 @@ describe('editor', () => {
     await userEvent.type(stroke, '0.1');
     expect(document.querySelector('.print-issue-mark')).not.toBeNull();
     expect(screen.getByRole('status')).toHaveTextContent('Thinner than one printer dot');
+  });
+
+  it('offers to move a label onto 48 mm continuous paper when a thermal printer connects', async () => {
+    const { printer, restore } = await useEscPosPrinter();
+    onTestFinished(restore);
+    renderApp(<Editor initialDoc={{ ...starterDoc(), widthMm: 30, heightMm: 15 }} initialProfileId={null} initialDensity={2} />);
+    await act(() => printer.connect('bluetooth'));
+    const dialog = await screen.findByRole('dialog', { name: 'Use 48 mm wide paper?' });
+    expect(dialog).toHaveTextContent('MP583 prints on continuous paper 48 mm wide. This label is 30 × 15 mm.');
+    const length = within(dialog).getByRole('spinbutton', { name: 'Length' });
+    expect(length).toHaveValue(15);
+    await userEvent.clear(length);
+    await userEvent.type(length, '62');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Use 48 × 62 mm' }));
+    expect(screen.getByRole('spinbutton', { name: 'Width' })).toHaveValue(48);
+    expect(screen.getByRole('spinbutton', { name: 'Length' })).toHaveValue(62);
+  });
+
+  it('keeps the label when asked, and does not ask again on this connection', async () => {
+    const { printer, restore } = await useEscPosPrinter();
+    onTestFinished(restore);
+    renderApp(<Editor initialDoc={{ ...starterDoc(), widthMm: 30, heightMm: 15 }} initialProfileId={null} initialDensity={2} />);
+    await act(() => printer.connect('bluetooth'));
+    await userEvent.click(await screen.findByRole('button', { name: 'Keep 30 × 15' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(screen.getByRole('spinbutton', { name: 'Width' })).toHaveValue(30);
+    await userEvent.click(screen.getByRole('button', { name: 'Add rectangle' }));
+    expect(screen.queryByRole('dialog', { name: 'Use 48 mm wide paper?' })).toBeNull();
   });
 
   it('connects to the demo printer', async () => {

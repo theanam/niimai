@@ -13,7 +13,7 @@ export function About() {
           <h2>
             <Wordmark height={30} />
           </h2>
-          <p>A label designer for NIIMBOT printers that runs entirely in your browser.</p>
+          <p>A label designer for NIIMBOT and other Bluetooth thermal printers that runs entirely in your browser.</p>
         </div>
       </section>
       <section>
@@ -26,7 +26,15 @@ export function About() {
           <a href="https://github.com/MultiMote/niimbluelib" target="_blank" rel="noreferrer">
             niimbluelib
           </a>
-          , the open source NIIMBOT protocol library by MultiMote. Icons come from{' '}
+          , the open source NIIMBOT protocol library by MultiMote. The cat printer protocol comes from{' '}
+          <a href="https://github.com/rbaron/catprinter" target="_blank" rel="noreferrer">
+            rbaron/catprinter
+          </a>{' '}
+          and{' '}
+          <a href="https://github.com/NaitLee/Cat-Printer" target="_blank" rel="noreferrer">
+            NaitLee/Cat-Printer
+          </a>
+          . Icons come from{' '}
           <a href="https://phosphoricons.com" target="_blank" rel="noreferrer">
             Phosphor Icons
           </a>{' '}

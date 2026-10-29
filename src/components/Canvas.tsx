@@ -18,8 +18,6 @@ interface Props {
   fontsVersion: number;
   /** The text element being edited in place, if any. */
   editingId: string | null;
-  /** True when the edit began by adding the element, so its placeholder text is selected. */
-  editingFresh: boolean;
   onEditStart: (id: string) => void;
   onEditEnd: () => void;
   /** What the connected printer's head reaches; null when it reaches the whole label. */
@@ -35,7 +33,7 @@ type Drag =
 const PADDING = 48;
 const SNAP_PX = 6;
 
-export function Canvas({ doc, selectedId, dispatch, images, preview, fontsVersion, editingId, editingFresh, onEditStart, onEditEnd, safeArea = null, issues = {} }: Props) {
+export function Canvas({ doc, selectedId, dispatch, images, preview, fontsVersion, editingId, onEditStart, onEditEnd, safeArea = null, issues = {} }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const [zoom, setZoom] = useState(10);
@@ -264,7 +262,6 @@ export function Canvas({ doc, selectedId, dispatch, images, preview, fontsVersio
             key={editing.id}
             el={editing}
             zoom={zoom}
-            selectAll={editingFresh}
             onChange={(text) => dispatch({ type: 'update', id: editing.id, patch: { text }, key: 'text' })}
             onDone={onEditEnd}
           />

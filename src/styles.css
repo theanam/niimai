@@ -468,11 +468,13 @@ kbd {
   border-color: var(--primary);
 }
 .field-label {
+  flex: none;
   color: var(--muted);
   font-size: 12px;
   font-weight: 600;
   min-width: 14px;
   display: inline-flex;
+  white-space: nowrap;
 }
 .field-label-text {
   color: var(--muted);
@@ -2899,4 +2901,28 @@ kbd {
 }
 .print-printer-icon .pd-dot {
   border-color: var(--surface-2);
+}
+
+/* Switching a label to continuous paper */
+.continuous-size {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.continuous-size .grid-2 {
+  flex: 1;
+}
+.field-fixed {
+  background: var(--surface-2);
+}
+.field-fixed .field-value {
+  flex: 1;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The length field beside the start card's buttons */
+.start-roll-actions .field-number {
+  flex: none;
+  width: 140px;
 }

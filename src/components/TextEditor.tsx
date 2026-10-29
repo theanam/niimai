@@ -6,8 +6,6 @@ interface Props {
   el: TextElement;
   /** Screen pixels per millimetre. */
   zoom: number;
-  /** Select all text on open, for freshly added elements. */
-  selectAll: boolean;
   onChange: (text: string) => void;
   onDone: () => void;
 }
@@ -16,16 +14,16 @@ interface Props {
  * A textarea laid exactly over a text element, in the element's own font,
  * size, alignment and rotation, so typing happens on the label itself.
  */
-export function TextEditor({ el, zoom, selectAll, onChange, onDone }: Props) {
+export function TextEditor({ el, zoom, onChange, onDone }: Props) {
   const ref = useRef<HTMLTextAreaElement>(null);
 
   useLayoutEffect(() => {
     const ta = ref.current;
     if (!ta) return;
     ta.focus();
-    if (selectAll) ta.select();
-    else ta.setSelectionRange(ta.value.length, ta.value.length);
-    // Only on open: re-running would move the caret on every keystroke.
+    // All selected, so typing replaces the text straight away.
+    ta.select();
+    // Only on open: re-running would reselect on every keystroke.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

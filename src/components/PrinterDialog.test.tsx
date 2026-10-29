@@ -93,4 +93,15 @@ describe('printer dialog', () => {
     renderApp(<PrinterDialog {...base} status={ready({ state: 'printing' })} />);
     expect(screen.getByRole('button', { name: /print test/i })).toBeDisabled();
   });
+
+  it('shows continuous paper for a cat printer and keeps the roll meter for NIIMBOT', () => {
+    const cat = { ...findManualProfile('b1')!, id: 'auto:MX06', name: 'MX06', kind: 'cat' as const };
+    const { unmount } = renderApp(<PrinterDialog {...base} status={ready({ profile: cat, detectedModel: 'MX06' })} />);
+    expect(screen.getByText('Continuous')).toBeInTheDocument();
+    expect(screen.getByText('48 mm print width')).toBeInTheDocument();
+    unmount();
+    renderApp(<PrinterDialog {...base} status={ready()} rollSize={{ widthMm: 50, heightMm: 30 }} />);
+    expect(screen.queryByText('Continuous')).toBeNull();
+    expect(screen.getByText('50 × 30 mm')).toBeInTheDocument();
+  });
 });

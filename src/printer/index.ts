@@ -1,4 +1,4 @@
-import { createBleClient } from './ble';
+import { BluetoothPrinter } from './bluetooth';
 import type { ClientLike, ConnectionKind } from './client';
 import { MockClient } from './mock';
 import { PrinterService } from './service';
@@ -8,9 +8,9 @@ const lib = () => import('@mmote/niimbluelib');
 
 async function createClient(kind: ConnectionKind): Promise<ClientLike> {
   if (kind === 'demo') return new MockClient();
+  if (kind === 'bluetooth') return new BluetoothPrinter(lib);
   const niim = await lib();
-  const client = kind === 'serial' ? new niim.NiimbotSerialClient() : createBleClient(niim);
-  return client as unknown as ClientLike;
+  return new niim.NiimbotSerialClient() as unknown as ClientLike;
 }
 
 export const printer = new PrinterService(createClient, async (canvas, direction) =>

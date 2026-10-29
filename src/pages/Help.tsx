@@ -1,8 +1,11 @@
-import { Bluetooth, Bug, Cable, Crosshair, Keyboard, LayoutTemplate, Mail, Printer, ScanLine, Sparkles } from 'lucide-react';
+import { Bluetooth, Bug, Cable, Cat, Crosshair, Keyboard, LayoutTemplate, Mail, Printer, ScanLine, Sparkles } from 'lucide-react';
+import { CAT_MODELS, CAT_UNSUPPORTED, type Confidence } from '../printer/cat';
 import { replayTour } from '../tour/Tour';
 import { shortcutLabel } from '../shortcuts/shortcuts';
 import { CONTACT_EMAIL, ISSUES_URL } from '../ui/links';
 import { PageShell } from './PageShell';
+
+const CONFIDENCE: Record<Confidence, string> = { tested: 'Tested', high: 'High', medium: 'Medium' };
 
 const SHORTCUTS: [string, string][] = [
   ['Mod+N', 'New label'],
@@ -138,6 +141,29 @@ export function Help() {
           copied from a design app. SVGs stay vector in browser printing.
         </p>
         <p>Lines run horizontal, vertical or diagonal; pick the direction in the side panel and drag the handles to set the angle.</p>
+      </section>
+      <section>
+        <h2>
+          <Cat size={18} /> Other Bluetooth thermal printers
+        </h2>
+        <p>
+          niimai is made for NIIMBOT, and also prints on small 57 mm thermal printers often called cat printers. Connect them
+          with Bluetooth like any other printer. They print on continuous paper up to 48 mm wide.
+        </p>
+        <table className="shortcuts">
+          <tbody>
+            {CAT_MODELS.map((m) => (
+              <tr key={m.prefix}>
+                <td>{m.prefix}</td>
+                <td>{CONFIDENCE[m.confidence]}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="muted">
+          High: well known to work. Medium: reported to work, fewer reports. {CAT_UNSUPPORTED.map((u) => u.name).join(', ')} use other protocols and are not
+          supported.
+        </p>
       </section>
       <section>
         <h2>

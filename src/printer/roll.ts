@@ -1,5 +1,6 @@
 import { LABEL_PRESETS, type LabelSize } from '../doc/model';
 import { TEMPLATE_SIZES } from '../templates';
+import { CAT_SIZES } from './cat';
 import KNOWN from './known-rolls.json';
 import type { PaperType } from './paper';
 import { printheadMm, type PrinterProfile } from './profiles';
@@ -84,6 +85,7 @@ export function sizesForPrinter(profile: PrinterProfile | null): LabelSize[] {
   const all = [...LABEL_PRESETS, ...TEMPLATE_SIZES, ...KNOWN_ROLL_SIZES].filter((s, i, list) => list.findIndex((o) => sameSize(o, s)) === i);
   const sorted = all.sort((a, b) => a.heightMm - b.heightMm || a.widthMm - b.widthMm);
   if (!profile) return sorted;
+  if (profile.kind === 'cat') return CAT_SIZES;
   const head = printheadMm(profile);
   const across = (s: LabelSize) => (profile.printDirection === 'left' ? s.heightMm : s.widthMm);
   return sorted.filter((s) => across(s) <= head * 1.3 && across(s) >= head * 0.5);

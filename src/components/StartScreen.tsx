@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { LABEL_PRESETS, type LabelDoc, type LabelSize, sizeLabel } from '../doc/model';
 import { supportsBluetooth, supportsSerial, unsupportedReason, type ConnectionKind } from '../printer/client';
+import { CAT_DEFAULT_SIZE } from '../printer/cat';
 import { sameSize, type RollState } from '../printer/roll';
 import type { PrinterStatus } from '../printer/service';
 import { ensureFont } from '../render/fonts';
@@ -60,7 +61,15 @@ function PrinterCard({ status, roll, onConnect, onSetRollSize, onBlank, onBrowse
               </li>
             )}
           </ul>
-          {roll.size ? (
+          {status.profile?.kind === 'cat' ? (
+            <div className="start-roll">
+              <LabelSilhouette size={CAT_DEFAULT_SIZE} box={64} />
+              <div className="start-roll-text">
+                <strong>Continuous paper</strong>
+                <small className="muted">{CAT_DEFAULT_SIZE.widthMm} mm print width</small>
+              </div>
+            </div>
+          ) : roll.size ? (
             <div className="start-roll">
               <LabelSilhouette size={roll.size} box={64} />
               <div className="start-roll-text">
@@ -72,7 +81,16 @@ function PrinterCard({ status, roll, onConnect, onSetRollSize, onBlank, onBrowse
             <p className="muted">{roll.needsSize ? 'This printer does not report the roll size.' : 'No roll detected. Load one to start from it.'}</p>
           )}
           <div className="start-actions start-roll-actions">
-            {roll.size ? (
+            {status.profile?.kind === 'cat' ? (
+              <>
+                <button className="btn btn-primary" onClick={() => onBlank(CAT_DEFAULT_SIZE)}>
+                  <FilePlus2 size={16} /> New {sizeLabel(CAT_DEFAULT_SIZE)} label
+                </button>
+                <button className="btn" onClick={() => onBrowseTemplates()}>
+                  <LayoutTemplate size={16} /> Templates
+                </button>
+              </>
+            ) : roll.size ? (
               <>
                 <button className="btn btn-primary" onClick={() => onBlank(roll.size!)}>
                   <FilePlus2 size={16} /> New {sizeLabel(roll.size)} label

@@ -265,7 +265,7 @@ export class PrinterService {
       const offset = opts.offset ?? { x: 0, y: 0 };
       const shifted = shiftCanvas(canvas, mmToPx(offset.x, profile.dpi), mmToPx(offset.y, profile.dpi));
       const page = fitToPrinthead(shifted, profile);
-      const image = await this.encode(page, profile.printDirection);
+      const image = client.encodePage ? await client.encodePage(page) : await this.encode(page, profile.printDirection);
       console.info('[niimai] print', {
         profile: profile.id,
         task: profile.printTask,

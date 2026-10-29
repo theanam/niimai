@@ -33,6 +33,8 @@ export interface ClientLike {
     /** True once the printer has finished every page. */
     printEnd(): Promise<boolean>;
   };
+  /** Clients that encode pages themselves (cat printers); NIIMBOT pages go through niimbluelib's encoder. */
+  encodePage?(canvas: HTMLCanvasElement): unknown;
 }
 
 export type ConnectionKind = 'bluetooth' | 'serial' | 'demo';

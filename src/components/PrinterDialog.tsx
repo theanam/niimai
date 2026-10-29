@@ -166,14 +166,18 @@ function Connected(props: Props) {
           fraction={battery !== undefined ? battery / 100 : undefined}
           low={battery !== undefined && battery <= 20}
         />
-        <Meter
-          icon={<ScanLine size={15} />}
-          label="Roll"
-          value={rollSize ? `${sizeLabel(rollSize)} mm` : label ? 'Size unknown' : 'No roll'}
-          fraction={used}
-          low={used !== undefined && used <= 0.1}
-          detail={[rollName, label?.remaining !== undefined ? `${label.remaining} labels left` : null].filter(Boolean).join(' · ') || undefined}
-        />
+        {status.profile?.kind === 'cat' ? (
+          <Meter icon={<ScanLine size={15} />} label="Paper" value="Continuous" detail={`${Math.round(printheadMm(status.profile))} mm print width`} />
+        ) : (
+          <Meter
+            icon={<ScanLine size={15} />}
+            label="Roll"
+            value={rollSize ? `${sizeLabel(rollSize)} mm` : label ? 'Size unknown' : 'No roll'}
+            fraction={used}
+            low={used !== undefined && used <= 0.1}
+            detail={[rollName, label?.remaining !== undefined ? `${label.remaining} labels left` : null].filter(Boolean).join(' · ') || undefined}
+          />
+        )}
       </div>
 
       {rollNeedsSize && onSetRollSize && (

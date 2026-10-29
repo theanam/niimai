@@ -41,6 +41,8 @@ niimai uses [niimbluelib](https://github.com/MultiMote/niimbluelib), which recog
 
 Printing needs a browser with Web Bluetooth or Web Serial: Chrome or Edge on desktop, or Chrome on Android, where niimai has a phone-sized layout. iPhone and iPad browsers cannot reach printers; the Bluefy browser adds Bluetooth there. Designing labels works in any modern browser.
 
+As an extra, niimai also prints on small Bluetooth thermal printers often called cat printers (GB01, GB02, GB03, MX06 and similar). See the [known models](docs/cat-printers.md).
+
 ## Development
 
 ```bash

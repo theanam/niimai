@@ -15,8 +15,16 @@ export const CANDIDATE_SERVICES = [
   '6e400001-b5a3-f393-e0a9-e50e24dcca9e', // Nordic UART
 ];
 
-/** Name prefixes of NIIMBOT printers; the chooser lists only these. */
+/** Name prefixes of NIIMBOT printers; the chooser lists only these and known cat printers. */
 export const NAME_PREFIXES = ['A', 'B', 'C', 'D', 'E', 'F', 'H', 'J', 'K', 'M', 'N', 'P', 'S', 'T', 'Z'];
+
+/** Opens the browser's printer chooser. */
+export function requestPrinter(extraPrefixes: string[] = []): Promise<BluetoothDevice> {
+  return navigator.bluetooth.requestDevice({
+    filters: [...[...NAME_PREFIXES, ...extraPrefixes].map((namePrefix) => ({ namePrefix })), { services: [CANDIDATE_SERVICES[0]] }],
+    optionalServices: CANDIDATE_SERVICES,
+  });
+}
 
 interface CharLike {
   uuid: string;
@@ -72,17 +80,14 @@ export function describeBleError(err: unknown, found: string[] = []): Error {
  * own, which only knows the standard NIIMBOT service. The protocol handling
  * (packets, negotiation, heartbeat) is inherited unchanged.
  */
-export function createBleClient(lib: Lib): NiimbotAbstractClient {
+export function createBleClient(lib: Lib, chosen?: BluetoothDevice): NiimbotAbstractClient {
   class FlexibleBleClient extends lib.NiimbotAbstractClient {
     private server?: BluetoothRemoteGATTServer;
     private channel?: Channel<BluetoothRemoteGATTCharacteristic>;
 
     async connect(): Promise<ConnectionInfo> {
       await this.disconnect();
-      const device = await navigator.bluetooth.requestDevice({
-        filters: [...NAME_PREFIXES.map((namePrefix) => ({ namePrefix })), { services: [CANDIDATE_SERVICES[0]] }],
-        optionalServices: CANDIDATE_SERVICES,
-      });
+      const device = chosen ?? (await requestPrinter());
       if (!device.gatt) throw new Error('Device has no GATT server');
 
       const onDisconnect = () => {

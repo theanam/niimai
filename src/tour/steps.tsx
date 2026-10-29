@@ -27,7 +27,7 @@ export const TOUR_STEPS: TourStep[] = [
     id: 'printer',
     title: 'Connect in one click',
     body: 'Pair over Bluetooth or USB straight from the browser. niimai recognises your model and reads the loaded roll.',
-    highlights: ['Roll size, paper type and labels left, read from the RFID tag', 'Warns when your design does not match the loaded roll', 'Demo printer to try everything first'],
+    highlights: ['Roll size, paper type and labels left, read from the RFID tag', 'Warns when your design does not match the loaded roll', 'Demo printer to try everything first', 'Cat printers work too, as an extra'],
     Visual: PrinterVisual,
   },
   {

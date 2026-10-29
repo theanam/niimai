@@ -9,6 +9,7 @@ import { Minus, Plus } from 'lucide-react';
 import { shortcutLabel } from '../shortcuts/shortcuts';
 import { IconButton } from '../ui/IconButton';
 import { TextEditor } from './TextEditor';
+import { RasterImage } from '../ui/RasterImage';
 
 interface Props {
   doc: LabelDoc;
@@ -152,7 +153,7 @@ export function Canvas({ doc, selectedId, dispatch, images, preview, fontsVersio
     <div className="canvas-wrap" ref={wrapRef} onPointerDown={() => dispatch({ type: 'select', id: null })}>
       <div className="canvas-paper" style={{ width: doc.widthMm * zoom, height: doc.heightMm * zoom }}>
         {preview ? (
-          <img className="canvas-preview" src={preview} alt="Print preview" draggable={false} />
+          <RasterImage className="canvas-preview" src={preview} alt="Print preview" draggable={false} />
         ) : (
           <svg
             ref={svgRef}

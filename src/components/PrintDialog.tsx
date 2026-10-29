@@ -6,6 +6,7 @@ import type { PrinterStatus } from '../printer/service';
 import type { PrinterProfile } from '../printer/profiles';
 import { printheadMm } from '../printer/profiles';
 import { Dialog } from '../ui/Dialog';
+import { RasterImage } from '../ui/RasterImage';
 
 interface Props {
   open: boolean;
@@ -127,7 +128,7 @@ export function PrintDialog({ open, onOpenChange, doc, status, preview, density,
       <PrinterStrip status={status} rollSize={rollSize} rollName={rollName} onOpen={onConnect} />
       {onMatchRoll && <RollMismatchBanner doc={doc} rollSize={rollSize} rollPaper={status.label?.paper} onMatch={onMatchRoll} />}
       <div className="print-preview">
-        {preview ? <img src={preview} alt="Print preview" /> : <div className="print-preview-empty" />}
+        {preview ? <RasterImage src={preview} alt="Print preview" /> : <div className="print-preview-empty" />}
       </div>
       <div className="row row-spread">
         <div className="stepper" aria-label="Copies">

@@ -2772,12 +2772,19 @@ kbd {
 .recent-item {
   position: relative;
 }
-.recent-delete.icon-btn {
+/* The card rule above styles every button in the list; the delete button keeps its own centred layout. */
+.start-templates .recent-delete.icon-btn {
   position: absolute;
   top: 6px;
   right: 6px;
+  display: grid;
+  place-items: center;
+  gap: 0;
   width: 28px;
   height: 28px;
+  padding: 0;
+  border-radius: 8px;
+  overflow: visible;
   background: var(--surface);
   border: 1px solid var(--border);
   box-shadow: var(--shadow);
@@ -2785,11 +2792,11 @@ kbd {
   transition: opacity 0.12s;
 }
 .recent-item:hover .recent-delete,
-.recent-delete:focus-visible {
+.start-templates .recent-delete:focus-visible {
   opacity: 1;
 }
 @media (pointer: coarse) {
-  .recent-delete.icon-btn {
+  .start-templates .recent-delete.icon-btn {
     opacity: 1;
   }
 }

@@ -11,6 +11,7 @@ import { deleteLabel, listLabels } from '../storage/db';
 import { useConfirm } from '../ui/Dialog';
 import { IconButton } from '../ui/IconButton';
 import { filterTemplates, labelFromTemplate, TEMPLATE_FONTS, TEMPLATES, templatePreview, templatesForSize } from '../templates';
+import { CONTINUOUS_TEMPLATES } from '../templates/continuous';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
 import { NumberField } from './fields';
 import { LabelSilhouette } from './LabelSizePicker';
@@ -169,7 +170,7 @@ function BlankCard({ size, roll, onBlank }: { size: LabelSize; roll: RollState; 
 
 const TEMPLATE_COUNT = TEMPLATES.length.toLocaleString();
 
-function TemplatesCard({ size, onOpen, onBrowse }: { size: LabelSize; onOpen: (d: LabelDoc) => void; onBrowse: (seed?: TemplateSeed) => void }) {
+function TemplatesCard({ size, onOpen, onBrowse, continuous = false }: { size: LabelSize; onOpen: (d: LabelDoc) => void; onBrowse: (seed?: TemplateSeed) => void; continuous?: boolean }) {
   const [ready, setReady] = useState(false);
   const [query, setQuery] = useState('');
   useEffect(() => {
@@ -179,11 +180,13 @@ function TemplatesCard({ size, onOpen, onBrowse }: { size: LabelSize; onOpen: (d
       live = false;
     };
   }, []);
-  const forSize = useMemo(() => templatesForSize(size), [size]);
+  const forSize = useMemo(() => [...(continuous ? CONTINUOUS_TEMPLATES : []), ...templatesForSize(size)], [size, continuous]);
   const picks = useMemo(() => {
     const q = query.trim();
     // Searching shows the best matches; otherwise a spread across categories, icon versions first.
     if (q) return filterTemplates(forSize, { query: q }).slice(0, 6);
+    // Continuous paper shows its own templates first.
+    if (continuous) return CONTINUOUS_TEMPLATES.slice(0, 6);
     const seen = new Set<string>();
     return forSize.filter((t) => t.variant === 'icon' && !seen.has(t.category) && seen.add(t.category)).slice(0, 6);
   }, [forSize, query]);
@@ -195,7 +198,7 @@ function TemplatesCard({ size, onOpen, onBrowse }: { size: LabelSize; onOpen: (d
         <div>
           <h2 id="start-templates">Or begin from a template</h2>
           <p className="muted">
-            {TEMPLATE_COUNT} templates, laid out for {sizeLabel(size)} mm.
+            {continuous ? 'Lists, planners and notes for continuous paper.' : `${TEMPLATE_COUNT} templates, laid out for ${sizeLabel(size)} mm.`}
           </p>
         </div>
         <label className="start-template-search">
@@ -279,7 +282,7 @@ export function StartScreen(props: Props) {
             <BlankCard size={size} roll={props.roll} onBlank={props.onBlank} />
           </ErrorBoundary>
           <ErrorBoundary name="Templates">
-            <TemplatesCard size={size} onOpen={props.onOpen} onBrowse={props.onBrowseTemplates} />
+            <TemplatesCard size={size} onOpen={props.onOpen} onBrowse={props.onBrowseTemplates} continuous={props.status.profile?.kind === 'thermal'} />
           </ErrorBoundary>
         </div>
         <ErrorBoundary name="Recent labels">

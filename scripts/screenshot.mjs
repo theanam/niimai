@@ -33,9 +33,9 @@ const demo = {
   elements: [
     { id: id(), type: 'frame', x: 0.5, y: 0.5, w: 49, h: 29, rotation: 0, style: 'double', strokeWidth: 0.3 },
     { id: 'title', type: 'text', x: 3.5, y: 3, w: 27, h: 11, rotation: 0, text: 'Smoked\nPaprika', fontFamily: 'Fraunces', fontSize: 12, bold: true, italic: false, align: 'left', autoFit: true },
-    { id: id(), type: 'line', x: 3.5, y: 15.5, w: 27, h: 1, rotation: 0, strokeWidth: 0.4, direction: 'horizontal' },
-    { id: id(), type: 'text', x: 3.5, y: 17.5, w: 27, h: 3.5, rotation: 0, text: 'Best before 04 / 2027', fontFamily: 'Space Grotesk', fontSize: 8, bold: false, italic: false, align: 'left', autoFit: true },
-    { id: id(), type: 'barcode', x: 3.5, y: 22, w: 27, h: 5.5, rotation: 0, value: 'PAP-0427', format: 'code128', showText: false },
+    { id: id(), type: 'line', x: 3.5, y: 14.8, w: 27, h: 1, rotation: 0, strokeWidth: 0.4, direction: 'horizontal' },
+    { id: id(), type: 'text', x: 3.5, y: 16.6, w: 27, h: 3.5, rotation: 0, text: 'Best before 04 / 2027', fontFamily: 'Space Grotesk', fontSize: 8, bold: false, italic: false, align: 'left', autoFit: true },
+    { id: id(), type: 'barcode', x: 3.5, y: 20.6, w: 27, h: 7.4, rotation: 0, value: '20270427', format: 'code128', showText: false },
     { id: id(), type: 'qr', x: 33, y: 7, w: 14, h: 14, rotation: 0, value: 'https://niimai.app/' },
     { id: id(), type: 'text', x: 33, y: 22, w: 14, h: 4, rotation: 0, text: 'SHELF 3', fontFamily: 'Space Grotesk', fontSize: 8, bold: true, italic: false, align: 'center', autoFit: true },
   ],
@@ -68,7 +68,8 @@ async function seed(page) {
 }
 
 async function openEditor(page) {
-  await page.getByRole('button', { name: /^Continue/ }).click();
+  // The demo label waits under Recent; the start screen opens no label by itself.
+  await page.locator('.start-recent').getByRole('button', { name: /^Open / }).first().click();
   await page.waitForSelector('.canvas-svg');
   await page.waitForTimeout(500);
 }

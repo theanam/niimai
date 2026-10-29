@@ -104,4 +104,10 @@ describe('printer dialog', () => {
     expect(screen.queryByText('Continuous')).toBeNull();
     expect(screen.getByText('50 × 30 mm')).toBeInTheDocument();
   });
+
+  it('names the demo printer once', () => {
+    renderApp(<PrinterDialog {...base} status={ready({ profile: { ...findManualProfile('d11')!, name: 'Demo printer' }, deviceName: 'Demo printer' })} />);
+    expect(screen.getByRole('heading', { name: 'Demo printer' })).toBeInTheDocument();
+    expect(screen.getByText('Ready')).toBeInTheDocument();
+  });
 });

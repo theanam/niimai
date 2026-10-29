@@ -1,4 +1,4 @@
-import { createDoc, printableArea, type LabelDoc, type LabelSize } from '../doc/model';
+import { createDoc, printableArea, type LabelDoc, type LabelElement, type LabelSize } from '../doc/model';
 import { sanitizeIconBody } from '../icons/catalog';
 import ICON_SHAPES from './icon-shapes.json';
 import KIND_ICONS from './kind-icons.json';
@@ -41,6 +41,8 @@ export interface Template {
   /** Lowercased name, category and text, for search. */
   haystack: string;
   kind: Kind;
+  /** Hand-built layouts (continuous paper) draw themselves instead of going through the layout engine. */
+  build?: () => LabelElement[];
 }
 
 const categoryOf = (id: string): Category => CATEGORIES.find((c) => c.id === id)!;
@@ -94,7 +96,7 @@ const previews = new Map<string, LabelDoc>();
 export function templatePreview(t: Template): LabelDoc {
   let doc = previews.get(t.id);
   if (!doc) {
-    doc = { ...createDoc(t.size, t.name), id: t.id, elements: layoutTemplate(content(t.kind, t.variant), printableArea(t.size)) };
+    doc = { ...createDoc(t.size, t.name), id: t.id, elements: elementsOf(t) };
     previews.set(t.id, doc);
   }
   return doc;
@@ -103,8 +105,10 @@ export function templatePreview(t: Template): LabelDoc {
 /** A fresh, editable label made from the template. */
 export function labelFromTemplate(t: Template): LabelDoc {
   const doc = createDoc(t.size, t.name);
-  return { ...doc, elements: layoutTemplate(content(t.kind, t.variant), printableArea(t.size)).map((el) => ({ ...el, id: uid() })) };
+  return { ...doc, elements: elementsOf(t).map((el) => ({ ...el, id: uid() })) };
 }
+
+const elementsOf = (t: Template): LabelElement[] => (t.build ? t.build() : layoutTemplate(content(t.kind, t.variant), printableArea(t.size)));
 
 /** Every font family the templates use, to load before drawing thumbnails. */
 export const TEMPLATE_FONTS: string[] = [...new Set(CATEGORIES.flatMap((c) => [c.font, c.bodyFont]).concat(KINDS.flatMap((k) => (k.font ? [k.font] : []))))];

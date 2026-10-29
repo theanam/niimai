@@ -1,6 +1,6 @@
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { createDoc, createElement } from '../doc/model';
+import { createDoc, createElement, type IconElement } from '../doc/model';
 import { renderApp } from '../test/render';
 import { Inspector } from './Inspector';
 
@@ -93,5 +93,17 @@ describe('inspector', () => {
     await userEvent.type(width, '60');
     // Never wider than the 48 mm print width.
     expect(onDocChange).toHaveBeenLastCalledWith({ widthMm: 48 });
+  });
+
+  it('shows the chosen icon on its button, and a placeholder before one is chosen', () => {
+    const body = '<path d="M10 10h236v236z"/>';
+    const icon = { ...createElement('icon', createDoc()), name: 'package', weight: 'bold', body } as IconElement;
+    const { unmount } = renderApp(<Inspector {...base} doc={createDoc()} selected={icon} onUpdate={noop} onDocChange={noop} />);
+    const button = screen.getByRole('button', { name: /package/i });
+    expect(button.querySelector('svg.icon-preview path')?.getAttribute('d')).toBe('M10 10h236v236z');
+    unmount();
+    renderApp(<Inspector {...base} doc={createDoc()} selected={{ ...icon, name: '', body: '' } as IconElement} onUpdate={noop} onDocChange={noop} />);
+    const empty = screen.getByRole('button', { name: /choose icon/i });
+    expect(empty.querySelector('svg.icon-preview')).toBeNull();
   });
 });

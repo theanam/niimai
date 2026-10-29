@@ -5,6 +5,9 @@ import { HANDLES, resizeBox, snapBox, type Guide, type Handle } from '../doc/sna
 import { round1 } from '../lib/units';
 import { elementSvg, mirroredSvg } from '../render/svg';
 import type { Area } from '../printer/safeArea';
+import { Minus, Plus } from 'lucide-react';
+import { shortcutLabel } from '../shortcuts/shortcuts';
+import { IconButton } from '../ui/IconButton';
 import { TextEditor } from './TextEditor';
 
 interface Props {
@@ -24,6 +27,11 @@ interface Props {
   safeArea?: Area | null;
   /** Elements with details too fine for the printer, by id. */
   issues?: Record<string, string>;
+  /** Screen pixels per millimetre; null fits the label to the view. */
+  zoomLevel?: number | null;
+  onZoomChange?: (zoom: number | null) => void;
+  /** A zoom step asked for by keyboard; the counter makes repeats count. */
+  zoomRequest?: { dir: 'in' | 'out' | 'fit'; n: number } | null;
 }
 
 type Drag =
@@ -32,11 +40,21 @@ type Drag =
 
 const PADDING = 48;
 const SNAP_PX = 6;
+/** Screen pixels per millimetre at true size (96 CSS pixels to the inch). */
+const PX_PER_MM = 96 / 25.4;
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 60;
+const ZOOM_STEP = 1.25;
 
-export function Canvas({ doc, selectedId, dispatch, images, preview, fontsVersion, editingId, onEditStart, onEditEnd, safeArea = null, issues = {} }: Props) {
+/** The zoom one step in or out from the current one. */
+export const stepZoom = (zoom: number, dir: 'in' | 'out'): number =>
+  Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, dir === 'in' ? zoom * ZOOM_STEP : zoom / ZOOM_STEP));
+
+export function Canvas({ doc, selectedId, dispatch, images, preview, fontsVersion, editingId, onEditStart, onEditEnd, safeArea = null, issues = {}, zoomLevel = null, onZoomChange, zoomRequest = null }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
-  const [zoom, setZoom] = useState(10);
+  const [fitZoom, setFitZoom] = useState(10);
+  const zoom = zoomLevel ?? fitZoom;
   const [guides, setGuides] = useState<Guide[]>([]);
   const drag = useRef<Drag | null>(null);
 
@@ -46,13 +64,20 @@ export function Canvas({ doc, selectedId, dispatch, images, preview, fontsVersio
     const fit = () => {
       const { clientWidth: cw, clientHeight: ch } = wrap;
       if (!cw || !ch) return;
-      setZoom(Math.max(1, Math.min((cw - PADDING * 2) / doc.widthMm, (ch - PADDING * 2) / doc.heightMm)));
+      setFitZoom(Math.max(MIN_ZOOM, Math.min((cw - PADDING * 2) / doc.widthMm, (ch - PADDING * 2) / doc.heightMm)));
     };
     fit();
     const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(fit) : null;
     ro?.observe(wrap);
     return () => ro?.disconnect();
   }, [doc.widthMm, doc.heightMm]);
+
+  useEffect(() => {
+    if (!zoomRequest || !onZoomChange) return;
+    onZoomChange(zoomRequest.dir === 'fit' ? null : stepZoom(zoom, zoomRequest.dir));
+    // Only a new request steps; the zoom it starts from is read as it is now.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zoomRequest]);
 
   /** Pointer position in label millimetres. */
   const toMm = (e: { clientX: number; clientY: number }): [number, number] => {
@@ -123,6 +148,7 @@ export function Canvas({ doc, selectedId, dispatch, images, preview, fontsVersio
   const handleSize = (coarse ? 18 : 8) / zoom;
 
   return (
+    <div className="canvas-frame">
     <div className="canvas-wrap" ref={wrapRef} onPointerDown={() => dispatch({ type: 'select', id: null })}>
       <div className="canvas-paper" style={{ width: doc.widthMm * zoom, height: doc.heightMm * zoom }}>
         {preview ? (
@@ -255,6 +281,7 @@ export function Canvas({ doc, selectedId, dispatch, images, preview, fontsVersio
                 })}
               </g>
             )}
+            {selected && <SizeTag el={selected} zoom={zoom} />}
           </svg>
         )}
         {editing?.type === 'text' && (
@@ -267,10 +294,49 @@ export function Canvas({ doc, selectedId, dispatch, images, preview, fontsVersio
           />
         )}
       </div>
-      <div className="canvas-size" aria-hidden="true">
-        {sizeLabel(doc)} mm{isMirrored(doc) ? ' · mirrored' : ''}{doc.tailMm ? ' · tail blank' : ''}
+    </div>
+      <div className="canvas-hud">
+        <div className="canvas-size" aria-hidden="true">
+          {sizeLabel(doc)} mm{isMirrored(doc) ? ' · mirrored' : ''}
+          {doc.tailMm ? ' · tail blank' : ''}
+        </div>
+        {onZoomChange && (
+          <div className="canvas-zoom" role="group" aria-label="Zoom">
+            <IconButton label="Zoom out" shortcut={shortcutLabel('Mod+-')} disabled={zoom <= MIN_ZOOM} onClick={() => onZoomChange(stepZoom(zoom, 'out'))}>
+              <Minus size={15} />
+            </IconButton>
+            <button type="button" className="canvas-zoom-level" onClick={() => onZoomChange(null)} title={`Fit (${shortcutLabel('Mod+0')})`} aria-label="Fit to view">
+              {zoomLevel === null ? 'Fit' : `${Math.round((zoom / PX_PER_MM) * 100)}%`}
+            </button>
+            <IconButton label="Zoom in" shortcut={shortcutLabel('Mod+=')} disabled={zoom >= MAX_ZOOM} onClick={() => onZoomChange(stepZoom(zoom, 'in'))}>
+              <Plus size={15} />
+            </IconButton>
+          </div>
+        )}
       </div>
     </div>
+  );
+}
+
+/** The selected element's box size in a small pill just under it, the same screen size at any zoom. */
+function SizeTag({ el, zoom }: { el: LabelElement; zoom: number }) {
+  // Below the lowest corner, so rotated elements never cover it.
+  const a = (el.rotation * Math.PI) / 180;
+  const below = (Math.abs(el.w * Math.sin(a)) + Math.abs(el.h * Math.cos(a))) / 2;
+  const label = `${round1(el.w)} × ${round1(el.h)} mm`;
+  // Sized in screen pixels, then converted to label millimetres.
+  const px = 1 / zoom;
+  const width = (label.length * 6.4 + 12) * px;
+  const height = 18 * px;
+  const cx = el.x + el.w / 2;
+  const top = el.y + el.h / 2 + below + 6 * px;
+  return (
+    <g className="size-tag" aria-hidden="true">
+      <rect x={cx - width / 2} y={top} width={width} height={height} rx={height / 2} />
+      <text x={cx} y={top + height / 2} fontSize={11 * px} textAnchor="middle" dominantBaseline="central">
+        {label}
+      </text>
+    </g>
   );
 }
 

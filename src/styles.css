@@ -208,7 +208,10 @@ kbd {
   margin-right: 4px;
 }
 .doc-name {
+  /* Gives way first when the header runs short of room. */
+  flex: 0 1 180px;
   width: 180px;
+  min-width: 90px;
   height: 32px;
   border: 1px solid transparent;
   border-radius: 8px;
@@ -307,15 +310,23 @@ kbd {
 }
 
 /* Canvas */
-.canvas-wrap {
+/* The canvas scrolls inside a fixed frame; the size pill and zoom stay pinned over it. */
+.canvas-frame {
   position: relative;
   height: 100%;
+}
+.canvas-wrap {
+  position: relative;
+  box-sizing: border-box;
+  height: 100%;
   display: grid;
-  place-items: center;
+  padding: 48px;
   overflow: auto;
   user-select: none;
 }
 .canvas-paper {
+  /* Auto margins centre the label and, unlike grid centring, let a zoomed-in label scroll to every edge. */
+  margin: auto;
   background: #fff;
   border-radius: 4px;
   box-shadow: var(--shadow);
@@ -388,12 +399,54 @@ kbd {
   color: #000;
   caret-color: var(--primary);
 }
+.canvas-hud {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  pointer-events: none;
+}
+.canvas-hud > * {
+  pointer-events: auto;
+}
+.canvas-zoom {
+  position: absolute;
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+}
+.canvas-zoom .icon-btn {
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+}
+.canvas-zoom-level {
+  min-width: 48px;
+  height: 28px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.canvas-zoom-level:hover {
+  background: var(--surface-2);
+}
 .canvas-size {
   white-space: nowrap;
-  position: absolute;
-  bottom: 12px;
-  left: 50%;
-  transform: translateX(-50%);
   font-size: 12px;
   color: var(--muted);
   background: var(--surface);
@@ -2623,7 +2676,7 @@ kbd {
 .stage-templates {
   position: absolute;
   left: 50%;
-  bottom: 24px;
+  bottom: 56px;
   transform: translateX(-50%);
   display: inline-flex;
   align-items: center;
@@ -2925,4 +2978,28 @@ kbd {
 .start-roll-actions .field-number {
   flex: none;
   width: 140px;
+}
+@media (max-width: 520px) {
+  .canvas-hud {
+    justify-content: flex-start;
+  }
+}
+
+/* The selected element's size, under it on the canvas */
+.size-tag {
+  pointer-events: none;
+}
+.size-tag rect {
+  fill: var(--primary);
+}
+.size-tag text {
+  fill: #fff;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 1100px) {
+  .templates-btn-text {
+    display: none;
+  }
 }

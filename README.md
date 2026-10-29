@@ -18,12 +18,12 @@
 
 - **A start screen** that gets you printing fast: connect, start blank, or pick a template sized for your roll.
 - **Connects directly** to NIIMBOT printers over Bluetooth or USB. No app install, no account. Warns when the design does not match the loaded roll, and prints a ruler test for fine-tuning the print position.
-- **Text, images, QR codes, barcodes, frames and shapes**, with snapping, rotation and undo. Text is edited right on the label, frames come in 11 styles, from double lines to tickets and scallops, and SVG artwork can be imported or pasted.
+- **Text, images, QR codes, barcodes, frames and shapes**, with snapping, rotation, undo, zoom and live sizes. Text is edited right on the label, frames come in 11 styles, from double lines to tickets and scallops, and SVG artwork can be imported or pasted.
 - **Over 6,800 templates** across 22 categories, from pantry jars, cable flags and perfume decants to travel toiletries, lab samples and electronics drawers, most with icon versions, laid out for every common roll size.
 - **Every Google Font**, grouped by category and previewed in the picker.
 - **1,500 icons** from Phosphor in regular, bold and fill weights, chosen for crisp thermal printing.
 - **What you see is what prints.** A 1-bit preview shows every dot, photos are dithered for thermal paper, the edges your printhead cannot reach are shaded, and details finer than a printer dot are flagged.
-- **Works with other Bluetooth thermal printers too.** Small 58 mm ESC/POS and cat printers connect the same way and print on continuous paper, with the label length set right in the editor.
+- **Works with other Bluetooth thermal printers too.** Small 58 mm ESC/POS and cat printers connect the same way and print on continuous paper, with the label length set right in the editor and templates made for long formats, from to-do lists to daily plans.
 - **Recognises 60+ NIIMBOT rolls** from the barcode on their RFID tag, setting the label size and paper type and showing how many labels are left ([list](docs/known-rolls.md)).
 - **Browser printing** of the label as a vector document at its exact size.
 - **Local-first.** Labels are kept on your device, and can be saved to and opened from `.niimai` files.

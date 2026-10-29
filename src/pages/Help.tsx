@@ -16,6 +16,8 @@ const SHORTCUTS: [string, string][] = [
   ['Mod+P', 'Print'],
   ['Mod+L', 'Library'],
   ['Mod+E', 'Print preview'],
+  ['Mod+= / −', 'Zoom in, zoom out'],
+  ['Mod+0', 'Fit the label to the view'],
   ['Mod+Z', 'Undo'],
   ['Mod+Shift+Z', 'Redo'],
   ['Mod+C / X / V', 'Copy, cut, paste'],
@@ -150,7 +152,7 @@ export function Help() {
         <p>
           niimai is made for NIIMBOT, and also prints on small 58 mm Bluetooth thermal printers: ESC/POS mini printers and
           cat printers. Connect them with Bluetooth like any other printer. They print on continuous paper up to 48 mm wide;
-          set the label's length in the side panel.
+          set the label's length in the side panel. The library adds lists, planners and notes made for continuous paper.
         </p>
         <table className="shortcuts">
           <tbody>

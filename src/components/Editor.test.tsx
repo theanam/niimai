@@ -278,6 +278,33 @@ describe('editor', () => {
     expect(screen.queryByRole('dialog', { name: 'Use 48 mm wide paper?' })).toBeNull();
   });
 
+  it('zooms the canvas with buttons and shortcuts, and fits again', async () => {
+    renderEditor();
+    const level = screen.getByRole('button', { name: 'Fit to view' });
+    expect(level).toHaveTextContent('Fit');
+    await userEvent.click(screen.getByRole('button', { name: 'Zoom in' }));
+    expect(level).toHaveTextContent(/^\d+%$/);
+    const zoomed = Number.parseInt(level.textContent!, 10);
+    fireEvent.keyDown(window, { key: '=', metaKey: true, ctrlKey: true });
+    await waitFor(() => expect(Number.parseInt(level.textContent!, 10)).toBeGreaterThan(zoomed));
+    fireEvent.keyDown(window, { key: '-', metaKey: true, ctrlKey: true });
+    await waitFor(() => expect(Number.parseInt(level.textContent!, 10)).toBe(zoomed));
+    fireEvent.keyDown(window, { key: '0', metaKey: true, ctrlKey: true });
+    await waitFor(() => expect(level).toHaveTextContent('Fit'));
+    await userEvent.click(screen.getByRole('button', { name: 'Zoom out' }));
+    await userEvent.click(level);
+    expect(level).toHaveTextContent('Fit');
+  });
+
+  it('shows the size of the selected element under it', async () => {
+    renderEditor();
+    expect(document.querySelector('.size-tag')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Add rectangle' }));
+    const w = Number((screen.getByRole('spinbutton', { name: 'Width' }) as HTMLInputElement).value);
+    const h = Number((screen.getByRole('spinbutton', { name: 'Height' }) as HTMLInputElement).value);
+    expect(document.querySelector('.size-tag')).toHaveTextContent(`${w} × ${h} mm`);
+  });
+
   it('connects to the demo printer', async () => {
     renderEditor();
     await connectDemo();

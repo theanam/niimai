@@ -83,4 +83,22 @@ describe('library', () => {
     await userEvent.click(screen.getByRole('button', { name: 'More' }));
     expect(templateCards()).toHaveLength(96);
   });
+
+  it('offers continuous-paper templates first when such a printer is connected', async () => {
+    const { onOpen } = setup({ initialTab: 'templates', continuous: true, currentSize: { widthMm: 48, heightMm: 30 } });
+    await screen.findByRole('list', { name: 'Templates' });
+    expect(screen.getByRole('button', { name: /^Continuous paper/ })).toHaveClass('active');
+    const cards = templateCards();
+    expect(cards.length).toBeGreaterThanOrEqual(10);
+    await userEvent.click(screen.getByRole('button', { name: /Use To-do list, 48 × 80 mm/ }));
+    expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ name: 'To-do list', widthMm: 48, heightMm: 80 }));
+  });
+
+  it('keeps continuous-paper templates out of sight for label printers', async () => {
+    setup({ initialTab: 'templates' });
+    await screen.findByRole('list', { name: 'Templates' });
+    expect(screen.queryByRole('button', { name: /^Continuous paper/ })).toBeNull();
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Search templates' }), 'to-do');
+    expect(screen.queryByRole('button', { name: /To-do list/ })).toBeNull();
+  });
 });

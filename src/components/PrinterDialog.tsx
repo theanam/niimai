@@ -128,6 +128,7 @@ function PrintPosition({ status, onAlignmentTest, offset, onOffset }: Pick<Props
 
 function Connected(props: Props) {
   const { status, rollSize, rollName, rollNeedsSize, onSetRollSize, onDisconnect } = props;
+  const title = status.profile?.name ?? status.detectedModel ?? 'Printer';
   const label = status.label;
   const battery = status.battery;
   const used = label?.remaining !== undefined && label.capacity ? label.remaining / label.capacity : undefined;
@@ -141,9 +142,10 @@ function Connected(props: Props) {
           <span className={`pd-dot pd-dot-${status.state}`} />
         </div>
         <div className="pd-device-text">
-          <RD.Title className="pd-title">{status.profile?.name ?? status.detectedModel ?? 'Printer'}</RD.Title>
+          <RD.Title className="pd-title">{title}</RD.Title>
           <RD.Description className="pd-subtitle">
-            {status.state === 'printing' ? 'Printing…' : 'Ready'} · {status.deviceName ?? 'Unknown device'}
+            {status.state === 'printing' ? 'Printing…' : 'Ready'}
+            {status.deviceName !== title && ` · ${status.deviceName ?? 'Unknown device'}`}
           </RD.Description>
         </div>
       </div>

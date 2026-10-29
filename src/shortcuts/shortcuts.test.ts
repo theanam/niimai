@@ -41,4 +41,11 @@ describe('shortcuts', () => {
     expect(shortcutLabel('Mod+Shift+S', true)).toBe('⌘⇧S');
     expect(shortcutLabel('Mod+Shift+S', false)).toBe('Ctrl+Shift+S');
   });
+
+  it('maps the page zoom keys to canvas zoom', () => {
+    expect(matchShortcut(key('=', { metaKey: true }), true)?.action).toBe('zoomIn');
+    expect(matchShortcut(key('+', { ctrlKey: true, shiftKey: true }), false)?.action).toBe('zoomIn');
+    expect(matchShortcut(key('-', { metaKey: true }), true)?.action).toBe('zoomOut');
+    expect(matchShortcut(key('0', { ctrlKey: true }), false)?.action).toBe('zoomFit');
+  });
 });

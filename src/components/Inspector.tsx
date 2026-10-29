@@ -274,7 +274,13 @@ export function Inspector({ doc, selected, roll, rollPaper, fitting = [], allSiz
       {el.type === 'icon' && (
         <Section title="Style">
           <button className="btn btn-block" onClick={() => onReplaceIcon(el.id)}>
-            <Smile size={16} /> {el.body ? iconLabel(el.name) : 'Choose icon'}
+            {el.body ? (
+              // The body is sanitised path data (see sanitizeIconBody), never raw file contents.
+              <svg className="icon-preview" width={16} height={16} viewBox="0 0 256 256" fill="currentColor" aria-hidden="true" dangerouslySetInnerHTML={{ __html: el.body }} />
+            ) : (
+              <Smile size={16} />
+            )}{' '}
+            {el.body ? iconLabel(el.name) : 'Choose icon'}
           </button>
           <Segmented<IconWeight>
             label="Weight"

@@ -18,6 +18,7 @@ import {
   templatesForSize,
   type Template,
 } from '../templates';
+import { CONTINUOUS_CATEGORY, CONTINUOUS_TEMPLATES } from '../templates/continuous';
 import { Dialog, useConfirm } from '../ui/Dialog';
 import { useIncremental } from '../ui/useIncremental';
 import { IconButton } from '../ui/IconButton';
@@ -34,6 +35,8 @@ interface Props {
   initialTab?: Tab;
   /** Where the Templates tab starts: a search, or one category. */
   templateSeed?: TemplateSeed;
+  /** A continuous-paper printer is connected: its templates are offered too. */
+  continuous?: boolean;
 }
 
 export interface TemplateSeed {
@@ -125,10 +128,11 @@ function MyLabels({ currentId, onOpen }: { currentId: string; onOpen: (d: LabelD
   );
 }
 
-function Templates({ currentSize, onOpen, seed }: { currentSize: LabelSize; onOpen: (d: LabelDoc) => void; seed?: TemplateSeed }) {
+function Templates({ currentSize, onOpen, seed, continuous = false }: { currentSize: LabelSize; onOpen: (d: LabelDoc) => void; seed?: TemplateSeed; continuous?: boolean }) {
   const [allSizes, setAllSizes] = useState(false);
   const [size, setSize] = useState<LabelSize | null>(null);
-  const [category, setCategory] = useState<string | null>(seed?.category ?? null);
+  // With continuous paper loaded, its own templates come first.
+  const [category, setCategory] = useState<string | null>(seed?.category ?? (continuous && !seed?.query ? CONTINUOUS_CATEGORY.id : null));
   const [query, setQuery] = useState(seed?.query ?? '');
   const [fontsReady, setFontsReady] = useState(false);
 
@@ -142,7 +146,7 @@ function Templates({ currentSize, onOpen, seed }: { currentSize: LabelSize; onOp
     };
   }, []);
 
-  const base = useMemo(() => (allSizes ? TEMPLATES : templatesForSize(currentSize)), [allSizes, currentSize]);
+  const base = useMemo(() => [...(continuous ? CONTINUOUS_TEMPLATES : []), ...(allSizes ? TEMPLATES : templatesForSize(currentSize))], [allSizes, currentSize, continuous]);
   const matching = useMemo(() => filterTemplates(base, { query, size: allSizes ? size : null }), [base, query, size, allSizes]);
   const shown = useMemo(() => (category ? matching.filter((t) => t.category === category) : matching), [matching, category]);
   const counts = useMemo(() => {
@@ -186,7 +190,7 @@ function Templates({ currentSize, onOpen, seed }: { currentSize: LabelSize; onOp
             <span>All</span>
             <small>{matching.length}</small>
           </button>
-          {CATEGORIES.map((c) => (
+          {[...(continuous ? [CONTINUOUS_CATEGORY] : []), ...CATEGORIES].map((c) => (
             <button key={c.id} className={category === c.id ? 'active' : ''} onClick={() => setCategory(c.id)} disabled={!counts.get(c.id)}>
               <span>{c.name}</span>
               <small>{counts.get(c.id) ?? 0}</small>
@@ -227,7 +231,7 @@ function Templates({ currentSize, onOpen, seed }: { currentSize: LabelSize; onOp
   );
 }
 
-export function LibraryDialog({ open, onOpenChange, currentId, currentSize, onOpen, initialTab = 'mine', templateSeed }: Props) {
+export function LibraryDialog({ open, onOpenChange, currentId, currentSize, onOpen, initialTab = 'mine', templateSeed, continuous = false }: Props) {
   const [tab, setTab] = useState<Tab>(initialTab);
   useEffect(() => {
     if (open) setTab(initialTab);
@@ -249,7 +253,7 @@ export function LibraryDialog({ open, onOpenChange, currentId, currentSize, onOp
         </button>
       </div>
       <div className="tab-panel" role="tabpanel">
-        {tab === 'mine' ? <MyLabels currentId={currentId} onOpen={openDoc} /> : <Templates currentSize={currentSize} onOpen={openDoc} seed={templateSeed} />}
+        {tab === 'mine' ? <MyLabels currentId={currentId} onOpen={openDoc} /> : <Templates currentSize={currentSize} onOpen={openDoc} seed={templateSeed} continuous={continuous} />}
       </div>
     </Dialog>
   );

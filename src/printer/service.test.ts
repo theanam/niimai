@@ -31,6 +31,9 @@ describe('printer service', () => {
     expect(s.deviceName).toBe('Demo printer');
     expect(s.battery).toBe(80);
     expect(s.profile?.printTask).toBe('D11_V1');
+    // It prints like a D11 but is named as the demo.
+    expect(s.profile?.name).toBe('Demo printer');
+    expect(s.detectedModel).toBe('D11');
     expect(s.label).toEqual({ widthMm: 40, heightMm: 12, remaining: 198, capacity: 210, barcode: '6971501227941', paper: 'gaps' });
     expect(seen).toContain('connecting');
   });

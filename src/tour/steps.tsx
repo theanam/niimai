@@ -69,7 +69,7 @@ export const TOUR_STEPS: TourStep[] = [
     id: 'keys',
     title: 'Fast with the keyboard',
     body: 'The shortcuts you already know work here, plus a few for labels.',
-    highlights: ['Arrow keys nudge by 0.1 mm, Shift for 1 mm', 'Hold Alt to drag without snapping', 'Paste images straight from the clipboard'],
+    highlights: ['Arrow keys nudge by 0.1 mm, Shift for 1 mm', 'Zoom in for detail; every selection shows its size', 'Hold Alt to drag without snapping', 'Paste images straight from the clipboard'],
     Visual: KeysVisual,
   },
   {

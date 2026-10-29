@@ -93,6 +93,10 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
   const fileHandle = useRef<FileHandle | null>(null);
   const clipboard = useRef<LabelElement | null>(null);
   const [editing, setEditing] = useState<{ id: string } | null>(null);
+  /** Canvas zoom in screen pixels per millimetre; null fits the label to the view. */
+  const [zoomLevel, setZoomLevel] = useState<number | null>(null);
+  const [zoomRequest, setZoomRequest] = useState<{ dir: 'in' | 'out' | 'fit'; n: number } | null>(null);
+  const requestZoom = (dir: 'in' | 'out' | 'fit') => setZoomRequest((r) => ({ dir, n: (r?.n ?? 0) + 1 }));
   /** The icon element the picker replaces; null adds a new one. */
   const [iconTarget, setIconTarget] = useState<string | null>(null);
   const dpi = status.profile?.dpi ?? DEFAULT_DPI;
@@ -134,6 +138,9 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roll.key, roll.size?.widthMm, roll.size?.heightMm, status.state]);
+
+  // A different label, or a new size, starts again fitted to the view.
+  useEffect(() => setZoomLevel(null), [doc.id, doc.widthMm, doc.heightMm]);
 
   // What the printhead reaches. Borders past it print with sides missing, so they move inside once per border.
   const safe = safeArea(docSize, status.profile);
@@ -430,6 +437,12 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
         case 'library':
           setLibraryTab('mine');
           return setDialog('library');
+        case 'zoomIn':
+          return requestZoom('in');
+        case 'zoomOut':
+          return requestZoom('out');
+        case 'zoomFit':
+          return requestZoom('fit');
         case 'preview':
           return setPreviewOn((p) => !p);
         case 'undo':
@@ -556,6 +569,9 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
               onEditEnd={endEditing}
               safeArea={safe}
               issues={issues}
+              zoomLevel={zoomLevel}
+              onZoomChange={setZoomLevel}
+              zoomRequest={zoomRequest}
             />
           </ErrorBoundary>
           {doc.elements.length === 0 && !previewOn && (
@@ -632,6 +648,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
         currentSize={roll.size ?? docSize}
         initialTab={libraryTab}
         templateSeed={templateSeed}
+        continuous={status.profile?.kind === 'thermal'}
         onOpen={(d) => loadDoc(d)}
       />
       <PrintDialog

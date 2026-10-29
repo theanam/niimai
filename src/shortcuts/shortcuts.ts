@@ -15,6 +15,9 @@ export type ShortcutAction =
   | 'edit'
   | 'library'
   | 'preview'
+  | 'zoomIn'
+  | 'zoomOut'
+  | 'zoomFit'
   | 'nudge';
 
 export interface Shortcut {
@@ -58,6 +61,14 @@ export function matchShortcut(e: KeyLike, mac = isMac()): Shortcut | null {
         return e.shiftKey ? null : { action: 'library' };
       case 'e':
         return e.shiftKey ? null : { action: 'preview' };
+      // The browser's page zoom keys zoom the label instead.
+      case '=':
+      case '+':
+        return { action: 'zoomIn' };
+      case '-':
+        return { action: 'zoomOut' };
+      case '0':
+        return { action: 'zoomFit' };
     }
     if (typing) return null;
     switch (key) {

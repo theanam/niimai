@@ -134,8 +134,9 @@ export function Header({ name, onRename, onHome, canUndo, canRedo, preview, prin
         )}
       </nav>
 
-      <button className="btn btn-soft templates-btn toolbar-wide" onClick={() => onAction('templates')}>
-        <LayoutTemplate size={16} /> Templates
+      <button className="btn btn-soft templates-btn toolbar-wide" onClick={() => onAction('templates')} aria-label="Templates" title="Templates">
+        <LayoutTemplate size={16} />
+        <span className="templates-btn-text">Templates</span>
       </button>
 
       <span className="spacer" />

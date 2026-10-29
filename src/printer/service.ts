@@ -40,6 +40,9 @@ export type ClientFactory = (kind: ConnectionKind) => Promise<ClientLike>;
 
 const DISCONNECTED: PrinterStatus = { state: 'disconnected', profile: null };
 
+/** What the demo printer is called wherever a printer's name shows. */
+export const DEMO_NAME = 'Demo printer';
+
 const PRINT_TIMEOUT_MS = 20_000;
 const PAGE_TIMEOUT_MS = 10_000;
 const PRINT_END_POLL_MS = 300;
@@ -118,6 +121,9 @@ export class PrinterService {
   private manualProfileId: string | null = null;
   private detach: (() => void) | null = null;
 
+  /** How the current printer is connected. */
+  private kind: ConnectionKind | null = null;
+
   constructor(
     private createClient: ClientFactory,
     private encode: Encoder,
@@ -149,7 +155,9 @@ export class PrinterService {
 
   private currentProfile(): PrinterProfile | null {
     const c = this.client;
-    return resolveProfile(c?.getModelMetadata(), c?.getPrintTaskType(), findManualProfile(this.manualProfileId), c?.getPrinterInfo().protocolVersion);
+    const profile = resolveProfile(c?.getModelMetadata(), c?.getPrintTaskType(), findManualProfile(this.manualProfileId), c?.getPrinterInfo().protocolVersion);
+    // The demo behaves like a D11 underneath, but never passes for one.
+    return profile && this.kind === 'demo' ? { ...profile, name: DEMO_NAME } : profile;
   }
 
   private readRfid(): PrinterStatus['label'] {
@@ -170,6 +178,7 @@ export class PrinterService {
 
   async connect(kind: ConnectionKind): Promise<void> {
     if (this.client) await this.disconnect();
+    this.kind = kind;
     this.replace({ ...DISCONNECTED, state: 'connecting' });
     let client: ClientLike;
     try {

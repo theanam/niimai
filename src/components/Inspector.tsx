@@ -36,6 +36,8 @@ import { ELEMENT_META } from './elementMeta';
 import { NumberField, Section, Segmented, Toggle } from './fields';
 import { FontPicker } from './FontPicker';
 import { FramePicker } from './FramePicker';
+import { DataSection, DynamicSection } from './DataPanel';
+import { canBeDynamic } from '../doc/variables';
 import { LabelSizePicker } from './LabelSizePicker';
 
 interface Props {
@@ -51,7 +53,11 @@ interface Props {
   /** Opens the dialog for naming the loaded roll's size. */
   onSetRollSize: () => void;
   onUpdate: (id: string, patch: Partial<LabelElement>, key?: string) => void;
-  onDocChange: (patch: Partial<Pick<LabelDoc, 'widthMm' | 'heightMm' | 'tailMm' | 'fold' | 'paper' | 'name'>>) => void;
+  onDocChange: (patch: Partial<Pick<LabelDoc, 'widthMm' | 'heightMm' | 'tailMm' | 'fold' | 'paper' | 'name' | 'sheet' | 'sequence'>>) => void;
+  /** Opens a spreadsheet for the label's dynamic fields. */
+  onAddSheet?: () => void;
+  /** The element as the shown record prints it, for checking a dynamic code's value. */
+  resolve?: (el: LabelElement) => LabelElement;
   onDuplicate: (el: LabelElement) => void;
   onRemove: (id: string) => void;
   onReorder: (id: string, direction: 'up' | 'down') => void;
@@ -72,17 +78,19 @@ const FORMATS: { value: BarcodeFormat; label: string }[] = [
   { value: 'upca', label: 'UPC-A' },
 ];
 
-export function Inspector({ doc, selected, roll, rollPaper, fitting = [], allSizes = LABEL_PRESETS, onSetRollSize, onUpdate, onDocChange, onDuplicate, onRemove, onReorder, onReplaceImage, onReplaceIcon, onEditText, printIssue, continuous = false }: Props) {
+export function Inspector({ doc, selected, roll, rollPaper, fitting = [], allSizes = LABEL_PRESETS, onSetRollSize, onUpdate, onDocChange, onDuplicate, onRemove, onReorder, onReplaceImage, onReplaceIcon, onEditText, printIssue, continuous = false, onAddSheet = () => {}, resolve = (el) => el }: Props) {
+  const data = <DataSection doc={doc} onAddSheet={onAddSheet} onDocChange={onDocChange} />;
   if (!selected && continuous) {
     return (
       <aside className="inspector" aria-label="Label settings">
-        <Section title="Label">
+        <Section title="Label" defaultOpen>
           <p className="muted small">Continuous paper, up to {THERMAL_HEAD_MM} mm wide.</p>
           <div className="grid-2">
             <NumberField label="Width" icon="W" value={doc.widthMm} min={5} max={THERMAL_HEAD_MM} step={1} suffix="mm" onChange={(widthMm) => onDocChange({ widthMm })} />
             <NumberField label="Length" icon="L" value={doc.heightMm} min={5} max={500} step={1} suffix="mm" onChange={(heightMm) => onDocChange({ heightMm })} />
           </div>
         </Section>
+        {data}
       </aside>
     );
   }
@@ -91,7 +99,7 @@ export function Inspector({ doc, selected, roll, rollPaper, fitting = [], allSiz
     const isPreset = [...(roll.size ? [roll.size] : []), ...allSizes].some((p) => sameSize(p, doc));
     return (
       <aside className="inspector" aria-label="Label settings">
-        <Section title="Label">
+        <Section title="Label" defaultOpen>
           <LabelSizePicker
             value={doc}
             rollSize={roll.size}
@@ -168,6 +176,7 @@ export function Inspector({ doc, selected, roll, rollPaper, fitting = [], allSiz
             />
           </details>
         </Section>
+        {data}
       </aside>
     );
   }
@@ -175,12 +184,19 @@ export function Inspector({ doc, selected, roll, rollPaper, fitting = [], allSiz
   const el = selected;
   const set = (patch: Partial<LabelElement>, key?: string) => onUpdate(el.id, patch, key);
   const Meta = ELEMENT_META[el.type];
-  const error = el.type === 'qr' || el.type === 'barcode' ? symbolError(el) : null;
+  const shown = resolve(el);
+  const error = shown.type === 'qr' || shown.type === 'barcode' ? symbolError(shown) : null;
 
   return (
     <aside className="inspector" aria-label={`${Meta.label} settings`}>
+      {printIssue && (
+        <p className="print-issue inspector-issue" role="status">
+          <TriangleAlert size={15} aria-hidden="true" /> {printIssue}
+        </p>
+      )}
       <Section
         title={Meta.label}
+        id="position"
         actions={
           <>
             <IconButton label="Bring forward" onClick={() => onReorder(el.id, 'up')}>
@@ -198,11 +214,6 @@ export function Inspector({ doc, selected, roll, rollPaper, fitting = [], allSiz
           </>
         }
       >
-        {printIssue && (
-          <p className="print-issue" role="status">
-            <TriangleAlert size={15} aria-hidden="true" /> {printIssue}
-          </p>
-        )}
         <div className="grid-2">
           <NumberField label="X" value={el.x} suffix="mm" onChange={(x) => set({ x }, 'x')} />
           <NumberField label="Y" value={el.y} suffix="mm" onChange={(y) => set({ y }, 'y')} />
@@ -213,7 +224,7 @@ export function Inspector({ doc, selected, roll, rollPaper, fitting = [], allSiz
       </Section>
 
       {el.type === 'text' && (
-        <Section title="Style">
+        <Section title="Style" id="text-style" defaultOpen>
           {onEditText && (
             <button className="btn btn-block" onClick={() => onEditText(el.id)}>
               <Pencil size={16} /> Edit text
@@ -242,7 +253,7 @@ export function Inspector({ doc, selected, roll, rollPaper, fitting = [], allSiz
       )}
 
       {el.type === 'image' && (
-        <Section title="Dithering">
+        <Section title="Dithering" id="image" defaultOpen>
           <button className="btn btn-block" onClick={() => onReplaceImage(el.id)}>
             <ImageUp size={16} /> {el.src ? 'Replace' : 'Choose image'}
           </button>
@@ -272,7 +283,7 @@ export function Inspector({ doc, selected, roll, rollPaper, fitting = [], allSiz
       )}
 
       {el.type === 'icon' && (
-        <Section title="Style">
+        <Section title="Style" id="icon-style" defaultOpen>
           <button className="btn btn-block" onClick={() => onReplaceIcon(el.id)}>
             {el.body ? (
               // The body is sanitised path data (see sanitizeIconBody), never raw file contents.
@@ -298,7 +309,7 @@ export function Inspector({ doc, selected, roll, rollPaper, fitting = [], allSiz
       )}
 
       {(el.type === 'qr' || el.type === 'barcode') && (
-        <Section title="Content">
+        <Section title="Content" id="code" defaultOpen>
           {el.type === 'barcode' && (
             <select className="select" aria-label="Format" value={el.format} onChange={(e) => set({ format: e.target.value as BarcodeFormat })}>
               {FORMATS.map((f) => (
@@ -321,15 +332,19 @@ export function Inspector({ doc, selected, roll, rollPaper, fitting = [], allSiz
         </Section>
       )}
 
+      {canBeDynamic(el) && (
+        <DynamicSection el={el} doc={doc} onChange={set} onAddSheet={onAddSheet} onSequence={(sequence) => onDocChange({ sequence })} />
+      )}
+
       {el.type === 'frame' && (
-        <Section title="Style">
+        <Section title="Style" id="frame-style" defaultOpen>
           <FramePicker value={el.style} onPick={(style) => set({ style })} />
           <NumberField label="Stroke width" icon={<SquareDashed size={13} />} value={el.strokeWidth} min={0.1} max={5} suffix="mm" onChange={(strokeWidth) => set({ strokeWidth }, 'stroke')} />
         </Section>
       )}
 
       {(el.type === 'rect' || el.type === 'ellipse' || el.type === 'line') && (
-        <Section title="Stroke">
+        <Section title="Stroke" id="stroke" defaultOpen>
           {el.type === 'line' && (
             <Segmented<LineDirection>
               label="Direction"

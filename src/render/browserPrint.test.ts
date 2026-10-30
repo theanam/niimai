@@ -23,4 +23,10 @@ describe('browser printing', () => {
     window.dispatchEvent(new Event('afterprint'));
     expect(document.getElementById('print-root')?.innerHTML).toBe('');
   });
+
+  it('prints each label of a batch, copies times', () => {
+    const { html } = printMarkup(doc, ['<svg id="a"/>', '<svg id="b"/>'], 2);
+    expect(html.match(/print-page/g)).toHaveLength(4);
+    expect(html.indexOf('id="b"')).toBeGreaterThan(html.lastIndexOf('id="a"'));
+  });
 });

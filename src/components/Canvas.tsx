@@ -5,7 +5,7 @@ import { HANDLES, resizeBox, snapBox, type Guide, type Handle } from '../doc/sna
 import { round1 } from '../lib/units';
 import { elementSvg, mirroredSvg } from '../render/svg';
 import type { Area } from '../printer/safeArea';
-import { Minus, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Minus, Plus } from 'lucide-react';
 import { shortcutLabel } from '../shortcuts/shortcuts';
 import { IconButton } from '../ui/IconButton';
 import { TextEditor } from './TextEditor';
@@ -33,6 +33,10 @@ interface Props {
   onZoomChange?: (zoom: number | null) => void;
   /** A zoom step asked for by keyboard; the counter makes repeats count. */
   zoomRequest?: { dir: 'in' | 'out' | 'fit'; n: number } | null;
+  /** Draws an element as the shown record prints it: dynamic fields filled in. */
+  resolve?: (el: LabelElement) => LabelElement;
+  /** The sheet row on show, for labels that print one per row. */
+  record?: { index: number; count: number; onChange: (index: number) => void } | null;
 }
 
 type Drag =
@@ -51,7 +55,7 @@ const ZOOM_STEP = 1.25;
 export const stepZoom = (zoom: number, dir: 'in' | 'out'): number =>
   Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, dir === 'in' ? zoom * ZOOM_STEP : zoom / ZOOM_STEP));
 
-export function Canvas({ doc, selectedId, dispatch, images, preview, fontsVersion, editingId, onEditStart, onEditEnd, safeArea = null, issues = {}, zoomLevel = null, onZoomChange, zoomRequest = null }: Props) {
+export function Canvas({ doc, selectedId, dispatch, images, preview, fontsVersion, editingId, onEditStart, onEditEnd, safeArea = null, issues = {}, zoomLevel = null, onZoomChange, zoomRequest = null, resolve = (el) => el, record = null }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const [fitZoom, setFitZoom] = useState(10);
@@ -174,12 +178,12 @@ export function Canvas({ doc, selectedId, dispatch, images, preview, fontsVersio
                 onPointerDown={(e) => startMove(e, el)}
                 onDoubleClick={() => el.type === 'text' && onEditStart(el.id)}
                 // The element being edited is drawn by the textarea on top, so it is left out here.
-                dangerouslySetInnerHTML={{ __html: (el.id === editingId ? '' : elementSvg(el, { images })) + hitArea(el) }}
+                dangerouslySetInnerHTML={{ __html: (el.id === editingId ? '' : elementSvg(resolve(el), { images })) + hitArea(el) }}
               />
             ))}
             {isMirrored(doc) && (
               <g className="mirror-preview" aria-hidden="true">
-                <g dangerouslySetInnerHTML={{ __html: mirroredSvg(doc, { images }) }} />
+                <g dangerouslySetInnerHTML={{ __html: mirroredSvg({ ...doc, elements: doc.elements.map(resolve) }, { images }) }} />
                 <rect x={flagWidth(doc) / 2} width={flagWidth(doc) / 2} height={doc.heightMm} />
               </g>
             )}
@@ -297,6 +301,19 @@ export function Canvas({ doc, selectedId, dispatch, images, preview, fontsVersio
       </div>
     </div>
       <div className="canvas-hud">
+        {record && record.count > 1 && (
+          <div className="canvas-record" role="group" aria-label="Sheet row">
+            <IconButton label="Previous row" disabled={record.index <= 0} onClick={() => record.onChange(record.index - 1)}>
+              <ChevronLeft size={15} />
+            </IconButton>
+            <span className="canvas-record-text" aria-live="polite">
+              Row {record.index + 1} of {record.count}
+            </span>
+            <IconButton label="Next row" disabled={record.index >= record.count - 1} onClick={() => record.onChange(record.index + 1)}>
+              <ChevronRight size={15} />
+            </IconButton>
+          </div>
+        )}
         <div className="canvas-size" aria-hidden="true">
           {sizeLabel(doc)} mm{isMirrored(doc) ? ' · mirrored' : ''}
           {doc.tailMm ? ' · tail blank' : ''}

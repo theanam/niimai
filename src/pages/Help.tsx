@@ -1,4 +1,4 @@
-import { Bluetooth, Bug, Cable, Cat, Crosshair, Keyboard, LayoutTemplate, Mail, Printer, ScanLine, Sparkles } from 'lucide-react';
+import { Bluetooth, Braces, Bug, Cable, Cat, Crosshair, Keyboard, LayoutTemplate, Mail, Printer, ScanLine, Sparkles } from 'lucide-react';
 import { CAT_MODELS, CAT_UNSUPPORTED, type Confidence } from '../printer/cat';
 import { ESCPOS_MODELS } from '../printer/escpos';
 import { replayTour } from '../tour/Tour';
@@ -105,6 +105,31 @@ export function Help() {
           Flags that fold in the middle show a dashed fold line. Choose Same to repeat your design on both sides, Flipped to
           repeat it upside down, or Separate to design each side on its own.
         </p>
+      </section>
+      <section>
+        <h2>
+          <Braces size={18} /> Batches and dynamic text
+        </h2>
+        <p>
+          Select a text, QR code or barcode and turn on the switch in its Dynamic section. The content shows as tags: each
+          field and each piece of text has its own × to remove it. The chips below add fields, and clicking a field's tag
+          opens its options.
+        </p>
+        <ul>
+          <li>
+            <strong>Sheet columns.</strong> Add a CSV or Excel (.xlsx) file under Data in the label settings. Its first row
+            names the columns, and every row below prints one label. Step through rows with the arrows under the label.
+          </li>
+          <li>
+            <strong>Number</strong> counts up on each label. Its options set the start, an optional end, the step and the
+            digits. With an end, the print dialog prints the whole range; the next run carries on after it.
+          </li>
+          <li>
+            <strong>Date</strong> and <strong>Time</strong> fill in when you print. A date can be days from today, handy for
+            best-before labels, in formats from 30 Oct 2026 to 2026-10-30 or 10/2026. Time can be 12- or 24-hour.
+          </li>
+        </ul>
+        <p>In the print dialog, choose which rows to print, or how many numbers. Copies repeat each label.</p>
       </section>
       <section>
         <h2>

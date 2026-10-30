@@ -1,4 +1,4 @@
-import { BatteryMedium, ChevronRight, Minus, Plus, Printer as PrinterIcon, FileText, ScanLine } from 'lucide-react';
+import { BatteryMedium, ChevronRight, FileSpreadsheet, Layers, Minus, Plus, Printer as PrinterIcon, FileText, ScanLine } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { sizeLabel, type LabelDoc, type LabelSize } from '../doc/model';
 import { RollMismatchBanner } from './RollMismatchBanner';
@@ -7,6 +7,8 @@ import type { PrinterProfile } from '../printer/profiles';
 import { printheadMm } from '../printer/profiles';
 import { Dialog } from '../ui/Dialog';
 import { RasterImage } from '../ui/RasterImage';
+import { batchNeeds, clampRange, DEFAULT_SEQUENCE, sequenceCount, sequenceValue, type NumberSequence } from '../doc/variables';
+import { NumberField } from './fields';
 
 interface Props {
   open: boolean;
@@ -17,8 +19,11 @@ interface Props {
   density: number;
   onDensity: (d: number) => void;
   /** Resolve false when the print failed, so the copies are kept for a retry. */
-  onPrint: (copies: number) => Promise<boolean | void>;
-  onBrowserPrint: (copies: number) => Promise<boolean | void>;
+  onPrint: (copies: number, batch?: BatchRun) => Promise<boolean | void>;
+  onBrowserPrint: (copies: number, batch?: BatchRun) => Promise<boolean | void>;
+  /** Opens a spreadsheet for the label's dynamic fields. */
+  onAddSheet?: () => void;
+  onSequence?: (sequence: NumberSequence) => void;
   onConnect: () => void;
   /** The loaded roll's size, when known. */
   rollSize?: LabelSize | null;
@@ -29,6 +34,68 @@ interface Props {
   clipped?: boolean;
   /** Elements with details too fine for the printer. */
   issueCount?: number;
+}
+
+/** Records to print for dynamic fields: from a 0-based record, this many. */
+export interface BatchRun {
+  first: number;
+  count: number;
+}
+
+/** Most labels one batch prints, so a typo cannot empty a roll. */
+const MAX_BATCH = 999;
+
+/**
+ * Which records print: a range of sheet rows, or how many numbers. Hidden for
+ * labels without dynamic fields that vary.
+ */
+function BatchSection({ doc, run, onRun, onAddSheet, onSequence }: { doc: LabelDoc; run: BatchRun; onRun: (r: BatchRun) => void; onAddSheet?: () => void; onSequence?: (s: NumberSequence) => void }) {
+  const needs = batchNeeds(doc);
+  const seq = { ...DEFAULT_SEQUENCE, ...doc.sequence };
+  const rows = doc.sheet?.rows.length ?? 0;
+  const setRows = (from: number, to: number) => {
+    const [a, b] = clampRange(from, to, rows);
+    onRun({ first: a - 1, count: b - a + 1 });
+  };
+  return (
+    <section className="print-batch" aria-label="Batch">
+      <h3>
+        <Layers size={15} /> Batch
+      </h3>
+      {needs.sheet ? (
+        <div className="print-batch-row">
+          <span className="field-label-text">Rows</span>
+          <NumberField label="First row" icon="From" value={run.first + 1} min={1} max={rows} step={1} onChange={(v) => setRows(v, run.first + run.count)} />
+          <NumberField label="Last row" icon="To" value={run.first + run.count} min={1} max={rows} step={1} onChange={(v) => setRows(run.first + 1, v)} />
+          <span className="muted small">of {rows}</span>
+        </div>
+      ) : (
+        needs.number && (
+          <>
+            <div className="print-batch-row">
+              <NumberField label="Labels" icon="Labels" value={run.count} min={1} max={MAX_BATCH} step={1} onChange={(v) => onRun({ first: 0, count: Math.min(MAX_BATCH, Math.max(1, Math.round(v))) })} />
+              {onSequence && <NumberField label="Start" icon="Start" value={seq.start} step={1} onChange={(start) => onSequence({ ...seq, start: Math.round(start) })} />}
+            </div>
+            <p className="muted small">
+              {run.count > 1 ? `${sequenceValue(seq, 0)} to ${sequenceValue(seq, run.count - 1)}` : sequenceValue(seq, 0)}
+            </p>
+          </>
+        )
+      )}
+      {needs.missing.length > 0 && (
+        <div className="print-batch-missing">
+          <p className="field-error">
+            {doc.sheet ? 'No column for' : 'Needs a sheet for'} {needs.missing.map((m) => `{{${m}}}`).join(', ')}
+          </p>
+          {onAddSheet && (
+            <button className="btn btn-sm" onClick={onAddSheet}>
+              <FileSpreadsheet size={15} /> {doc.sheet ? 'Replace sheet' : 'Add sheet'}
+            </button>
+          )}
+        </div>
+      )}
+    </section>
+  );
 }
 
 /** The printer at a glance, at the top of the dialog. Opens printer settings. */
@@ -80,23 +147,35 @@ export function sizeWarning(profile: PrinterProfile | null, clipped: boolean): s
   return `Parts outside the ${Math.round(printheadMm(profile))} mm printhead will not print`;
 }
 
-export function PrintDialog({ open, onOpenChange, doc, status, preview, density, onDensity, onPrint, onBrowserPrint, onConnect, rollSize = null, rollName, onMatchRoll, clipped = false, issueCount = 0 }: Props) {
+export function PrintDialog({ open, onOpenChange, doc, status, preview, density, onDensity, onPrint, onBrowserPrint, onConnect, rollSize = null, rollName, onMatchRoll, clipped = false, issueCount = 0, onAddSheet, onSequence }: Props) {
   const [copies, setCopies] = useState(1);
   const [busy, setBusy] = useState(false);
+  const needs = batchNeeds(doc);
+  const rows = doc.sheet?.rows.length ?? 0;
+  const batched = needs.sheet || needs.number;
+  const showBatch = batched || needs.missing.length > 0;
+  /** Every row of the sheet by default; numbers up to their end, or one until asked for more. */
+  const seqCount = sequenceCount(doc.sequence);
+  const fullRun = (): BatchRun => ({ first: 0, count: needs.sheet ? rows : Math.min(MAX_BATCH, seqCount ?? 1) });
+  const [run, setRun] = useState<BatchRun>(fullRun);
   useEffect(() => {
-    if (open) setBusy(false);
-  }, [open]);
+    if (!open) return;
+    setBusy(false);
+    setRun(fullRun());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, rows, needs.sheet, seqCount]);
+  const total = copies * (batched ? run.count : 1);
 
   const connected = status.state === 'ready' || status.state === 'printing';
   const profile = status.profile;
   const warning = sizeWarning(profile, clipped);
   const printing = status.state === 'printing';
 
-  const run = async (fn: (c: number) => Promise<boolean | void>) => {
+  const start = async (fn: (c: number, batch?: BatchRun) => Promise<boolean | void>) => {
     setBusy(true);
     try {
       // Every print starts again from one copy.
-      if ((await fn(copies)) !== false) setCopies(1);
+      if ((await (batched ? fn(copies, run) : fn(copies))) !== false) setCopies(1);
     } finally {
       setBusy(false);
     }
@@ -109,13 +188,13 @@ export function PrintDialog({ open, onOpenChange, doc, status, preview, density,
       title="Print"
       footer={
         <>
-          <button className="btn" disabled={busy} onClick={() => void run(onBrowserPrint)} title="Print from the browser">
+          <button className="btn" disabled={busy} onClick={() => void start(onBrowserPrint)} title="Print from the browser">
             <FileText size={16} /> Browser
           </button>
           {connected ? (
-            <button className="btn btn-primary" disabled={busy || printing || !profile} onClick={() => void run(onPrint)}>
+            <button className="btn btn-primary" disabled={busy || printing || !profile} onClick={() => void start(onPrint)}>
               <PrinterIcon size={16} />
-              {printing && status.progress ? `${status.progress.page}/${status.progress.total}` : 'Print'}
+              {printing && status.progress ? `${status.progress.page}/${status.progress.total}` : batched && total > 1 ? `Print ${total}` : 'Print'}
             </button>
           ) : (
             <button className="btn btn-primary" onClick={onConnect}>
@@ -130,8 +209,9 @@ export function PrintDialog({ open, onOpenChange, doc, status, preview, density,
       <div className="print-preview">
         {preview ? <RasterImage src={preview} alt="Print preview" /> : <div className="print-preview-empty" />}
       </div>
+      {showBatch && <BatchSection doc={doc} run={run} onRun={setRun} onAddSheet={onAddSheet} onSequence={onSequence} />}
       <div className="row row-spread">
-        <div className="stepper" aria-label="Copies">
+        <div className="stepper" aria-label="Copies" title={batched ? 'Copies of each label' : 'Copies'}>
           <button className="icon-btn" aria-label="Fewer copies" onClick={() => setCopies((c) => Math.max(1, c - 1))}>
             <Minus size={16} />
           </button>
@@ -147,6 +227,7 @@ export function PrintDialog({ open, onOpenChange, doc, status, preview, density,
             <Plus size={16} />
           </button>
         </div>
+        {batched && <span className="muted small print-each">each</span>}
         {/* Printers with a single heat setting (ESC/POS) have nothing to adjust. */}
         {profile && profile.densityMax > profile.densityMin && (
           <label className="field field-range" title="Density">

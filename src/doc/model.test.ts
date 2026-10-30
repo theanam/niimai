@@ -109,4 +109,19 @@ describe('document model', () => {
     expect(bare.fileName).toBeUndefined();
     expect(bare.printer).toBeUndefined();
   });
+
+  it("keeps a label's sheet, number sequence and dynamic elements", () => {
+    const doc = createDoc();
+    const text = { ...createElement('text', doc), dynamic: true };
+    const parsed = parseDoc({
+      ...doc,
+      elements: [text, { ...createElement('qr', doc), dynamic: 'yes' }],
+      sheet: { name: 'a.csv', columns: ['Name', 'Qty'], rows: [['Tea', 2], ['Coffee']] },
+      sequence: { start: 10, step: 2, digits: 40 },
+    });
+    expect(parsed.sheet).toEqual({ name: 'a.csv', columns: ['Name', 'Qty'], rows: [['Tea', '2'], ['Coffee', '']] });
+    expect(parsed.sequence).toEqual({ start: 10, step: 2, digits: 12 });
+    expect(parsed.elements.map((e) => (e as { dynamic?: boolean }).dynamic)).toEqual([true, undefined]);
+    expect(parseDoc({ ...doc, sheet: 'nope', sequence: { start: 'x' } })).not.toHaveProperty('sheet');
+  });
 });

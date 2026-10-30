@@ -16,7 +16,7 @@ export type EditorAction =
   | { type: 'update'; id: string; patch: Partial<LabelElement>; key?: string }
   | { type: 'remove'; id: string }
   | { type: 'reorder'; id: string; direction: 'up' | 'down' }
-  | { type: 'setDoc'; patch: Partial<Pick<LabelDoc, 'name' | 'widthMm' | 'heightMm' | 'tailMm' | 'fold' | 'paper'>> }
+  | { type: 'setDoc'; patch: Partial<Pick<LabelDoc, 'name' | 'widthMm' | 'heightMm' | 'tailMm' | 'fold' | 'paper' | 'sheet' | 'sequence'>> }
   /** Facts about the label (its file, its printer) that undo leaves alone. */
   | { type: 'meta'; patch: Partial<Pick<LabelDoc, 'name' | 'fileName' | 'printer'>> }
   | { type: 'commit' }

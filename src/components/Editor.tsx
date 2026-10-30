@@ -3,7 +3,7 @@ import { type DragEvent, useCallback, useEffect, useMemo, useRef, useState, useS
 import { toast } from 'sonner';
 import { createDoc, createElement, parseDoc, serializeDoc, usedFonts, type ElementType, type LabelDoc, type LabelElement, type LabelSize } from '../doc/model';
 import { useEditor } from '../doc/useEditor';
-import { baseName, LABEL_EXT, openImageFile, openLabelFile, readAsDataUrl, safeFileName, saveTextAs, writeToHandle, type FileHandle } from '../files/fs-access';
+import { baseName, LABEL_EXT, openImageFile, openLabelFile, openSheetFile, readAsDataUrl, safeFileName, saveTextAs, writeToHandle, type FileHandle } from '../files/fs-access';
 import { round1, uid } from '../lib/units';
 import { printer } from '../printer';
 import type { ConnectionKind } from '../printer/client';
@@ -12,7 +12,10 @@ import { allSizesFor, resolveRoll, sameSize, sizesForPrinter } from '../printer/
 import { asSvgBlob, isImageFile, isSvgFile, looksLikeSvg, svgSize } from '../files/svg';
 import { browserPrint } from '../render/browserPrint';
 import { linkFont } from '../render/fonts';
-import { processImages, rasterize, standaloneSvg } from '../render/raster';
+import { processImages, rasterize, standaloneSvg, standaloneSvgs } from '../render/raster';
+import { readSheetFile } from '../files/sheet';
+import { batchNeeds, resolveDoc } from '../doc/variables';
+import type { BatchRun } from './PrintDialog';
 import { matchShortcut } from '../shortcuts/shortcuts';
 import { getLabel, getSetting, saveLabel, setSetting } from '../storage/db';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
@@ -164,6 +167,28 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
   const safe = safeArea(docSize, status.profile);
   // Details thinner than the printer's dots look crisp on screen but vanish on paper. Fonts change the text measurements.
   const issues = useMemo(() => printIssues(doc, dpi), [doc, dpi, fontsVersion]);
+
+  // Dynamic fields: the canvas and previews show one record, a row of the sheet when there is one.
+  const needs = batchNeeds(doc);
+  const rowCount = needs.sheet ? doc.sheet!.rows.length : 1;
+  const [recordIndex, setRecordIndex] = useState(0);
+  const shownIndex = Math.min(recordIndex, rowCount - 1);
+  const shownDoc = useMemo(() => resolveDoc(doc, { index: shownIndex, now: new Date() }), [doc, shownIndex]);
+  const resolveShown = useCallback((el: LabelElement) => shownDoc.elements.find((e) => e.id === el.id) ?? el, [shownDoc]);
+  useEffect(() => setRecordIndex(0), [doc.id, doc.sheet]);
+
+  const addSheet = async () => {
+    try {
+      const opened = await openSheetFile();
+      if (!opened) return;
+      const sheet = await readSheetFile(opened.file);
+      dispatch({ type: 'setDoc', patch: { sheet } });
+      dispatch({ type: 'commit' });
+      toast.success(`${sheet.rows.length} ${sheet.rows.length === 1 ? 'row' : 'rows'} from ${sheet.name}`);
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  };
   const fittedBorders = useRef<string | null>(null);
   // Read before effects run: when the label is about to follow a new roll, wait for that size.
   const resizePending = !!roll.key && appliedRoll.current !== roll.key && !!roll.size && !sameSize(roll.size, docSize);
@@ -253,7 +278,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
     if (!wantRaster) return;
     let live = true;
     const t = setTimeout(() => {
-      rasterize(doc, dpi, images).then(
+      rasterize(shownDoc, dpi, images).then(
         (c) => {
           if (!live) return;
           setPreview(c.toDataURL());
@@ -268,7 +293,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
       live = false;
       clearTimeout(t);
     };
-  }, [wantRaster, doc, dpi, images, fontsVersion, status.profile?.id]);
+  }, [wantRaster, shownDoc, dpi, images, fontsVersion, status.profile?.id]);
 
   const loadDoc = useCallback(
     (next: LabelDoc, handle: FileHandle | null = null) => {
@@ -381,11 +406,33 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
     setDialog('library');
   };
 
-  const printToPrinter = async (copies: number) => {
+  /** The labels a print covers: one, or a run of records for dynamic fields. */
+  const recordsFor = (batch?: BatchRun): LabelDoc[] | null => {
+    if (!batch) return null;
+    const now = new Date();
+    return Array.from({ length: batch.count }, (_, i) => resolveDoc(doc, { index: batch.first + i, now }));
+  };
+
+  const printToPrinter = async (copies: number, batch?: BatchRun) => {
     try {
-      const canvas = await rasterize(doc, dpi, images);
-      await printer.print(canvas, { density, copies, offset, labelType: labelTypeOf(effectivePaper(doc.paper, status.label?.paper)) });
-      toast.success(copies > 1 ? `Printed ${copies} labels` : 'Printed');
+      const labelType = labelTypeOf(effectivePaper(doc.paper, status.label?.paper));
+      const now = new Date();
+      const source = batch
+        ? { count: batch.count, page: (i: number) => rasterize(resolveDoc(doc, { index: batch.first + i, now }), dpi, images) }
+        : await rasterize(resolveDoc(doc, { index: shownIndex, now }), dpi, images);
+      await printer.print(source, { density, copies, offset, labelType });
+      const total = copies * (batch?.count ?? 1);
+      toast.success(total > 1 ? `Printed ${total} labels` : 'Printed');
+      // A run of numbers continues where it stopped next time.
+      if (batch && !needs.sheet && needs.number) {
+        const seq = { start: 1, step: 1, digits: 1, ...doc.sequence };
+        const shift = (batch.first + batch.count) * seq.step;
+        // A set range moves along whole, so the next run is the same length.
+        const next = { ...seq, start: seq.start + shift, ...(seq.end !== undefined ? { end: seq.end + shift } : {}) };
+        dispatch({ type: 'setDoc', patch: { sequence: next } });
+        dispatch({ type: 'commit' });
+        toast(`Numbers continue from ${next.start}`, { action: { label: 'Undo', onClick: () => dispatch({ type: 'undo' }) } });
+      }
       setDialog(null);
       return true;
     } catch (err) {
@@ -394,10 +441,11 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
     }
   };
 
-  const printFromBrowser = async (copies: number) => {
+  const printFromBrowser = async (copies: number, batch?: BatchRun) => {
     try {
       // Original images: an office printer can reproduce more than the thermal head.
-      browserPrint(doc, await standaloneSvg(doc, dpi, {}), copies);
+      const records = recordsFor(batch);
+      browserPrint(doc, records ? await standaloneSvgs(records) : await standaloneSvg(shownDoc, dpi, {}), copies);
       return true;
     } catch (err) {
       toast.error((err as Error).message);
@@ -602,6 +650,8 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
               zoomLevel={zoomLevel}
               onZoomChange={setZoomLevel}
               zoomRequest={zoomRequest}
+              resolve={resolveShown}
+              record={needs.sheet ? { index: shownIndex, count: rowCount, onChange: setRecordIndex } : null}
             />
           </ErrorBoundary>
           {doc.elements.length === 0 && !previewOn && (
@@ -628,6 +678,8 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
             onEditText={(id) => setEditing({ id })}
             printIssue={selected ? issues[selected.id] : null}
             continuous={status.profile?.kind === 'thermal'}
+            onAddSheet={() => void addSheet()}
+            resolve={resolveShown}
             onReplaceIcon={(id) => {
               setIconTarget(id);
               setDialog('icon');
@@ -691,6 +743,8 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
         onDensity={changeDensity}
         onPrint={printToPrinter}
         onBrowserPrint={printFromBrowser}
+        onAddSheet={() => void addSheet()}
+        onSequence={(sequence) => dispatch({ type: 'setDoc', patch: { sequence } })}
         onConnect={() => setDialog('printer')}
         rollSize={roll.size}
         rollName={roll.name}

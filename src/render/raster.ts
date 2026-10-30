@@ -65,6 +65,14 @@ export async function standaloneSvg(doc: LabelDoc, dpi: number, images?: Record<
   return renderSvg(doc, { css, images: imgs });
 }
 
+/** Standalone SVGs for a batch of labels. Fonts are embedded once, in the first; on one page their rules apply to all. */
+export async function standaloneSvgs(docs: LabelDoc[], images: Record<string, string> = {}): Promise<string[]> {
+  const fonts = [...new Set(docs.flatMap(usedFonts))];
+  await Promise.all(fonts.map(ensureFont));
+  const css = await embedFonts(fonts);
+  return docs.map((d, i) => renderSvg(d, { css: i === 0 ? css : undefined, images }));
+}
+
 /** The label as a pure black-and-white canvas at printer resolution. */
 export async function rasterize(doc: LabelDoc, dpi: number, images?: Record<string, string>): Promise<HTMLCanvasElement> {
   const svg = await standaloneSvg(doc, dpi, images);

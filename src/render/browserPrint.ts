@@ -3,11 +3,11 @@ import type { LabelDoc } from '../doc/model';
 const ROOT_ID = 'print-root';
 const STYLE_ID = 'print-page-style';
 
-/** The markup and @page rule that print one label per page at its exact size. */
-export function printMarkup(doc: Pick<LabelDoc, 'widthMm' | 'heightMm'>, svg: string, copies: number) {
-  const page = `<div class="print-page">${svg}</div>`;
+/** The markup and @page rule that print one label per page at its exact size: each SVG, copies times. */
+export function printMarkup(doc: Pick<LabelDoc, 'widthMm' | 'heightMm'>, svg: string | string[], copies: number) {
+  const pages = (Array.isArray(svg) ? svg : [svg]).map((one) => `<div class="print-page">${one}</div>`);
   return {
-    html: Array.from({ length: Math.max(1, copies) }, () => page).join(''),
+    html: pages.map((page) => Array.from({ length: Math.max(1, copies) }, () => page).join('')).join(''),
     css: `@page { size: ${doc.widthMm}mm ${doc.heightMm}mm; margin: 0; }
 @media print { .print-page { width: ${doc.widthMm}mm; height: ${doc.heightMm}mm; } }`,
   };
@@ -17,7 +17,7 @@ export function printMarkup(doc: Pick<LabelDoc, 'widthMm' | 'heightMm'>, svg: st
  * Prints through the browser as a vector document: the label SVG, fonts
  * inlined, placed on pages the size of the label.
  */
-export function browserPrint(doc: LabelDoc, svg: string, copies = 1): void {
+export function browserPrint(doc: LabelDoc, svg: string | string[], copies = 1): void {
   const { html, css } = printMarkup(doc, svg, copies);
   let root = document.getElementById(ROOT_ID);
   if (!root) {

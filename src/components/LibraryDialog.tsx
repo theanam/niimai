@@ -5,6 +5,7 @@ import { sizeLabel, type LabelDoc, type LabelSize } from '../doc/model';
 import { uid } from '../lib/units';
 import { ensureFont } from '../render/fonts';
 import { processImages } from '../render/raster';
+import { resolveDoc } from '../doc/variables';
 import { renderSvg } from '../render/svg';
 import { deleteLabel, listLabels, saveLabel } from '../storage/db';
 import {
@@ -80,7 +81,8 @@ export function LabelThumb({ doc }: { doc: LabelDoc }) {
   const fonts = useFontsVersion();
   const images = usePrintedImages(doc);
   // Auto-fit text is measured with whatever fonts are loaded, so re-render as more arrive.
-  const svg = useMemo(() => renderSvg(doc, { physicalSize: false, images }), [doc, fonts, images]);
+  // Dynamic fields show the first record, as the label would print first.
+  const svg = useMemo(() => renderSvg(resolveDoc(doc, { index: 0, now: new Date() }), { physicalSize: false, images }), [doc, fonts, images]);
   // Cards are 3:2. Wider labels fill the width, taller ones the height.
   const wide = doc.widthMm / doc.heightMm >= 1.5;
   return (

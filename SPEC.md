@@ -96,8 +96,6 @@ Builds on `niimbluelib` for the printer protocol and replaces the UI with someth
 6. **Library:** save, open, duplicate and delete labels.
 
 ## 6. Later
-- Variables and batch printing from CSV or a pasted list (e.g. serial numbers, names)
-- Date/time and counter fields
 - A template gallery
 - Print history / reprint
 - PWA install and offline use
@@ -127,6 +125,8 @@ Builds on `niimbluelib` for the printer protocol and replaces the UI with someth
 
 - **UI framework:** React 19 with Vite, Radix dialogs and popovers, lucide icons.
 - **Protocol:** `@mmote/niimbluelib` from npm, loaded only on first connect.
+- **Dynamic fields and batches:** text, QR codes and barcodes marked dynamic fill `{{Name}}` fields per printed label (`src/doc/variables.ts`). The data lives with the label, as P-touch Editor and DYMO Connect do it: a sheet (CSV or .xlsx, first row names the columns) is added in the Label panel, the canvas steps through rows, and the print dialog picks which rows, or how many numbers, to print. Content is edited as tags; each field's tag opens its options. Built-in fields carry options after a colon: `{{Date+30:iso}}`, `{{Time:24h}}`; `{{Number}}` has a start, optional end, step and digits, shared across the label. A batch prints as one job of many pages; a run of numbers continues from where it stopped.
+- **Panel sections** fold, and remember being opened or closed. Position starts closed, the element's main settings start open, and Dynamic and Data open when they are in use.
 - **Rendering:** one SVG renderer for the editor, browser printing (vector) and the thermal raster (SVG → canvas → 1-bit).
 - **D21:** niimbluelib has no D21 entry. Manual printer profiles cover unknown models; the "D21" on hand reports itself as a B21 C2B (model id 771) and advertises BLE service `0000e0ff-3c17-d293-8e48-14fe2e4da212` (channel `ffe1`), which niimbluelib does not request.
 

@@ -14,6 +14,8 @@ vi.mock('../render/raster', () => ({
 }));
 
 beforeEach(async () => {
+  // Most tests read positions; the section starts collapsed for people (see the test for that).
+  localStorage.setItem('niimai:sections', JSON.stringify({ position: true }));
   globalThis.indexedDB = new IDBFactory();
   resetDbConnection();
   // The printer is an app-wide singleton; start every test disconnected.
@@ -493,6 +495,77 @@ describe('editor', () => {
     await userEvent.keyboard('{Control>}o{/Control}');
     expect(await screen.findByRole('button', { name: 'Garage shelf' })).toBeInTheDocument();
     expect(document.querySelector('.doc-printer')).toHaveTextContent('D110');
+  });
+
+  it('turns text dynamic and counts numbers across a batch', async () => {
+    const doc = starterDoc();
+    renderApp(<Editor initialDoc={{ ...doc, elements: [{ ...createElement('text', doc), text: 'SN' } as never] }} initialProfileId={null} initialDensity={2} />);
+    await userEvent.click(elements()[0]);
+    await userEvent.click(screen.getByRole('switch', { name: 'Dynamic' }));
+    await userEvent.click(within(screen.getByRole('group', { name: 'Insert field' })).getByRole('button', { name: /Number/ }));
+    expect(screen.getAllByRole('listitem').map((p) => p.textContent)).toEqual(['SN ', 'Number']);
+    expect(elements()[0].querySelector('text')).toHaveTextContent('SN 1');
+    const { printer } = await import('../printer');
+    const print = vi.spyOn(printer, 'print').mockResolvedValue();
+    onTestFinished(() => print.mockRestore());
+    await connectDemo();
+    await userEvent.keyboard('{Control>}p{/Control}');
+    const dialog = await screen.findByRole('dialog', { name: 'Print' });
+    const labels = within(dialog).getByRole('spinbutton', { name: 'Labels' });
+    await userEvent.clear(labels);
+    await userEvent.type(labels, '3');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Print 3' }));
+    await waitFor(() => expect(print).toHaveBeenCalledWith(expect.objectContaining({ count: 3 }), expect.objectContaining({ copies: 1 })));
+    // The next run carries on where this one stopped.
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Print' })).toBeNull());
+    await userEvent.click(elements()[0]);
+    await userEvent.click(screen.getByRole('button', { name: 'Number options' }));
+    expect(await screen.findByRole('spinbutton', { name: 'Start' })).toHaveValue(4);
+  });
+
+  it('fills fields from an added sheet and steps through its rows', async () => {
+    const csv = 'Name,SKU\nCoffee,100\nTea,200\n';
+    const file = { name: 'items.csv', getFile: async () => new File([csv], 'items.csv'), createWritable: async () => ({ write: async () => {}, close: async () => {} }) };
+    (window as unknown as { showOpenFilePicker: unknown }).showOpenFilePicker = async () => [file];
+    onTestFinished(() => void delete (window as unknown as { showOpenFilePicker?: unknown }).showOpenFilePicker);
+    const doc = starterDoc();
+    renderApp(<Editor initialDoc={{ ...doc, elements: [{ ...createElement('text', doc), text: '{{Name}}', dynamic: true } as never] }} initialProfileId={null} initialDensity={2} />);
+    expect(screen.getByText('Needs a sheet for {{Name}}')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Add sheet' }));
+    expect(await screen.findByText('items.csv')).toBeInTheDocument();
+    expect(elements()[0].querySelector('text')).toHaveTextContent('Coffee');
+    expect(screen.getByText('Row 1 of 2')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Next row' }));
+    expect(elements()[0].querySelector('text')).toHaveTextContent('Tea');
+    await userEvent.click(screen.getByRole('button', { name: 'Remove sheet' }));
+    expect(screen.queryByText('Row 1 of 2')).toBeNull();
+  });
+
+  it('folds panel sections, with position closed and style open to begin with, and remembers the choice', async () => {
+    localStorage.removeItem('niimai:sections');
+    renderEditor();
+    await userEvent.click(screen.getByRole('button', { name: 'Add rectangle' }));
+    const position = screen.getByRole('button', { name: 'Rectangle' });
+    expect(position).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.queryByRole('spinbutton', { name: 'X' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'Stroke' })).toHaveAttribute('aria-expanded', 'true');
+    await userEvent.click(position);
+    expect(screen.getByRole('spinbutton', { name: 'X' })).toBeInTheDocument();
+    expect(JSON.parse(localStorage.getItem('niimai:sections')!)).toEqual({ position: true });
+    // Layer and delete buttons stay in the header while it is closed.
+    expect(screen.getByRole('button', { name: 'Delete' })).toBeInTheDocument();
+  });
+
+  it('keeps Dynamic in its own section after the style, opened by its switch', async () => {
+    renderEditor();
+    await userEvent.click(screen.getByRole('button', { name: 'Add text' }));
+    await userEvent.keyboard('{Escape}');
+    const titles = [...document.querySelectorAll('.inspector .section-toggle')].map((b) => b.textContent);
+    expect(titles).toEqual(['Text', 'Style', 'Dynamic']);
+    expect(screen.getByRole('button', { name: 'Dynamic' })).toHaveAttribute('aria-expanded', 'false');
+    await userEvent.click(screen.getByRole('switch', { name: 'Dynamic' }));
+    expect(screen.getByRole('button', { name: 'Dynamic' })).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByRole('group', { name: 'Insert field' })).toBeInTheDocument();
   });
 
   it('offers the file and help actions from the More menu', async () => {

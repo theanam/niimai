@@ -29,6 +29,17 @@ const IMAGE_TYPES: Accept[] = [
   { description: 'Images', accept: { 'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'] } },
 ];
 
+const SHEET_TYPES: Accept[] = [
+  {
+    description: 'Spreadsheets',
+    accept: {
+      'text/csv': ['.csv'],
+      'text/tab-separated-values': ['.tsv'],
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+    },
+  },
+];
+
 const win = (): PickerWindow => (typeof window === 'undefined' ? {} : (window as unknown as PickerWindow));
 export const supportsFileSystemAccess = (): boolean => typeof win().showOpenFilePicker === 'function';
 export const supportsFileSystemWrite = (): boolean => typeof win().showSaveFilePicker === 'function';
@@ -65,6 +76,7 @@ async function open(types: Accept[], accept: string): Promise<OpenedFile | null>
 }
 
 export const openLabelFile = (): Promise<OpenedFile | null> => open(LABEL_TYPES, `${LABEL_EXT},.json,application/json`);
+export const openSheetFile = (): Promise<OpenedFile | null> => open(SHEET_TYPES, '.csv,.tsv,.xlsx,text/csv');
 export const openImageFile = (): Promise<OpenedFile | null> => open(IMAGE_TYPES, 'image/*');
 
 /** Writes to an existing handle. False when permission is gone, so the caller can fall back to Save As. */

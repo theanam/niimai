@@ -188,11 +188,15 @@ export abstract class ThermalPrinterClient implements ClientLike {
     printEnd: async () => true,
     newPrintTask: (_name: PrintTaskName, options: Record<string, unknown>): PrintTaskLike => {
       const density = Number(options.density ?? 1);
+      // A batch sends several pages to one task; progress counts across them.
+      let printed = 0;
       return {
         printInit: async () => {},
         printPage: async (image, quantity = 1) => {
           await this.send(this.job(image as Uint8Array[], density, Math.max(1, quantity)));
-          this.emit('printprogress', { page: quantity, pagesTotal: quantity, pagePrintProgress: 100, pageFeedProgress: 100 });
+          printed += Math.max(1, quantity);
+          const total = Math.max(printed, Number(options.totalPages ?? printed));
+          this.emit('printprogress', { page: printed, pagesTotal: total, pagePrintProgress: 100, pageFeedProgress: 100 });
         },
         waitForFinished: async () => {},
         printEnd: async () => true,

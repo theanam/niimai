@@ -170,4 +170,16 @@ describe('printer service', () => {
     expect((encode.mock.calls[0] as unknown[])[0]).not.toBe(page);
     spy.mockRestore();
   });
+
+  it('prints a batch of different labels as one job, drawing each page as it goes', async () => {
+    const { service, client, encode } = setup();
+    await service.connect('demo');
+    const newTask = vi.spyOn(client.protocol, 'newPrintTask');
+    const page = vi.fn(async (_index: number) => canvas());
+    await service.print({ count: 3, page }, { density: 3, copies: 2 });
+    expect(page.mock.calls.map((c) => c[0])).toEqual([0, 1, 2]);
+    expect(encode).toHaveBeenCalledTimes(3);
+    expect(newTask).toHaveBeenCalledWith('D11_V1', expect.objectContaining({ totalPages: 6 }));
+    expect(client.printed.map((p) => p.quantity)).toEqual([2, 2, 2]);
+  });
 });

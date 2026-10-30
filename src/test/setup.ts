@@ -3,7 +3,11 @@ import 'fake-indexeddb/auto';
 import { cleanup } from '@testing-library/react';
 import { afterEach } from 'vitest';
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  // Panel sections remember being opened; each test starts from the defaults.
+  localStorage.removeItem('niimai:sections');
+});
 
 // jsdom lacks these browser APIs the UI touches.
 class RO {

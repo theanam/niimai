@@ -2,6 +2,7 @@ import { sanitizeIconBody, type IconWeight } from '../icons/catalog';
 import { PAPER_TYPES, type PaperType } from '../printer/paper';
 import { isFrameStyle, type FrameStyle } from '../render/frames';
 import { round1, uid } from '../lib/units';
+import type { DataSheet, NumberSequence } from './variables';
 
 export type Align = 'left' | 'center' | 'right';
 export type DitherMode = 'threshold' | 'floyd' | 'atkinson';
@@ -28,6 +29,8 @@ export interface TextElement extends Base {
   italic: boolean;
   align: Align;
   autoFit: boolean;
+  /** Fields written as {{Name}} are filled in for each printed label. */
+  dynamic?: boolean;
 }
 
 export interface ImageElement extends Base {
@@ -42,6 +45,8 @@ export interface ImageElement extends Base {
 export interface QrElement extends Base {
   type: 'qr';
   value: string;
+  /** See TextElement.dynamic. */
+  dynamic?: boolean;
 }
 
 export interface BarcodeElement extends Base {
@@ -49,6 +54,8 @@ export interface BarcodeElement extends Base {
   value: string;
   format: BarcodeFormat;
   showText: boolean;
+  /** See TextElement.dynamic. */
+  dynamic?: boolean;
 }
 
 export interface IconElement extends Base {
@@ -118,6 +125,10 @@ export interface LabelDoc {
   fileName?: string;
   /** The printer connected when the label was made or last saved, for telling files apart later. */
   printer?: string;
+  /** Rows that fill dynamic fields, one label per row. */
+  sheet?: DataSheet;
+  /** How {{Number}} counts. */
+  sequence?: NumberSequence;
   elements: LabelElement[];
   createdAt: number;
   updatedAt: number;
@@ -268,6 +279,7 @@ export function parseDoc(input: unknown): LabelDoc {
       const merged = { ...base, ...e } as LabelElement;
       for (const k of ['x', 'y', 'w', 'h', 'rotation'] as const) if (!isNum(merged[k])) merged[k] = base[k];
       if (typeof merged.id !== 'string') merged.id = base.id;
+      if ('dynamic' in merged) (merged as { dynamic?: boolean }).dynamic = merged.dynamic === true || undefined;
       if (merged.type === 'icon') merged.body = sanitizeIconBody(String(merged.body ?? ''));
       if (merged.type === 'line' && !LINE_DIRECTIONS.includes(merged.direction)) merged.direction = 'horizontal';
       if (merged.type === 'frame') {
@@ -282,6 +294,19 @@ export function parseDoc(input: unknown): LabelDoc {
   const paper = PAPER_TYPES.some((p) => p.value === raw.paper) ? { paper: raw.paper as PaperType } : {};
   const fileName = typeof raw.fileName === 'string' && raw.fileName ? { fileName: raw.fileName } : {};
   const printer = typeof raw.printer === 'string' && raw.printer ? { printer: raw.printer } : {};
+  const sheet = parseSheet(raw.sheet);
+  const seq = raw.sequence as Record<string, unknown> | undefined;
+  const sequence =
+    seq && typeof seq === 'object' && isNum(seq.start) && isNum(seq.step) && isNum(seq.digits)
+      ? {
+          sequence: {
+            start: Math.round(seq.start),
+            step: Math.round(seq.step),
+            digits: Math.min(12, Math.max(1, Math.round(seq.digits))),
+            ...(isNum(seq.end) ? { end: Math.round(seq.end) } : {}),
+          },
+        }
+      : {};
   return {
     version: 1,
     id: typeof raw.id === 'string' ? raw.id : uid(),
@@ -292,10 +317,22 @@ export function parseDoc(input: unknown): LabelDoc {
     ...paper,
     ...fileName,
     ...printer,
+    ...(sheet ? { sheet } : {}),
+    ...sequence,
     elements,
     createdAt: isNum(raw.createdAt) ? raw.createdAt : now,
     updatedAt: isNum(raw.updatedAt) ? raw.updatedAt : now,
   };
+}
+
+/** A sheet read back from a file, with every cell as text; null when it is not one. */
+function parseSheet(raw: unknown): DataSheet | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const r = raw as Record<string, unknown>;
+  if (!Array.isArray(r.columns) || !Array.isArray(r.rows)) return null;
+  const columns = r.columns.map((c) => String(c ?? ''));
+  const rows = r.rows.filter(Array.isArray).map((row: unknown[]) => columns.map((_, i) => String(row[i] ?? '')));
+  return { name: typeof r.name === 'string' ? r.name : 'Sheet', columns, rows };
 }
 
 export const serializeDoc = (doc: LabelDoc): string => JSON.stringify(doc, null, 2);

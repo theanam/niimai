@@ -1,6 +1,6 @@
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { createDoc } from '../doc/model';
+import { createDoc, createElement, type LabelDoc } from '../doc/model';
 import { findManualProfile } from '../printer/profiles';
 import { renderApp } from '../test/render';
 import { PrintDialog, sizeWarning } from './PrintDialog';
@@ -131,5 +131,77 @@ describe('print dialog', () => {
     await userEvent.click(screen.getByRole('button', { name: 'More copies' }));
     await userEvent.click(screen.getByRole('button', { name: /browser/i }));
     expect(copies).toHaveValue(1);
+  });
+
+  describe('batches', () => {
+    const labelWith = (text: string, extra: Partial<LabelDoc> = {}): LabelDoc => {
+      const doc = createDoc();
+      return { ...doc, ...extra, elements: [{ ...createElement('text', doc), text, dynamic: true } as LabelDoc['elements'][number]] };
+    };
+    const sheet = { name: 'items.csv', columns: ['Name'], rows: ['A', 'B', 'C', 'D', 'E'].map((n) => [n]) };
+    const open = (doc: LabelDoc, extra: Partial<Parameters<typeof PrintDialog>[0]> = {}) => {
+      const onPrint = vi.fn(async () => {});
+      renderApp(
+        <PrintDialog
+          open
+          onOpenChange={() => {}}
+          doc={doc}
+          status={{ state: 'ready', profile: findManualProfile('d11')! }}
+          preview={null}
+          density={2}
+          onDensity={() => {}}
+          onPrint={onPrint}
+          onBrowserPrint={async () => {}}
+          onConnect={() => {}}
+          {...extra}
+        />,
+      );
+      return onPrint;
+    };
+
+    it('prints every sheet row by default, or the rows chosen', async () => {
+      const onPrint = open(labelWith('{{Name}}', { sheet }));
+      expect(screen.getByRole('button', { name: 'Print 5' })).toBeInTheDocument();
+      const from = screen.getByRole('spinbutton', { name: 'First row' });
+      await userEvent.clear(from);
+      await userEvent.type(from, '2');
+      const to = screen.getByRole('spinbutton', { name: 'Last row' });
+      await userEvent.clear(to);
+      await userEvent.type(to, '3');
+      await userEvent.click(screen.getByRole('button', { name: 'More copies' }));
+      await userEvent.click(screen.getByRole('button', { name: 'Print 4' }));
+      expect(onPrint).toHaveBeenCalledWith(2, { first: 1, count: 2 });
+    });
+
+    it('prints as many numbers as asked, from where they start', async () => {
+      const onSequence = vi.fn();
+      const onPrint = open(labelWith('SN-{{Number}}', { sequence: { start: 1, step: 1, digits: 3 } }), { onSequence });
+      const labels = screen.getByRole('spinbutton', { name: 'Labels' });
+      await userEvent.clear(labels);
+      await userEvent.type(labels, '25');
+      expect(screen.getByText('001 to 025')).toBeInTheDocument();
+      await userEvent.click(screen.getByRole('button', { name: 'Print 25' }));
+      expect(onPrint).toHaveBeenCalledWith(1, { first: 0, count: 25 });
+    });
+
+    it('prints a whole numbered range by default', () => {
+      open(labelWith('{{Number}}', { sequence: { start: 101, step: 1, digits: 1, end: 150 } }));
+      expect(screen.getByRole('spinbutton', { name: 'Labels' })).toHaveValue(50);
+      expect(screen.getByText('101 to 150')).toBeInTheDocument();
+    });
+
+    it('asks for a sheet when a field has no column', async () => {
+      const onAddSheet = vi.fn();
+      open(labelWith('{{Name}}'), { onAddSheet });
+      expect(screen.getByText('Needs a sheet for {{Name}}')).toBeInTheDocument();
+      await userEvent.click(screen.getByRole('button', { name: 'Add sheet' }));
+      expect(onAddSheet).toHaveBeenCalled();
+    });
+
+    it('leaves the batch out for labels with nothing that varies', () => {
+      open(labelWith('{{Date}}'));
+      expect(screen.queryByRole('region', { name: 'Batch' })).toBeNull();
+      expect(screen.getByRole('button', { name: /^print$/i })).toBeInTheDocument();
+    });
   });
 });

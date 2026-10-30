@@ -30,9 +30,16 @@ export interface PrintOffset {
 
 export interface PrintOptions {
   density: number;
+  /** Copies of each page. */
   copies: number;
   labelType?: number;
   offset?: PrintOffset;
+}
+
+/** Different labels in one job, drawn one at a time so a long batch never holds every page at once. */
+export interface PageSource {
+  count: number;
+  page: (index: number) => Promise<HTMLCanvasElement>;
 }
 
 type Encoder = (canvas: HTMLCanvasElement, direction: PrinterProfile['printDirection']) => unknown | Promise<unknown>;
@@ -249,17 +256,19 @@ export class PrinterService {
     this.set({ progress: { page: copies, total: copies } });
   }
 
-  async print(canvas: HTMLCanvasElement, opts: PrintOptions): Promise<void> {
+  async print(source: HTMLCanvasElement | PageSource, opts: PrintOptions): Promise<void> {
     const client = this.client;
     const profile = this.status.profile;
     if (!client) throw new Error('Connect a printer first');
     if (!profile) throw new Error('Choose your printer type');
     if (this.status.state === 'printing') throw new Error('Already printing');
 
+    const pages: PageSource = 'page' in source ? source : { count: 1, page: async () => source };
     const copies = Math.max(1, Math.floor(opts.copies));
+    const total = copies * Math.max(1, pages.count);
     const density = Math.min(profile.densityMax, Math.max(profile.densityMin, Math.round(opts.density)));
     const task = client.protocol.newPrintTask(profile.printTask, {
-      totalPages: copies,
+      totalPages: total,
       density,
       labelType: opts.labelType ?? 1,
       pageColor: 0,
@@ -269,26 +278,32 @@ export class PrinterService {
 
     // Heartbeat queries interleaved with page data spoil prints on some models.
     client.stopHeartbeat();
-    this.set({ state: 'printing', progress: { page: 0, total: copies } });
+    this.set({ state: 'printing', progress: { page: 0, total } });
     try {
       const offset = opts.offset ?? { x: 0, y: 0 };
-      const shifted = shiftCanvas(canvas, mmToPx(offset.x, profile.dpi), mmToPx(offset.y, profile.dpi));
-      const page = fitToPrinthead(shifted, profile);
-      const image = client.encodePage ? await client.encodePage(page) : await this.encode(page, profile.printDirection);
-      console.info('[niimai] print', {
-        profile: profile.id,
-        task: profile.printTask,
-        direction: profile.printDirection,
-        printhead: profile.printheadPixels,
-        page: `${canvas.width}x${canvas.height}`,
-        sent: `${page.width}x${page.height}`,
-        density,
-        copies,
-        ink: inkPixels(page),
-      });
-      await task.printInit();
-      await task.printPage(image, copies);
-      await withTimeout(this.waitForFinished(client, task, profile.printTask, copies), PRINT_TIMEOUT_MS + copies * PAGE_TIMEOUT_MS);
+      for (let i = 0; i < pages.count; i++) {
+        const canvas = await pages.page(i);
+        const shifted = shiftCanvas(canvas, mmToPx(offset.x, profile.dpi), mmToPx(offset.y, profile.dpi));
+        const page = fitToPrinthead(shifted, profile);
+        const image = client.encodePage ? await client.encodePage(page) : await this.encode(page, profile.printDirection);
+        if (i === 0) {
+          console.info('[niimai] print', {
+            profile: profile.id,
+            task: profile.printTask,
+            direction: profile.printDirection,
+            printhead: profile.printheadPixels,
+            page: `${canvas.width}x${canvas.height}`,
+            sent: `${page.width}x${page.height}`,
+            density,
+            copies,
+            pages: pages.count,
+            ink: inkPixels(page),
+          });
+          await task.printInit();
+        }
+        await task.printPage(image, copies);
+      }
+      await withTimeout(this.waitForFinished(client, task, profile.printTask, total), PRINT_TIMEOUT_MS + total * PAGE_TIMEOUT_MS);
     } catch (err) {
       throw new Error(friendlyError(err));
     } finally {

@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { CalendarDays, Clock, FileSpreadsheet, Hash, RefreshCw, Table2, Trash2 } from 'lucide-react';
 import type { LabelDoc } from '../doc/model';
-import { appendField, batchNeeds, BUILT_IN_FIELDS, contentOf, fieldLabel, fieldsIn, type DynamicElement, type NumberSequence } from '../doc/variables';
+import { appendField, batchNeeds, BUILT_IN_FIELDS, contentOf, dynamicPatch, fieldLabel, fieldsIn, type DynamicElement, type NumberSequence } from '../doc/variables';
 import { IconButton } from '../ui/IconButton';
 import { FieldOptions } from './FieldOptions';
 import { Section, Switch } from './fields';
@@ -11,6 +11,8 @@ const BUILT_IN_ICONS = { Date: CalendarDays, Time: Clock, Number: Hash };
 
 interface DynamicProps {
   el: DynamicElement;
+  /** The element as the shown label prints it; switching off keeps this. */
+  shown: DynamicElement;
   doc: LabelDoc;
   onChange: (patch: Partial<DynamicElement>) => void;
   onAddSheet: () => void;
@@ -21,7 +23,7 @@ interface DynamicProps {
  * The Dynamic section of a text, QR code or barcode: a switch in its header,
  * then the content as tags with options, and chips that add fields.
  */
-export function DynamicSection({ el, doc, onChange, onAddSheet, onSequence }: DynamicProps) {
+export function DynamicSection({ el, shown, doc, onChange, onAddSheet, onSequence }: DynamicProps) {
   const content = contentOf(el);
   const used = new Set(fieldsIn(content).map((f) => fieldLabel(f, doc.sheet).toLowerCase()));
   const setContent = (v: string) => onChange(el.type === 'text' ? { text: v } : { value: v });
@@ -38,7 +40,7 @@ export function DynamicSection({ el, doc, onChange, onAddSheet, onSequence }: Dy
       id="dynamic"
       remember={false}
       defaultOpen={!!el.dynamic}
-      actions={<Switch label="Dynamic" checked={!!el.dynamic} onChange={(dynamic) => onChange({ dynamic: dynamic || undefined })} />}
+      actions={<Switch label="Dynamic" checked={!!el.dynamic} onChange={(on) => onChange(dynamicPatch(el, on, shown))} />}
     >
       {el.dynamic ? (
         <div className="dynamic">
@@ -63,7 +65,9 @@ export function DynamicSection({ el, doc, onChange, onAddSheet, onSequence }: Dy
           <p className="muted small">Click a field for its options.</p>
         </div>
       ) : (
-        <p className="muted small">Fill in names, numbers and dates on each label. Switch on to start.</p>
+        <p className="muted small">
+          {el.template ? 'Its fields are kept. Switch on to bring them back.' : 'Fill in names, numbers and dates on each label. Switch on to start.'}
+        </p>
       )}
     </Section>
   );

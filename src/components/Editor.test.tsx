@@ -523,6 +523,19 @@ describe('editor', () => {
     expect(await screen.findByRole('spinbutton', { name: 'Start' })).toHaveValue(4);
   });
 
+  it('keeps what was printed when dynamic is switched off, and brings the fields back', async () => {
+    const doc = starterDoc();
+    renderApp(<Editor initialDoc={{ ...doc, sequence: { start: 7, step: 1, digits: 3 }, elements: [{ ...createElement('text', doc), text: 'SN-{{Number}}', dynamic: true } as never] }} initialProfileId={null} initialDensity={2} />);
+    await userEvent.click(elements()[0]);
+    await userEvent.click(screen.getByRole('switch', { name: 'Dynamic' }));
+    expect(elements()[0].querySelector('text')).toHaveTextContent('SN-007');
+    expect(screen.queryByRole('list', { name: 'Dynamic content' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'Dynamic' }));
+    expect(screen.getByText('Its fields are kept. Switch on to bring them back.')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('switch', { name: 'Dynamic' }));
+    expect(screen.getAllByRole('listitem').map((p) => p.textContent)).toEqual(['SN-', 'Number']);
+  });
+
   it('fills fields from an added sheet and steps through its rows', async () => {
     const csv = 'Name,SKU\nCoffee,100\nTea,200\n';
     const file = { name: 'items.csv', getFile: async () => new File([csv], 'items.csv'), createWritable: async () => ({ write: async () => {}, close: async () => {} }) };

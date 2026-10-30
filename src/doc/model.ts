@@ -31,6 +31,8 @@ export interface TextElement extends Base {
   autoFit: boolean;
   /** Fields written as {{Name}} are filled in for each printed label. */
   dynamic?: boolean;
+  /** The content with its fields, kept while dynamic is off so turning it on again brings them back. */
+  template?: string;
 }
 
 export interface ImageElement extends Base {
@@ -47,6 +49,8 @@ export interface QrElement extends Base {
   value: string;
   /** See TextElement.dynamic. */
   dynamic?: boolean;
+  /** See TextElement.template. */
+  template?: string;
 }
 
 export interface BarcodeElement extends Base {
@@ -56,6 +60,8 @@ export interface BarcodeElement extends Base {
   showText: boolean;
   /** See TextElement.dynamic. */
   dynamic?: boolean;
+  /** See TextElement.template. */
+  template?: string;
 }
 
 export interface IconElement extends Base {
@@ -280,6 +286,7 @@ export function parseDoc(input: unknown): LabelDoc {
       for (const k of ['x', 'y', 'w', 'h', 'rotation'] as const) if (!isNum(merged[k])) merged[k] = base[k];
       if (typeof merged.id !== 'string') merged.id = base.id;
       if ('dynamic' in merged) (merged as { dynamic?: boolean }).dynamic = merged.dynamic === true || undefined;
+      if ('template' in merged && typeof merged.template !== 'string') delete (merged as { template?: unknown }).template;
       if (merged.type === 'icon') merged.body = sanitizeIconBody(String(merged.body ?? ''));
       if (merged.type === 'line' && !LINE_DIRECTIONS.includes(merged.direction)) merged.direction = 'horizontal';
       if (merged.type === 'frame') {

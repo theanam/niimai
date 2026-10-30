@@ -333,7 +333,7 @@ export function Inspector({ doc, selected, roll, rollPaper, fitting = [], allSiz
       )}
 
       {canBeDynamic(el) && (
-        <DynamicSection el={el} doc={doc} onChange={set} onAddSheet={onAddSheet} onSequence={(sequence) => onDocChange({ sequence })} />
+        <DynamicSection el={el} shown={shown as typeof el} doc={doc} onChange={set} onAddSheet={onAddSheet} onSequence={(sequence) => onDocChange({ sequence })} />
       )}
 
       {el.type === 'frame' && (

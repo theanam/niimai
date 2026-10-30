@@ -1,5 +1,5 @@
 import { createDoc, createElement, type LabelDoc, type TextElement } from './model';
-import { appendField, batchNeeds, clampRange, fieldLabel, fieldName, fieldsIn, fieldsOf, fill, formatDate, formatTime, fromParts, isBatch, parseField, resolveDoc, sequenceCount, sequenceValue, toParts } from './variables';
+import { appendField, dynamicPatch, batchNeeds, clampRange, fieldLabel, fieldName, fieldsIn, fieldsOf, fill, formatDate, formatTime, fromParts, isBatch, parseField, resolveDoc, sequenceCount, sequenceValue, toParts } from './variables';
 
 const now = new Date(2026, 9, 30, 14, 5);
 const day = (d: Date) => new Intl.DateTimeFormat(undefined, { dateStyle: 'medium' }).format(d);
@@ -113,5 +113,21 @@ describe('dynamic fields', () => {
     expect(sequenceCount({ start: 1, step: 1, digits: 1, end: 100 })).toBe(100);
     expect(sequenceCount({ start: 10, step: 5, digits: 1, end: 30 })).toBe(5);
     expect(sequenceCount({ start: 1, step: 1, digits: 1 })).toBeNull();
+  });
+
+  it('keeps the printed value when switched off, and the fields for switching back on', () => {
+    const doc = labelWith('Packed {{Date}}');
+    const el = doc.elements[0] as TextElement;
+    const shown = resolveDoc(doc, { index: 0, now }).elements[0] as TextElement;
+    const off = { ...el, ...dynamicPatch(el, false, shown) } as TextElement;
+    expect(off).toMatchObject({ text: `Packed ${day(now)}`, template: 'Packed {{Date}}', dynamic: undefined });
+    const on = { ...off, ...dynamicPatch(off, true, off) } as TextElement;
+    expect(on).toMatchObject({ text: 'Packed {{Date}}', dynamic: true, template: undefined });
+  });
+
+  it('keeps nothing aside for content without fields', () => {
+    const doc = labelWith('Plain');
+    const el = doc.elements[0] as TextElement;
+    expect(dynamicPatch(el, false, el)).toEqual({ dynamic: undefined, template: undefined });
   });
 });

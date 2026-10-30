@@ -226,6 +226,19 @@ export function resolveDoc(doc: LabelDoc, rec: LabelRecord): LabelDoc {
   return { ...doc, elements: doc.elements.map((el) => resolveElement(el, doc, rec)) };
 }
 
+/**
+ * Turns an element dynamic or back. Off, it keeps what the shown label
+ * prints and puts the fields aside; on again, the fields come back as they
+ * were.
+ */
+export function dynamicPatch(el: DynamicElement, on: boolean, shown: DynamicElement): Partial<DynamicElement> {
+  const key = contentKey(el);
+  if (on) return { dynamic: true, template: undefined, ...(el.template !== undefined ? { [key]: el.template } : {}) };
+  const content = contentOf(el);
+  if (!fieldsIn(content).length) return { dynamic: undefined, template: undefined };
+  return { dynamic: undefined, template: content, [key]: contentOf(shown) };
+}
+
 /** Adds a field to the end of a text, with a space before it when needed. */
 export function appendField(text: string, name: string): string {
   const token = `{{${name}}}`;

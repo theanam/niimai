@@ -1,4 +1,5 @@
 import type { PrinterModelMeta, PrintTaskName } from '@mmote/niimbluelib';
+import type { LabelSize } from '../doc/model';
 
 export type PrintDirection = 'left' | 'top';
 
@@ -15,6 +16,8 @@ export interface PrinterProfile {
   densityDefault: number;
   /** Extra thermal printers (cat, ESC/POS): continuous paper, no roll tags. Unset for NIIMBOT. */
   kind?: 'thermal';
+  /** Label sizes common for this printer (TSPL label printers). Unset for NIIMBOT, whose sizes come from its rolls. */
+  sizes?: LabelSize[];
 }
 
 /** Manual profiles for printers niimbluelib does not recognise yet. Each mirrors a known model family. */
@@ -64,6 +67,7 @@ export function resolveProfile(
     densityMax: meta.densityMax,
     densityDefault: meta.densityDefault,
     ...((meta as { kind?: string }).kind === 'thermal' ? { kind: 'thermal' as const } : {}),
+    ...((meta as { labelSizes?: LabelSize[] }).labelSizes ? { sizes: (meta as { labelSizes?: LabelSize[] }).labelSizes } : {}),
   };
 }
 

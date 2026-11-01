@@ -17,6 +17,8 @@ interface Props {
   rollSize: LabelSize | null;
   /** The printer cannot measure the roll and its size is not known yet. */
   rollNeedsSize?: boolean;
+  /** The printer never senses rolls; the user sets the size and changes it for another roll. */
+  rollManual?: boolean;
   /** Product name of a recognised roll. */
   rollName?: string;
   onSetRollSize?: () => void;
@@ -127,7 +129,7 @@ function PrintPosition({ status, onAlignmentTest, offset, onOffset }: Pick<Props
 }
 
 function Connected(props: Props) {
-  const { status, rollSize, rollName, rollNeedsSize, onSetRollSize, onDisconnect } = props;
+  const { status, rollSize, rollName, rollNeedsSize, rollManual, onSetRollSize, onDisconnect } = props;
   const title = status.profile?.name ?? status.detectedModel ?? 'Printer';
   const label = status.label;
   const battery = status.battery;
@@ -187,7 +189,17 @@ function Connected(props: Props) {
           <ScanLine size={18} />
           <span>
             <strong>Tell niimai this roll's size</strong>
-            <small>This printer does not report it. You only need to do this once per roll.</small>
+            <small>{rollManual ? 'This printer does not report it. niimai remembers it for this printer.' : 'This printer does not report it. You only need to do this once per roll.'}</small>
+          </span>
+          <ChevronRight size={18} />
+        </button>
+      )}
+      {rollManual && !rollNeedsSize && onSetRollSize && (
+        <button className="pd-callout" onClick={onSetRollSize}>
+          <ScanLine size={18} />
+          <span>
+            <strong>Change roll size</strong>
+            <small>Loaded another roll? Set its size here.</small>
           </span>
           <ChevronRight size={18} />
         </button>

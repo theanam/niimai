@@ -77,7 +77,7 @@ function PrinterCard({ status, roll, onConnect, onSetRollSize, onBlank, onBrowse
               <LabelSilhouette size={roll.size} box={64} />
               <div className="start-roll-text">
                 <strong>{sizeLabel(roll.size)} mm</strong>
-                <small className="muted">{roll.name ?? 'Loaded roll'}</small>
+                <small className="muted">{roll.name ?? (roll.manual ? 'Roll size you set' : 'Loaded roll')}</small>
               </div>
             </div>
           ) : (
@@ -102,6 +102,11 @@ function PrinterCard({ status, roll, onConnect, onSetRollSize, onBlank, onBrowse
                 <button className="btn" onClick={() => onBrowseTemplates()}>
                   <LayoutTemplate size={16} /> Templates for this roll
                 </button>
+                {roll.manual && (
+                  <button className="btn btn-ghost" onClick={onSetRollSize} title="Change roll size">
+                    <ScanLine size={16} /> Change size
+                  </button>
+                )}
               </>
             ) : (
               roll.needsSize && (

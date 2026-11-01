@@ -35,6 +35,11 @@ export interface ClientLike {
   };
   /** Clients that encode pages themselves (cat printers); NIIMBOT pages go through niimbluelib's encoder. */
   encodePage?(canvas: HTMLCanvasElement): unknown;
+  /**
+   * Label printers that cannot sense the roll: a key to remember the roll
+   * size the user sets, per printer. NIIMBOT printers read their rolls instead.
+   */
+  rollKey?(): string;
 }
 
 export type ConnectionKind = 'bluetooth' | 'serial' | 'demo';

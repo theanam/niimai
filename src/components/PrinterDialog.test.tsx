@@ -27,6 +27,23 @@ const ready = (extra: Partial<PrinterStatus> = {}): PrinterStatus => ({
 });
 
 describe('printer dialog', () => {
+  it('lets a printer that never senses rolls set, then change, the roll size', async () => {
+    const onSetRollSize = vi.fn();
+    const label = { barcode: 'printer:QR380A-02B55B', manual: true };
+    const { unmount } = renderApp(<PrinterDialog {...base} status={ready({ label })} rollNeedsSize rollManual onSetRollSize={onSetRollSize} />);
+    await userEvent.click(screen.getByRole('button', { name: /Tell niimai this roll's size/ }));
+    expect(screen.getByText(/remembers it for this printer/)).toBeInTheDocument();
+    unmount();
+    renderApp(<PrinterDialog {...base} status={ready({ label })} rollSize={{ widthMm: 76, heightMm: 100 }} rollManual onSetRollSize={onSetRollSize} />);
+    await userEvent.click(screen.getByRole('button', { name: /Change roll size/ }));
+    expect(onSetRollSize).toHaveBeenCalledTimes(2);
+  });
+
+  it('offers no roll size change for printers that read their rolls', () => {
+    renderApp(<PrinterDialog {...base} status={ready({ label: { barcode: 'b' } })} rollSize={{ widthMm: 50, heightMm: 30 }} onSetRollSize={() => {}} />);
+    expect(screen.queryByRole('button', { name: /Change roll size/ })).not.toBeInTheDocument();
+  });
+
   it('offers each way to connect and explains what is unavailable', async () => {
     const onConnect = vi.fn(async () => {});
     renderApp(<PrinterDialog {...base} status={{ state: 'disconnected', profile: null }} onConnect={onConnect} />);

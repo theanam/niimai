@@ -1,4 +1,4 @@
-import { BatteryMedium, ChevronRight, FileSpreadsheet, Layers, Minus, Plus, Printer as PrinterIcon, FileText, ScanLine } from 'lucide-react';
+import { BatteryMedium, ChevronRight, FileSpreadsheet, Layers, Loader2, Minus, Plus, Printer as PrinterIcon, FileText, ScanLine } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { sizeLabel, type LabelDoc, type LabelSize } from '../doc/model';
 import { RollMismatchBanner } from './RollMismatchBanner';
@@ -16,6 +16,8 @@ interface Props {
   doc: LabelDoc;
   status: PrinterStatus;
   preview: string | null;
+  /** The preview is being drawn; a loader shows over the old one, or in its place. */
+  previewBusy?: boolean;
   density: number;
   onDensity: (d: number) => void;
   /** Resolve false when the print failed, so the copies are kept for a retry. */
@@ -147,7 +149,7 @@ export function sizeWarning(profile: PrinterProfile | null, clipped: boolean): s
   return `Parts outside the ${Math.round(printheadMm(profile))} mm printhead will not print`;
 }
 
-export function PrintDialog({ open, onOpenChange, doc, status, preview, density, onDensity, onPrint, onBrowserPrint, onConnect, rollSize = null, rollName, onMatchRoll, clipped = false, issueCount = 0, onAddSheet, onSequence }: Props) {
+export function PrintDialog({ open, onOpenChange, doc, status, preview, previewBusy = false, density, onDensity, onPrint, onBrowserPrint, onConnect, rollSize = null, rollName, onMatchRoll, clipped = false, issueCount = 0, onAddSheet, onSequence }: Props) {
   const [copies, setCopies] = useState(1);
   const [busy, setBusy] = useState(false);
   const needs = batchNeeds(doc);
@@ -170,6 +172,9 @@ export function PrintDialog({ open, onOpenChange, doc, status, preview, density,
   const profile = status.profile;
   const warning = sizeWarning(profile, clipped);
   const printing = status.state === 'printing';
+  /** Printers that report how much of each label has been sent (the extra thermal printers). */
+  const sending = printing ? status.progress?.sending : undefined;
+  const progress = status.progress;
 
   const start = async (fn: (c: number, batch?: BatchRun) => Promise<boolean | void>) => {
     setBusy(true);
@@ -192,9 +197,18 @@ export function PrintDialog({ open, onOpenChange, doc, status, preview, density,
             <FileText size={16} /> Browser
           </button>
           {connected ? (
-            <button className="btn btn-primary" disabled={busy || printing || !profile} onClick={() => void start(onPrint)}>
-              <PrinterIcon size={16} />
-              {printing && status.progress ? `${status.progress.page}/${status.progress.total}` : batched && total > 1 ? `Print ${total}` : 'Print'}
+            <button className="btn btn-primary print-go" disabled={busy || printing || !profile} onClick={() => void start(onPrint)}>
+              {sending !== undefined ? <Loader2 size={16} className="spin" /> : <PrinterIcon size={16} />}
+              {sending !== undefined && progress ? (
+                <span>
+                  {progress.total > 1 && `${Math.min(progress.page + 1, progress.total)}/${progress.total} · `}
+                  <span className="print-pct">{sending}%</span>
+                </span>
+              ) : printing && progress
+                  ? `${progress.page}/${progress.total}`
+                  : batched && total > 1
+                    ? `Print ${total}`
+                    : 'Print'}
             </button>
           ) : (
             <button className="btn btn-primary" onClick={onConnect}>
@@ -206,9 +220,19 @@ export function PrintDialog({ open, onOpenChange, doc, status, preview, density,
     >
       <PrinterStrip status={status} rollSize={rollSize} rollName={rollName} onOpen={onConnect} />
       {onMatchRoll && <RollMismatchBanner doc={doc} rollSize={rollSize} rollPaper={status.label?.paper} onMatch={onMatchRoll} />}
-      <div className="print-preview">
+      <div className={`print-preview${previewBusy && preview ? ' print-preview-busy' : ''}`} aria-busy={previewBusy}>
         {preview ? <RasterImage src={preview} alt="Print preview" /> : <div className="print-preview-empty" />}
+        {previewBusy && (
+          <span className="print-preview-loader" role="status" aria-label="Drawing preview">
+            <Loader2 size={18} className="spin" />
+          </span>
+        )}
       </div>
+      {sending !== undefined && progress && (
+        <div className="print-progress" role="progressbar" aria-label="Sending to the printer" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(((progress.page + sending / 100) / Math.max(1, progress.total)) * 100)}>
+          <span style={{ width: `${((progress.page + sending / 100) / Math.max(1, progress.total)) * 100}%` }} />
+        </div>
+      )}
       {showBatch && <BatchSection doc={doc} run={run} onRun={setRun} onAddSheet={onAddSheet} onSequence={onSequence} />}
       <div className="row row-spread">
         <div className="stepper" aria-label="Copies" title={batched ? 'Copies of each label' : 'Copies'}>

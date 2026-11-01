@@ -16,10 +16,11 @@ export interface PrinterStatus {
    * The loaded roll. Size comes from the printer's paper info where it reports
    * one; the barcode identifies the roll when it does not (the B21 C2B, for one).
    */
-  label?: { widthMm?: number; heightMm?: number; remaining?: number; capacity?: number; barcode?: string; paper?: PaperType };
+  label?: { widthMm?: number; heightMm?: number; remaining?: number; capacity?: number; barcode?: string; paper?: PaperType; manual?: boolean };
   lidClosed?: boolean;
   paperInserted?: boolean;
-  progress?: { page: number; total: number };
+  /** Pages done of the total; `sending` is how much of the current page has gone over the link, 0–100, for printers that report it. */
+  progress?: { page: number; total: number; sending?: number };
 }
 
 /** Nudges the printed image, in mm: positive x moves right, positive y moves down. */
@@ -168,6 +169,9 @@ export class PrinterService {
   }
 
   private readRfid(): PrinterStatus['label'] {
+    // Printers that cannot sense the roll keep the size the user sets, under a key of their own.
+    const manual = this.client?.rollKey?.();
+    if (manual) return { barcode: manual, manual: true };
     const info = this.client?.getRfidInfo();
     if (!info) return undefined;
     const paper = info.paperInfo?.valid ? info.paperInfo : undefined;
@@ -203,7 +207,8 @@ export class PrinterService {
     const onHeartbeat = (e: { data: { batteryPercents?: number; lidClosed?: boolean; paperInserted?: boolean } }) =>
       this.set({ battery: e.data.batteryPercents ?? this.status.battery, lidClosed: e.data.lidClosed, paperInserted: e.data.paperInserted });
     const onRfid = () => this.set({ label: this.readRfid() });
-    const onProgress = (e: { page: number; pagesTotal: number }) => this.set({ progress: { page: e.page, total: e.pagesTotal } });
+    const onProgress = (e: { page: number; pagesTotal: number; sending?: number }) =>
+      this.set({ progress: { page: e.page, total: e.pagesTotal, ...(e.sending !== undefined ? { sending: e.sending } : {}) } });
     client.on('disconnect', onDisconnect);
     client.on('heartbeat', onHeartbeat);
     client.on('rfidinfofetched', onRfid);

@@ -1,8 +1,8 @@
 /**
  * Shared ground for the extra Bluetooth thermal printers: cat printers and
- * ESC/POS mini printers. Both print 58 mm continuous paper with a 384-dot
- * head. niimai's focus is NIIMBOT; these clients are kept apart so NIIMBOT
- * printing never goes through them.
+ * ESC/POS mini printers (58 mm continuous paper, 384-dot head) and TSPL
+ * label printers (labels with gaps, up to 80 mm). niimai's focus is NIIMBOT;
+ * these clients are kept apart so NIIMBOT printing never goes through them.
  */
 import type { PrinterModelMeta, PrintTaskName } from '@mmote/niimbluelib';
 import type { LabelSize } from '../doc/model';
@@ -33,16 +33,16 @@ export const THERMAL_SIZES: LabelSize[] = [15, 20, 30, 48, 80].map((heightMm) =>
 export const THERMAL_DEFAULT_SIZE: LabelSize = { widthMm: 48, heightMm: 30 };
 
 /**
- * Packs a 1-bit page (RGBA, dark = black) into 384-dot rows, centred across
+ * Packs a 1-bit page (RGBA, dark = black) into rows as wide as the head, centred across
  * the head. Cat printers want the leftmost dot in the lowest bit, ESC/POS in
  * the highest.
  */
-export function packRows(data: ArrayLike<number>, width: number, height: number, order: 'lsb' | 'msb'): Uint8Array[] {
-  const offset = Math.max(0, Math.floor((THERMAL_HEAD_DOTS - width) / 2));
+export function packRows(data: ArrayLike<number>, width: number, height: number, order: 'lsb' | 'msb', head = THERMAL_HEAD_DOTS): Uint8Array[] {
+  const offset = Math.max(0, Math.floor((head - width) / 2));
   const rows: Uint8Array[] = [];
   for (let y = 0; y < height; y++) {
-    const row = new Uint8Array(THERMAL_HEAD_DOTS / 8);
-    for (let x = 0; x < width && x + offset < THERMAL_HEAD_DOTS; x++) {
+    const row = new Uint8Array(head / 8);
+    for (let x = 0; x < width && x + offset < head; x++) {
       if (data[(y * width + x) * 4] < 128) {
         const dot = x + offset;
         row[dot >> 3] |= order === 'lsb' ? 1 << (dot & 7) : 0x80 >> (dot & 7);
@@ -88,8 +88,18 @@ export abstract class ThermalPrinterClient implements ClientLike {
   protected abstract readonly densityLevels: number;
   /** The model name shown for this printer. */
   protected abstract readonly modelName: string;
+  /** Dots across the head. */
+  protected readonly headDots: number = THERMAL_HEAD_DOTS;
+  /** "left": the label runs sideways through the head, as on NIIMBOT D-series printers. */
+  protected readonly printDirection: 'top' | 'left' = 'top';
+  /** Continuous-paper printers report "thermal"; label printers report nothing and get the roll UI. */
+  protected readonly kind: 'thermal' | undefined = 'thermal';
+  /** Label sizes common for this printer, offered in place of NIIMBOT roll sizes. */
+  protected readonly labelSizes: LabelSize[] | undefined = undefined;
   protected abstract encodeRows(data: ArrayLike<number>, width: number, height: number): Uint8Array[];
-  protected abstract job(rows: Uint8Array[], density: number, copies: number): Uint8Array;
+  protected abstract job(rows: Uint8Array[], density: number, copies: number, labelType: number): Uint8Array;
+  /** Called after each page is sent; printers that confirm a job wait here. */
+  protected async afterPage(): Promise<void> {}
 
   constructor(
     protected transport: ThermalTransport,
@@ -137,10 +147,11 @@ export abstract class ThermalPrinterClient implements ClientLike {
   getModelMetadata(): PrinterModelMeta {
     return {
       model: this.modelName,
-      kind: 'thermal',
+      ...(this.kind ? { kind: this.kind } : {}),
+      ...(this.labelSizes ? { labelSizes: this.labelSizes } : {}),
       dpi: 203,
-      printheadPixels: THERMAL_HEAD_DOTS,
-      printDirection: 'top',
+      printheadPixels: this.headDots,
+      printDirection: this.printDirection,
       densityMin: 1,
       densityMax: this.densityLevels,
       densityDefault: Math.ceil(this.densityLevels / 2),
@@ -167,8 +178,8 @@ export abstract class ThermalPrinterClient implements ClientLike {
     return this.encodeRows(ctx.getImageData(0, 0, canvas.width, canvas.height).data, canvas.width, canvas.height);
   }
 
-  /** Sends bytes in chunks, waiting while the printer asks for a pause. */
-  async send(bytes: Uint8Array): Promise<void> {
+  /** Sends bytes in chunks, waiting while the printer asks for a pause. `onSent` hears the share sent, 0–1. */
+  async send(bytes: Uint8Array, onSent?: (share: number) => void): Promise<void> {
     for (let i = 0; i < bytes.length; ) {
       while (this.paused) await sleep(this.pace.pauseMs);
       const part = bytes.subarray(i, i + this.chunk);
@@ -180,6 +191,7 @@ export abstract class ThermalPrinterClient implements ClientLike {
         continue;
       }
       i += part.length;
+      onSent?.(i / bytes.length);
       await sleep(this.pace.chunkMs);
     }
   }
@@ -188,15 +200,24 @@ export abstract class ThermalPrinterClient implements ClientLike {
     printEnd: async () => true,
     newPrintTask: (_name: PrintTaskName, options: Record<string, unknown>): PrintTaskLike => {
       const density = Number(options.density ?? 1);
+      const labelType = Number(options.labelType ?? 1);
       // A batch sends several pages to one task; progress counts across them.
       let printed = 0;
       return {
         printInit: async () => {},
         printPage: async (image, quantity = 1) => {
-          await this.send(this.job(image as Uint8Array[], density, Math.max(1, quantity)));
+          const total = () => Math.max(printed, Number(options.totalPages ?? printed));
+          // Sending is the slow part over Bluetooth, so report it as it goes, in whole percents.
+          let shown = -1;
+          await this.send(this.job(image as Uint8Array[], density, Math.max(1, quantity), labelType), (share) => {
+            const sending = Math.floor(share * 100);
+            if (sending === shown) return;
+            shown = sending;
+            this.emit('printprogress', { page: printed, pagesTotal: total(), pagePrintProgress: 0, pageFeedProgress: 0, sending });
+          });
+          await this.afterPage();
           printed += Math.max(1, quantity);
-          const total = Math.max(printed, Number(options.totalPages ?? printed));
-          this.emit('printprogress', { page: printed, pagesTotal: total, pagePrintProgress: 100, pageFeedProgress: 100 });
+          this.emit('printprogress', { page: printed, pagesTotal: total(), pagePrintProgress: 100, pageFeedProgress: 100 });
         },
         waitForFinished: async () => {},
         printEnd: async () => true,

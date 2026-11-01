@@ -24,7 +24,7 @@
 - **Every Google Font**, grouped by category and previewed in the picker.
 - **1,500 icons** from Phosphor in regular, bold and fill weights, chosen for crisp thermal printing.
 - **What you see is what prints.** A 1-bit preview shows every dot, photos are dithered for thermal paper, the edges your printhead cannot reach are shaded, and details finer than a printer dot are flagged.
-- **Works with other Bluetooth thermal printers too.** Small 58 mm ESC/POS and cat printers connect the same way and print on continuous paper, with the label length set right in the editor and templates made for long formats, from to-do lists to daily plans.
+- **Works with other Bluetooth thermal printers too.** TSPL label printers up to 80 mm wide print on labels with gaps. Small 58 mm ESC/POS and cat printers print on continuous paper, with the label length set right in the editor and templates made for long formats, from to-do lists to daily plans.
 - **Recognises 60+ NIIMBOT rolls** from the barcode on their RFID tag, setting the label size and paper type and showing how many labels are left ([list](docs/known-rolls.md)).
 - **Browser printing** of the label as a vector document at its exact size.
 - **Local-first.** Labels are kept on your device, and can be saved to and opened from `.niimai` files.
@@ -45,12 +45,13 @@ niimai is built around NIIMBOT printers. It uses [niimbluelib](https://github.co
 
 ### Other Bluetooth thermal printers
 
-niimai also prints on small Bluetooth thermal printers that use 58 mm continuous paper, with a 48 mm print width:
+| Type | Paper | Print width | Models |
+|---|---|---|---|
+| **TSPL label printers** | Labels with gaps, black mark or continuous | Up to 80 mm | QR380A (sold as CC390) |
+| **ESC/POS mini printers** | 58 mm continuous | 48 mm | MP583 (sold as YAEN MPT-II), PT-210, MTP-II and more |
+| **Cat printers** | 58 mm continuous | 48 mm | GB01, GB02, GB03, MX05, MX06, MX10 and more |
 
-- **ESC/POS mini printers**, such as the MP583 (sold as YAEN MPT-II), PT-210 and MTP-II
-- **Cat printers**, such as the GB01, GB02, GB03, MX05, MX06 and MX10
-
-Connect them with the same Bluetooth button. See the [known models and how well each is supported](docs/thermal-printers.md).
+Connect them with the same Bluetooth button. Label printers work like a NIIMBOT: pick the roll size and paper type, and the printer finds each label's edge. See the [known models and how well each is supported](docs/thermal-printers.md).
 
 ### Browsers
 
@@ -83,6 +84,7 @@ Found a bug or have an idea? [Open an issue](https://github.com/theanam/niimai/i
 
 - [niimbluelib](https://github.com/MultiMote/niimbluelib) by MultiMote, for the NIIMBOT printer protocol
 - [rbaron/catprinter](https://github.com/rbaron/catprinter) and [NaitLee/Cat-Printer](https://github.com/NaitLee/Cat-Printer), for the cat printer protocol
+- TSC's TSPL programming manual, for the label printer language
 - [bwip-js](https://github.com/metafloor/bwip-js), for barcodes and QR codes
 - [Fontsource](https://fontsource.org), for the Google Fonts catalogue
 - [Phosphor Icons](https://phosphoricons.com) (MIT), for the icon library

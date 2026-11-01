@@ -42,6 +42,8 @@ export interface RollState {
   key: string | null;
   /** A roll is loaded but its size has to come from the user. */
   needsSize: boolean;
+  /** The printer never senses rolls, so the size is the user's to change when they load another. */
+  manual?: boolean;
 }
 
 /**
@@ -55,6 +57,10 @@ export function resolveRoll(label: PrinterStatus['label'], saved: Record<string,
     return { size, key: label.barcode ?? `${size.widthMm}x${size.heightMm}`, needsSize: false };
   }
   if (!label.barcode) return { size: null, key: null, needsSize: false };
+  if (label.manual) {
+    const size = saved[label.barcode] ?? null;
+    return { size, key: label.barcode, needsSize: !size, manual: true };
+  }
   const entry = known[label.barcode];
   const size = saved[label.barcode] ?? (entry ? sizeOnly(entry) : null);
   return { size, key: label.barcode, needsSize: !size, ...(entry?.name ? { name: entry.name } : {}) };
@@ -86,6 +92,7 @@ export function sizesForPrinter(profile: PrinterProfile | null): LabelSize[] {
   const sorted = all.sort((a, b) => a.heightMm - b.heightMm || a.widthMm - b.widthMm);
   if (!profile) return sorted;
   if (profile.kind === 'thermal') return THERMAL_SIZES;
+  if (profile.sizes) return profile.sizes;
   const head = printheadMm(profile);
   const across = (s: LabelSize) => (profile.printDirection === 'left' ? s.heightMm : s.widthMm);
   return sorted.filter((s) => across(s) <= head * 1.3 && across(s) >= head * 0.5);

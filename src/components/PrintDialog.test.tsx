@@ -5,6 +5,45 @@ import { findManualProfile } from '../printer/profiles';
 import { renderApp } from '../test/render';
 import { PrintDialog, sizeWarning } from './PrintDialog';
 
+const dialog = (extra: Partial<Parameters<typeof PrintDialog>[0]> = {}) => (
+  <PrintDialog
+    open
+    onOpenChange={() => {}}
+    doc={createDoc()}
+    status={{ state: 'ready', profile: findManualProfile('d11')! }}
+    preview={null}
+    density={2}
+    onDensity={() => {}}
+    onPrint={async () => {}}
+    onBrowserPrint={async () => {}}
+    onConnect={() => {}}
+    {...extra}
+  />
+);
+
+describe('print dialog loaders', () => {
+  it('shows a loader while the preview is drawn, over the old one or in its place', () => {
+    const { unmount } = renderApp(dialog({ previewBusy: true }));
+    expect(screen.getByRole('status', { name: 'Drawing preview' })).toBeInTheDocument();
+    unmount();
+    renderApp(dialog({ previewBusy: false, preview: 'data:image/png;base64,' }));
+    expect(screen.queryByRole('status', { name: 'Drawing preview' })).not.toBeInTheDocument();
+  });
+
+  it('shows how much of the label has been sent, for printers that report it', () => {
+    const profile = findManualProfile('b1')!;
+    renderApp(dialog({ status: { state: 'printing', profile, progress: { page: 1, total: 4, sending: 50 } } }));
+    expect(screen.getByRole('progressbar', { name: 'Sending to the printer' })).toHaveAttribute('aria-valuenow', '38');
+    expect(screen.getByRole('button', { name: /2\/4 · 50%/ })).toBeDisabled();
+  });
+
+  it('keeps the page count, and no bar, for NIIMBOT printers', () => {
+    renderApp(dialog({ status: { state: 'printing', profile: findManualProfile('d11')!, progress: { page: 1, total: 3 } } }));
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /1\/3/ })).toBeInTheDocument();
+  });
+});
+
 describe('print dialog', () => {
   it('warns only when part of the design falls outside the printhead', () => {
     const d11 = findManualProfile('d11')!;

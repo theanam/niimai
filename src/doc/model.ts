@@ -205,6 +205,10 @@ export function createDoc(size: LabelSize = { widthMm: 40, heightMm: 12 }, name 
 }
 
 /** A new element of the given type, centred on the label and sized to fit it. */
+/** The largest box a new text starts in, in mm. Small labels are smaller than this, so their text still fills them. */
+const TEXT_MAX_W = 50;
+const TEXT_MAX_H = 10;
+
 export function createElement(type: ElementType, doc: LabelSize, extra: Partial<LabelElement> = {}): LabelElement {
   const pad = Math.min(doc.widthMm, doc.heightMm) * 0.1;
   const fullW = doc.widthMm - pad * 2;
@@ -222,8 +226,9 @@ export function createElement(type: ElementType, doc: LabelSize, extra: Partial<
   let el: LabelElement;
   switch (type) {
     case 'text':
+      // One line at a readable size: the whole label on small rolls, a heading-sized box on big ones.
       el = {
-        ...box(fullW, fullH),
+        ...box(Math.min(fullW, TEXT_MAX_W), Math.min(fullH, TEXT_MAX_H)),
         type,
         text: 'Label',
         fontFamily: DEFAULT_FONT,

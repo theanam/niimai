@@ -1,6 +1,7 @@
 import { Bluetooth, Braces, Bug, Cable, Cat, Crosshair, Keyboard, LayoutTemplate, Mail, Printer, ScanLine, Sparkles } from 'lucide-react';
 import { CAT_MODELS, CAT_UNSUPPORTED, type Confidence } from '../printer/cat';
 import { ESCPOS_MODELS } from '../printer/escpos';
+import { TSPL_MODELS } from '../printer/tspl';
 import { replayTour } from '../tour/Tour';
 import { shortcutLabel } from '../shortcuts/shortcuts';
 import { CONTACT_EMAIL, ISSUES_URL } from '../ui/links';
@@ -184,6 +185,20 @@ export function Help() {
             {[...ESCPOS_MODELS, ...CAT_MODELS].map((m) => (
               <tr key={m.prefix}>
                 <td>{m.prefix}</td>
+                <td>{CONFIDENCE[m.confidence]}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p>TSPL label printers up to 80 mm wide work like a NIIMBOT: pick the roll size and paper type, and the printer finds each label's edge.</p>
+        <table className="shortcuts">
+          <tbody>
+            {TSPL_MODELS.map((m) => (
+              <tr key={m.prefix}>
+                <td>
+                  {m.prefix}
+                  {m.note && <span className="muted"> · {m.note}</span>}
+                </td>
                 <td>{CONFIDENCE[m.confidence]}</td>
               </tr>
             ))}

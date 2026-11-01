@@ -20,6 +20,17 @@ describe('roll size', () => {
     expect(resolveRoll({ barcode: 'b' }, { b: { widthMm: 40, heightMm: 12 } }, known).size).toEqual({ widthMm: 40, heightMm: 12 });
   });
 
+  it('asks once for the roll on a printer that never senses rolls, then keeps that size for the printer', () => {
+    expect(resolveRoll({ barcode: 'printer:QR380A-02B55B', manual: true }, {})).toEqual({ size: null, key: 'printer:QR380A-02B55B', needsSize: true, manual: true });
+    const saved = { 'printer:QR380A-02B55B': { widthMm: 76, heightMm: 100 } };
+    expect(resolveRoll({ barcode: 'printer:QR380A-02B55B', manual: true }, saved)).toEqual({ size: { widthMm: 76, heightMm: 100 }, key: 'printer:QR380A-02B55B', needsSize: false, manual: true });
+  });
+
+  it('never marks NIIMBOT rolls as set by hand', () => {
+    expect(resolveRoll({ barcode: 'b' }, { b: { widthMm: 50, heightMm: 30 } }).manual).toBeUndefined();
+    expect(resolveRoll({ widthMm: 40, heightMm: 12, barcode: 'b' }, {}).manual).toBeUndefined();
+  });
+
   it('knows the rolls verified on hardware', () => {
     expect(resolveRoll({ barcode: '6971501227941' }, {}).size).toEqual({ widthMm: 50, heightMm: 30 });
     expect(resolveRoll({ barcode: '6972842743589' }, {}).size).toEqual({ widthMm: 30, heightMm: 15 });

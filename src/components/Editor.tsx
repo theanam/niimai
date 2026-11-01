@@ -1,4 +1,4 @@
-import { LayoutTemplate } from 'lucide-react';
+import { LayoutTemplate, Loader2 } from 'lucide-react';
 import { type DragEvent, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
 import { createDoc, createElement, parseDoc, serializeDoc, usedFonts, type ElementType, type LabelDoc, type LabelElement, type LabelSize } from '../doc/model';
@@ -87,6 +87,8 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
   const [dialog, setDialog] = useState<DialogName>(null);
   const [previewOn, setPreviewOn] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
+  /** True while the preview is being drawn, so a loader can show over an old or missing one. */
+  const [previewBusy, setPreviewBusy] = useState(false);
   /** The latest raster has dots the printhead cannot reach. */
   const [clipped, setClipped] = useState(false);
   const [images, setImages] = useState<Record<string, string>>({});
@@ -277,16 +279,22 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
   useEffect(() => {
     if (!wantRaster) return;
     let live = true;
+    setPreviewBusy(true);
     const t = setTimeout(() => {
       rasterize(shownDoc, dpi, images).then(
         (c) => {
           if (!live) return;
           setPreview(c.toDataURL());
+          setPreviewBusy(false);
           const profile = printer.getStatus().profile;
           const data = profile && c.getContext('2d')?.getImageData(0, 0, c.width, c.height).data;
           setClipped(!!data && inkOutsideHead(data, c.width, c.height, profile!));
         },
-        (err: Error) => live && toast.error(err.message),
+        (err: Error) => {
+          if (!live) return;
+          setPreviewBusy(false);
+          toast.error(err.message);
+        },
       );
     }, 150);
     return () => {
@@ -631,6 +639,11 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
         </ErrorBoundary>
         <main className="stage" onDragOver={(e) => e.preventDefault()} onDrop={onDrop}>
           <RollMismatchBanner className="stage-banner" doc={doc} rollSize={roll.size} rollPaper={status.label?.paper} onMatch={matchRoll} />
+          {previewOn && previewBusy && (
+            <div className="stage-loader" role="status" aria-label="Drawing preview">
+              <Loader2 size={16} className="spin" />
+            </div>
+          )}
           <ErrorBoundary name="Canvas" resetKeys={[doc]}>
             <Canvas
               doc={doc}
@@ -710,10 +723,10 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
         open={dialog === 'roll'}
         onOpenChange={(o) => setDialog(o ? 'roll' : null)}
         title="What size is this roll?"
-        description={`${status.profile?.name ?? 'This printer'} does not report it. niimai remembers it for this roll.`}
+        description={`${status.profile?.name ?? 'This printer'} does not report it. niimai remembers it for this ${roll.manual ? 'printer' : 'roll'}.`}
         actionLabel="Remember size"
         rollSize={null}
-        initial={sizesForPrinter(status.profile)[0] ?? docSize}
+        initial={roll.size ?? sizesForPrinter(status.profile)[0] ?? docSize}
         presets={sizesForPrinter(status.profile)}
         onPick={saveRollSize}
       />
@@ -739,6 +752,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
         doc={doc}
         status={status}
         preview={preview}
+        previewBusy={previewBusy}
         density={density}
         onDensity={changeDensity}
         onPrint={printToPrinter}
@@ -758,6 +772,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
         status={status}
         rollSize={roll.size}
         rollNeedsSize={roll.needsSize}
+        rollManual={roll.manual}
         rollName={roll.name}
         onSetRollSize={() => setDialog('roll')}
         manualProfileId={manualProfileId}

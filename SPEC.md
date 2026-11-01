@@ -130,6 +130,12 @@ Builds on `niimbluelib` for the printer protocol and replaces the UI with someth
 - **Rendering:** one SVG renderer for the editor, browser printing (vector) and the thermal raster (SVG → canvas → 1-bit).
 - **D21:** niimbluelib has no D21 entry. Manual printer profiles cover unknown models; the "D21" on hand reports itself as a B21 C2B (model id 771) and advertises BLE service `0000e0ff-3c17-d293-8e48-14fe2e4da212` (channel `ffe1`), which niimbluelib does not request.
 
+### Hardware notes (QR380A / CC390 TSPL label printer, verified on device)
+- BLE name `QR380A-xxxxxx`. Service `18F0`: write `2AF1`, replies on `2AF0`; it also advertises the NIIMBOT UUID and Marklife `FF00`, left from a generic module, so it is matched by name.
+- Speaks TSPL and answers ESC/POS status too. A job is `SIZE`, `GAP 2 mm,0 mm` (or `GAP 0,0` / `BLINE`), `DIRECTION 0`, `DENSITY n`, `CLS`, `BITMAP 0,0,…,0,<rows>` (0 bits print black), `PRINT copies,1`. It answers `OK` per job and a status byte to `ESC ! ?`.
+- 100-byte writes 30 ms apart print reliably. A 600-dot border fit, so the head is taken as 640 dots (80 mm). Labels align to the head's left edge.
+- A blank label once was the roll loaded upside down.
+
 ### Hardware notes (B21 C2B, verified on device)
 - Reports model id 771, protocol version 0, BLE service `0000e0ff-3c17-d293-8e48-14fe2e4da212`, channel `ffe1`.
 - Paper info (`0x59`) is unsupported, so the roll size comes from the user, remembered by RFID barcode.

@@ -1393,6 +1393,58 @@ kbd {
   border-radius: var(--radius);
   min-height: 120px;
 }
+.print-preview {
+  position: relative;
+}
+.print-preview-busy .raster {
+  opacity: 0.45;
+  transition: opacity 150ms;
+}
+.print-preview-loader,
+.stage-loader {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--muted);
+  box-shadow: var(--shadow);
+}
+.print-preview-loader {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+}
+.stage-loader {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 2;
+}
+/* Holds its width while the label goes from "Print" to a changing percent. */
+.print-go {
+  min-width: 112px;
+  justify-content: center;
+  font-variant-numeric: tabular-nums;
+}
+.print-pct {
+  display: inline-block;
+  min-width: 4ch;
+  text-align: right;
+}
+.print-progress {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--border);
+  overflow: hidden;
+}
+.print-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--primary);
+  transition: width 200ms linear;
+}
 .print-preview .raster {
   max-width: 100%;
   box-shadow: var(--shadow);

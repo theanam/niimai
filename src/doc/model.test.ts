@@ -43,6 +43,12 @@ describe('document model', () => {
     }
   });
 
+  it('starts text one line high: the whole of a small label, a heading on a big one', () => {
+    expect(createElement('text', doc)).toMatchObject({ x: 1.2, y: 1.2, w: 37.6, h: 9.6 });
+    const big = createElement('text', createDoc({ widthMm: 75, heightMm: 100 }));
+    expect(big).toMatchObject({ w: 50, h: 10, x: 12.5, y: 45 });
+  });
+
   it('keeps QR codes square', () => {
     const qr = createElement('qr', doc);
     expect(qr.w).toBe(qr.h);

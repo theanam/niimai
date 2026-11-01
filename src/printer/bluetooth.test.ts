@@ -5,7 +5,9 @@ vi.mock('./ble', () => ({ createBleClient: (...a: unknown[]) => createBleClient(
 
 import { BluetoothPrinter } from './bluetooth';
 import { CAT_SERVICE } from './cat';
-import { ESCPOS_SERVICE } from './escpos';
+import { CAT_MODELS } from './cat';
+import { ESCPOS_MODELS, ESCPOS_SERVICE } from './escpos';
+import { TSPL_SERVICE } from './tspl';
 
 /** A Web Bluetooth device offering the given services. */
 function device(name: string, services: string[]) {
@@ -67,5 +69,36 @@ describe('bluetooth printer', () => {
     requestPrinter.mockResolvedValue(device('D110-E331024479', []));
     await new BluetoothPrinter(async () => ({}) as never).connect();
     expect(requestPrinter.mock.calls[0][0]).toEqual(expect.arrayContaining(['MP583', 'PT-210']));
+  });
+
+  it('drives a TSPL label printer with the TSPL client, even though it also offers the NIIMBOT service', async () => {
+    requestPrinter.mockResolvedValue(device('QR380A-02B55B', ['e7810a71-73ae-499d-8c15-faa9aef0c3f2', TSPL_SERVICE]));
+    const printer = new BluetoothPrinter(async () => ({}) as never);
+    await expect(printer.connect()).resolves.toEqual({ deviceName: 'QR380A-02B55B' });
+    expect(createBleClient).not.toHaveBeenCalled();
+    const meta = printer.getModelMetadata() as unknown as Record<string, unknown>;
+    expect(meta).toMatchObject({ model: 'QR380A', printheadPixels: 640, printDirection: 'top' });
+    expect(meta.kind).toBeUndefined();
+  });
+
+  it('falls back to the NIIMBOT client when a TSPL name lacks the printer service', async () => {
+    requestPrinter.mockResolvedValue(device('QR380A-odd', ['e7810a71-73ae-499d-8c15-faa9aef0c3f2']));
+    await new BluetoothPrinter(async () => ({}) as never).connect();
+    expect(createBleClient).toHaveBeenCalled();
+  });
+
+  it('keeps ESC/POS printers on the ESC/POS client, though TSPL printers share their service', async () => {
+    requestPrinter.mockResolvedValue(device('MP583', [ESCPOS_SERVICE]));
+    const printer = new BluetoothPrinter(async () => ({}) as never);
+    await printer.connect();
+    expect(printer.getModelMetadata()).toMatchObject({ model: 'MP583', kind: 'thermal', printheadPixels: 384 });
+  });
+
+  it('still lists every earlier printer in the chooser, plus TSPL printers', async () => {
+    requestPrinter.mockResolvedValue(device('D110-E331024479', []));
+    await new BluetoothPrinter(async () => ({}) as never).connect();
+    const prefixes = requestPrinter.mock.calls[0][0];
+    expect(prefixes).toEqual(expect.arrayContaining([...CAT_MODELS, ...ESCPOS_MODELS].map((m) => m.prefix)));
+    expect(prefixes).toContain('QR380A');
   });
 });

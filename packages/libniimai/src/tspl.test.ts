@@ -1,7 +1,6 @@
 import { resolveProfile } from './profiles';
 import { PrinterService } from './service';
 import type { ThermalTransport } from './thermal';
-import { sizesForPrinter } from './roll';
 import { encodeRows, STATUS_QUERY, TSPL_SIZES, TsplPrinterClient, tsplJob, tsplModelFor } from './tspl';
 
 const text = (bytes: ArrayLike<number>) => String.fromCharCode(...Array.from(bytes));
@@ -83,7 +82,7 @@ describe('TSPL label printers', () => {
   it('offers common 2- to 3-inch label sizes, 3 × 4 inch included', () => {
     const client = new TsplPrinterClient(fakeTransport().t, tsplModelFor('QR380A-02B55B'));
     const profile = resolveProfile(client.getModelMetadata(), client.getPrintTaskType());
-    expect(sizesForPrinter(profile)).toBe(TSPL_SIZES);
+    expect(profile?.sizes).toBe(TSPL_SIZES);
     expect(TSPL_SIZES).toEqual(expect.arrayContaining([{ widthMm: 75, heightMm: 100 }, { widthMm: 50, heightMm: 30 }, { widthMm: 80, heightMm: 50 }]));
     expect(TSPL_SIZES.every((s) => s.widthMm <= 80)).toBe(true);
   });

@@ -1,7 +1,6 @@
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { findManualProfile } from '../printer/profiles';
-import type { PrinterStatus } from '../printer/service';
+import { findManualProfile, type PrinterStatus } from 'libniimai';
 import { renderApp } from '../test/render';
 import { PrinterDialog } from './PrinterDialog';
 

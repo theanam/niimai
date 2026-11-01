@@ -1,6 +1,6 @@
 import type { LabelElement, LabelSize } from '../doc/model';
 import { round1 } from '../lib/units';
-import { printheadMm, type PrinterProfile } from './profiles';
+import { printheadMm, type PrinterProfile } from 'libniimai';
 
 export interface Area {
   x: number;

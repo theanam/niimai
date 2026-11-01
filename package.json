@@ -3,12 +3,16 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "dev": "vite",
-    "build": "tsc -b && vite build",
+    "build": "tsc -b && tsc -p packages/libniimai && vite build",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "lib:build": "npm run build -w libniimai",
     "fonts": "node scripts/update-google-fonts.mjs",
     "screenshot": "node scripts/screenshot.mjs",
     "icons": "node scripts/build-icons.mjs"
@@ -37,6 +41,7 @@
     "@radix-ui/react-tooltip": "^1.4.1",
     "bwip-js": "^4.11.4",
     "idb": "^8.0.4",
+    "libniimai": "*",
     "lucide-react": "^1.63.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",

@@ -1,5 +1,10 @@
 import type { PrinterModelMeta, PrintTaskName } from '@mmote/niimbluelib';
-import type { LabelSize } from '../doc/model';
+
+/** A label's size in millimetres. */
+export interface LabelSize {
+  widthMm: number;
+  heightMm: number;
+}
 
 export type PrintDirection = 'left' | 'top';
 

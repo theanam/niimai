@@ -1,7 +1,7 @@
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createDoc, createElement, type LabelDoc } from '../doc/model';
-import { findManualProfile } from '../printer/profiles';
+import { findManualProfile } from 'libniimai';
 import { renderApp } from '../test/render';
 import { PrintDialog, sizeWarning } from './PrintDialog';
 

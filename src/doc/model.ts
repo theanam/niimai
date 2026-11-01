@@ -1,5 +1,5 @@
 import { sanitizeIconBody, type IconWeight } from '../icons/catalog';
-import { PAPER_TYPES, type PaperType } from '../printer/paper';
+import { PAPER_TYPES, type PaperType } from 'libniimai';
 import { isFrameStyle, type FrameStyle } from '../render/frames';
 import { round1, uid } from '../lib/units';
 import type { DataSheet, NumberSequence } from './variables';

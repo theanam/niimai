@@ -1,0 +1,52 @@
+{
+  "name": "libniimai",
+  "version": "0.1.0",
+  "description": "Print to NIIMBOT, TSPL, ESC/POS and cat printers from the browser over Web Bluetooth and Web Serial.",
+  "keywords": [
+    "niimbot",
+    "label printer",
+    "thermal printer",
+    "web bluetooth",
+    "web serial",
+    "tspl",
+    "esc/pos",
+    "cat printer"
+  ],
+  "license": "MIT",
+  "author": "Anam Ahmed <anam.ahmed.a@gmail.com>",
+  "homepage": "https://niimai.app",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/theanam/niimai.git",
+    "directory": "packages/libniimai"
+  },
+  "bugs": {
+    "url": "https://github.com/theanam/niimai/issues"
+  },
+  "type": "module",
+  "sideEffects": false,
+  "main": "./dist/libniimai.js",
+  "module": "./dist/libniimai.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/libniimai.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "vite build && tsc -p tsconfig.build.json && node scripts/dts-extensions.mjs",
+    "test": "vitest run",
+    "prepublishOnly": "npm test && npm run build"
+  },
+  "dependencies": {
+    "@mmote/niimbluelib": "^0.48.0",
+    "@types/w3c-web-serial": "^1.0.8",
+    "@types/web-bluetooth": "^0.0.22"
+  }
+}

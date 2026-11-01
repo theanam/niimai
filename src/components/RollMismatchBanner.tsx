@@ -1,6 +1,6 @@
 import { TriangleAlert } from 'lucide-react';
 import { sizeLabel, type LabelDoc, type LabelSize } from '../doc/model';
-import { paperName, type PaperType } from '../printer/paper';
+import { paperName, type PaperType } from 'libniimai';
 import { rollMismatch } from '../printer/roll';
 
 interface Props {

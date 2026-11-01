@@ -26,6 +26,8 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+      # The npm package must keep building, though it is published separately.
+      - run: npm run lib:build
       # Analytics belong to the hosted site only, so the tag is added to the
       # built page here and never lives in the source.
       - name: Add Google tag to the hosted page

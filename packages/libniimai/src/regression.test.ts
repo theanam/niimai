@@ -6,9 +6,8 @@ import { CAT_MODELS, CatPrinterClient, catModelFor, printJob } from './cat';
 import { ESCPOS_MODELS, EscPosPrinterClient, escposJob, escposModelFor } from './escpos';
 import { TSPL_MODELS } from './tspl';
 import { findManualProfile, resolveProfile } from './profiles';
-import { sizesForPrinter } from './roll';
 import { PrinterService } from './service';
-import { THERMAL_SIZES, type ThermalTransport } from './thermal';
+import type { ThermalTransport } from './thermal';
 
 const link = (name: string): ThermalTransport => ({ name, write: async () => {}, onNotify: () => {}, onDisconnect: () => {}, disconnect: async () => {} });
 
@@ -41,12 +40,12 @@ describe('existing printers stay as they were', () => {
     });
   });
 
-  it('both still get the 48 mm continuous-paper sizes, with no roll to set', () => {
+  it('both still show as continuous paper, with no roll to set', () => {
     for (const client of [new EscPosPrinterClient(link('MP583'), escposModelFor('MP583')), new CatPrinterClient(link('GB01'), catModelFor('GB01'))]) {
       expect('rollKey' in client).toBe(false);
       const profile = resolveProfile(client.getModelMetadata(), client.getPrintTaskType());
       expect(profile?.kind).toBe('thermal');
-      expect(sizesForPrinter(profile)).toBe(THERMAL_SIZES);
+      expect(profile?.sizes).toBeUndefined();
     }
   });
 
@@ -105,12 +104,8 @@ describe('existing printers stay as they were', () => {
     expect(tasks[0]).toMatchObject({ labelType: 1, density: 2 });
   });
 
-  it('NIIMBOT printers keep the sizes their rolls come in', () => {
-    for (const id of ['d11', 'd110', 'b1', 'b21']) {
-      const profile = findManualProfile(id)!;
-      expect(profile.sizes).toBeUndefined();
-      expect(sizesForPrinter(profile)).not.toContainEqual({ widthMm: 75, heightMm: 100 });
-    }
+  it('NIIMBOT printers bring no size list of their own', () => {
+    for (const id of ['d11', 'd110', 'b1', 'b21']) expect(findManualProfile(id)!.sizes).toBeUndefined();
   });
 
   it('no printer name belongs to two families', () => {

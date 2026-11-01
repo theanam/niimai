@@ -3,9 +3,7 @@ import { BatteryMedium, Bluetooth, ChevronRight, Crosshair, Ruler, FlaskConical,
 import { useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { sizeLabel, type LabelSize } from '../doc/model';
-import { unsupportedReason, type ConnectionKind } from '../printer/client';
-import { MANUAL_PROFILES, printheadMm } from '../printer/profiles';
-import type { PrintOffset, PrinterStatus } from '../printer/service';
+import { type ConnectionKind, MANUAL_PROFILES, type PrinterStatus, printheadMm, type PrintOffset, unsupportedReason } from 'libniimai';
 import { NumberField } from './fields';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
 

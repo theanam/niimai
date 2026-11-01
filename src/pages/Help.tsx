@@ -1,7 +1,5 @@
 import { Bluetooth, Braces, Bug, Cable, Cat, Crosshair, Keyboard, LayoutTemplate, Mail, Printer, ScanLine, Sparkles } from 'lucide-react';
-import { CAT_MODELS, CAT_UNSUPPORTED, type Confidence } from '../printer/cat';
-import { ESCPOS_MODELS } from '../printer/escpos';
-import { TSPL_MODELS } from '../printer/tspl';
+import { CAT_MODELS, CAT_UNSUPPORTED, type Confidence, ESCPOS_MODELS, TSPL_MODELS } from 'libniimai';
 import { replayTour } from '../tour/Tour';
 import { shortcutLabel } from '../shortcuts/shortcuts';
 import { CONTACT_EMAIL, ISSUES_URL } from '../ui/links';

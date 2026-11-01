@@ -1,18 +1,4 @@
-import { BluetoothPrinter } from './bluetooth';
-import type { ClientLike, ConnectionKind } from './client';
-import { MockClient } from './mock';
-import { PrinterService } from './service';
+import { createPrinter } from 'libniimai';
 
-// niimbluelib loads only when it is needed, which keeps first paint light.
-const lib = () => import('@mmote/niimbluelib');
-
-async function createClient(kind: ConnectionKind): Promise<ClientLike> {
-  if (kind === 'demo') return new MockClient();
-  if (kind === 'bluetooth') return new BluetoothPrinter(lib);
-  const niim = await lib();
-  return new niim.NiimbotSerialClient() as unknown as ClientLike;
-}
-
-export const printer = new PrinterService(createClient, async (canvas, direction) =>
-  (await lib()).ImageEncoder.encodeCanvas(canvas, 0, direction),
-);
+/** The app's one printer connection. */
+export const printer = createPrinter();

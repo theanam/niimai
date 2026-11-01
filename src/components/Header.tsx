@@ -2,7 +2,7 @@ import * as Popover from '@radix-ui/react-popover';
 import { CircleHelp, Ellipsis, Eye, FilePlus2, FolderOpen, Info, LayoutTemplate, Library, Printer, Redo2, Save, Undo2 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { LABEL_EXT } from '../files/fs-access';
-import type { PrinterStatus } from '../printer/service';
+import type { PrinterStatus } from 'libniimai';
 import { shortcutLabel } from '../shortcuts/shortcuts';
 import { GitHubMark } from '../ui/GitHubMark';
 import { IconButton } from '../ui/IconButton';

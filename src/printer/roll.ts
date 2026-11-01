@@ -1,10 +1,7 @@
 import { LABEL_PRESETS, type LabelSize } from '../doc/model';
 import { TEMPLATE_SIZES } from '../templates';
-import { THERMAL_SIZES } from './thermal';
+import { type PaperType, type PrinterProfile, type PrinterStatus, printheadMm, THERMAL_SIZES } from 'libniimai';
 import KNOWN from './known-rolls.json';
-import type { PaperType } from './paper';
-import { printheadMm, type PrinterProfile } from './profiles';
-import type { PrinterStatus } from './service';
 
 /** A NIIMBOT roll identified by the barcode on its RFID tag. */
 export interface KnownRoll extends LabelSize {

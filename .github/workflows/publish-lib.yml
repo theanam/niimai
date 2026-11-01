@@ -1,0 +1,32 @@
+name: Publish libniimai
+
+# Push a tag like libniimai-v0.2.0 after setting that version in
+# packages/libniimai/package.json.
+on:
+  push:
+    tags: ['libniimai-v*']
+
+permissions:
+  contents: read
+  # npm trusted publishing and provenance.
+  id-token: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          registry-url: https://registry.npmjs.org
+      # Trusted publishing needs npm 11.5.1 or later.
+      - run: npm install -g npm@^11.5.1
+      - run: npm ci
+      - name: Check the tag matches the package version
+        run: |
+          version=$(node -p "require('./packages/libniimai/package.json').version")
+          test "libniimai-v$version" = "$GITHUB_REF_NAME" || { echo "Tag $GITHUB_REF_NAME does not match version $version"; exit 1; }
+      - run: npm test
+      - run: npm publish -w libniimai --provenance --access public

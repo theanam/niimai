@@ -5,7 +5,7 @@
  * printer finds each label's edge itself. It answers "OK" on 2AF0 when it has
  * taken a job, and a status byte to ESC ! ?.
  */
-import type { LabelSize } from '../doc/model';
+import type { LabelSize } from './profiles';
 import { modelFor, ThermalPrinterClient, type Pace, type ThermalModel, type ThermalTransport } from './thermal';
 
 export const TSPL_SERVICE = '000018f0-0000-1000-8000-00805f9b34fb';

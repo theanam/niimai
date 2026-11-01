@@ -1,6 +1,6 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type { LabelDoc, LabelSize } from '../doc/model';
-import type { PrintOffset } from '../printer/service';
+import type { PrintOffset } from 'libniimai';
 
 interface Schema extends DBSchema {
   labels: { key: string; value: LabelDoc; indexes: { updatedAt: number } };

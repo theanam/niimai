@@ -7,6 +7,8 @@ Browser-based label designer and printer for NIIMBOT printers. See [SPEC.md](SPE
 2. Must run from GitHub Pages (static build, relative/`base` paths, hash routing).
 19. The local dev server uses port **5197**.
 20. Git remote: `git@github.com:theanam/niimai.git`.
+22. Printer connection and protocol code lives in `packages/libniimai` (published to npm as `libniimai`). It must never import from `src/`; anything the app needs from it goes through its `index.ts` exports.
+23. Every change to `packages/libniimai` bumps its `version` in the same commit (patch for fixes, minor for new features or printers, and while it is 0.x, minor for breaking changes too). After pushing to `main`, tag that commit `libniimai-v<version>` and push the tag; the tag publishes it to npm.
 
 ## Git
 3. Commit author email: `anam.ahmed.a@gmail.com` (set in the repo's local git config).

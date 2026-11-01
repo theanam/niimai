@@ -2,9 +2,7 @@ import { BatteryMedium, ChevronRight, FileSpreadsheet, Layers, Loader2, Minus, P
 import { useEffect, useState } from 'react';
 import { sizeLabel, type LabelDoc, type LabelSize } from '../doc/model';
 import { RollMismatchBanner } from './RollMismatchBanner';
-import type { PrinterStatus } from '../printer/service';
-import type { PrinterProfile } from '../printer/profiles';
-import { printheadMm } from '../printer/profiles';
+import { type PrinterProfile, type PrinterStatus, printheadMm } from 'libniimai';
 import { Dialog } from '../ui/Dialog';
 import { RasterImage } from '../ui/RasterImage';
 import { batchNeeds, clampRange, DEFAULT_SEQUENCE, sequenceCount, sequenceValue, type NumberSequence } from '../doc/variables';

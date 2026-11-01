@@ -1,7 +1,6 @@
 import { CatPrinterClient, catModelFor, crc8, encodeRows, FLOW_PAUSE, FLOW_RESUME, packet, printJob } from './cat';
-import { THERMAL_SIZES, type ThermalTransport } from './thermal';
+import type { ThermalTransport } from './thermal';
 import { resolveProfile } from './profiles';
-import { sizesForPrinter } from './roll';
 import { PrinterService } from './service';
 
 const bytes = (signed: number[]) => signed.map((v) => v & 0xff);
@@ -74,7 +73,7 @@ describe('cat printers', () => {
     const client = new CatPrinterClient(fakeTransport().t, catModelFor('MX06'));
     const profile = resolveProfile(client.getModelMetadata(), client.getPrintTaskType());
     expect(profile).toMatchObject({ name: 'MX06', kind: 'thermal', printheadPixels: 384, printDirection: 'top', dpi: 203 });
-    expect(sizesForPrinter(profile)).toEqual(THERMAL_SIZES);
+    expect(profile?.sizes).toBeUndefined();
     expect(client.getRfidInfo()).toEqual({});
   });
 

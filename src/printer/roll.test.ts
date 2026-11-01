@@ -1,4 +1,4 @@
-import { findManualProfile } from './profiles';
+import { CatPrinterClient, catModelFor, EscPosPrinterClient, escposModelFor, findManualProfile, resolveProfile, THERMAL_SIZES, TSPL_SIZES, TsplPrinterClient, tsplModelFor } from 'libniimai';
 import { KNOWN_ROLL_SIZES, KNOWN_ROLLS, resolveRoll, sameSize, sizesForPrinter } from './roll';
 
 describe('roll size', () => {
@@ -78,6 +78,15 @@ describe('roll size', () => {
     expect(wide.some((s) => s.widthMm === 50 && s.heightMm === 30)).toBe(true);
     expect(wide.every((s) => s.widthMm >= 24)).toBe(true);
     expect(sizesForPrinter(null).length).toBeGreaterThan(wide.length);
+  });
+
+  it('offers each printer family its own sizes, and NIIMBOT the sizes its rolls come in', () => {
+    const sizes = (client: { getModelMetadata(): never; getPrintTaskType(): never }) => sizesForPrinter(resolveProfile(client.getModelMetadata(), client.getPrintTaskType()));
+    const link = { name: 'x', write: async () => {}, onNotify: () => {}, onDisconnect: () => {}, disconnect: async () => {} };
+    expect(sizes(new EscPosPrinterClient(link, escposModelFor('MP583')) as never)).toBe(THERMAL_SIZES);
+    expect(sizes(new CatPrinterClient(link, catModelFor('GB01')) as never)).toBe(THERMAL_SIZES);
+    expect(sizes(new TsplPrinterClient(link, tsplModelFor('QR380A-02B55B')) as never)).toBe(TSPL_SIZES);
+    for (const id of ['d11', 'd110', 'b1', 'b21']) expect(sizesForPrinter(findManualProfile(id)!)).not.toContainEqual({ widthMm: 75, heightMm: 100 });
   });
 
   it('asks for the size of an unknown roll', () => {

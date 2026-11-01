@@ -1,5 +1,4 @@
 import type { ClientLike, ConnectionKind, PrintTaskLike } from './client';
-import { mmToPx } from '../lib/units';
 import { paperFromLabelType, type PaperType } from './paper';
 import { findManualProfile, printheadCrop, resolveProfile, type PrinterProfile } from './profiles';
 
@@ -54,6 +53,8 @@ export const DEMO_NAME = 'Demo printer';
 const PRINT_TIMEOUT_MS = 20_000;
 const PAGE_TIMEOUT_MS = 10_000;
 const PRINT_END_POLL_MS = 300;
+const mmToPx = (mm: number, dpi: number): number => (mm / 25.4) * dpi;
+
 /** The page moved by whole pixels on a white canvas of the same size. */
 export function shiftCanvas(canvas: HTMLCanvasElement, dx: number, dy: number): HTMLCanvasElement {
   dx = Math.round(dx);

@@ -5,7 +5,7 @@
  * these clients are kept apart so NIIMBOT printing never goes through them.
  */
 import type { PrinterModelMeta, PrintTaskName } from '@mmote/niimbluelib';
-import type { LabelSize } from '../doc/model';
+import type { LabelSize } from './profiles';
 import type { ClientLike, PrintTaskLike } from './client';
 
 /** Dots across the head: 48 mm at 203 dpi. */

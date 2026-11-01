@@ -34,7 +34,7 @@ async function connectDemo() {
 /** Points the app's printer at a stand-in MP583 for one test. Returns the undo. */
 async function useEscPosPrinter() {
   const { printer } = await import('../printer');
-  const { EscPosPrinterClient, escposModelFor } = await import('../printer/escpos');
+  const { EscPosPrinterClient, escposModelFor } = await import('libniimai');
   const link = { name: 'MP583', write: async () => {}, onNotify: () => {}, onDisconnect: () => {}, disconnect: async () => {} };
   const target = printer as unknown as { createClient: () => Promise<unknown> };
   const original = target.createClient;
@@ -323,7 +323,7 @@ describe('editor', () => {
   });
 
   it('asks for the size of a roll the printer cannot measure, offering sizes that suit it', async () => {
-    const { MockClient } = await import('../printer/mock');
+    const { MockClient } = await import('libniimai');
     const spy = vi.spyOn(MockClient.prototype, 'getRfidInfo').mockReturnValue({
       labelRfidInfo: { tagPresent: true, barCode: 'roll-1', allPaper: 10, usedPaper: 1, consumablesType: 1 },
       paperInfo: undefined,

@@ -27,8 +27,7 @@ import { ICON_WEIGHTS, iconBody, iconLabel, type IconWeight } from '../icons/cat
 import { sameSize } from '../printer/roll';
 import type { BarcodeFormat, DitherMode, FoldMode, LabelDoc, LabelElement, LineDirection } from '../doc/model';
 import { LABEL_PRESETS, placementArea, reshapeLine, type LabelSize } from '../doc/model';
-import { PAPER_TYPES, paperName, type PaperType } from '../printer/paper';
-import { THERMAL_HEAD_MM } from '../printer/thermal';
+import { PAPER_TYPES, paperName, type PaperType, THERMAL_HEAD_MM } from 'libniimai';
 import type { RollState } from '../printer/roll';
 import { symbolError } from '../render/barcode';
 import { IconButton } from '../ui/IconButton';

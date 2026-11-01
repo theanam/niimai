@@ -2,10 +2,8 @@ import { ArrowRight, Battery, Bluetooth, Check, ChevronDown, ChevronUp, FilePlus
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { LABEL_PRESETS, type LabelDoc, type LabelSize, sizeLabel } from '../doc/model';
-import { supportsBluetooth, supportsSerial, unsupportedReason, type ConnectionKind } from '../printer/client';
-import { THERMAL_DEFAULT_SIZE } from '../printer/thermal';
+import { type ConnectionKind, type PrinterStatus, supportsBluetooth, supportsSerial, THERMAL_DEFAULT_SIZE, unsupportedReason } from 'libniimai';
 import { sameSize, type RollState } from '../printer/roll';
-import type { PrinterStatus } from '../printer/service';
 import { ensureFont } from '../render/fonts';
 import { deleteLabel, listLabels } from '../storage/db';
 import { useConfirm } from '../ui/Dialog';

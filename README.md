@@ -53,6 +53,10 @@ niimai is built around NIIMBOT printers. It uses [niimbluelib](https://github.co
 
 Connect them with the same Bluetooth button. Label printers work like a NIIMBOT: pick the roll size and paper type, and the printer finds each label's edge. See the [known models and how well each is supported](docs/thermal-printers.md).
 
+### Use it in your own app
+
+The printer support ships as [libniimai](packages/libniimai) on npm: connect, detect and print from your own web page with `npm i libniimai`.
+
 ### Browsers
 
 Printing needs a browser with Web Bluetooth or Web Serial: Chrome or Edge on desktop, or Chrome on Android, where niimai has a phone-sized layout. iPhone and iPad browsers cannot reach printers; the Bluefy browser adds Bluetooth there. Designing labels works in any modern browser.
@@ -68,13 +72,14 @@ The dev server runs at http://localhost:5197.
 
 | Command | What it does |
 | --- | --- |
-| `npm test` | Runs the test suite |
+| `npm test` | Runs the app and library tests |
 | `npm run build` | Builds the static site into `dist/` |
+| `npm run lib:build` | Builds libniimai into `packages/libniimai/dist/` |
 | `npm run fonts` | Refreshes the Google Fonts list |
 | `npm run icons` | Rebuilds the icon library from Phosphor |
 | `npm run screenshot` | Regenerates the README screenshot and social image (needs Chrome) |
 
-Pushes to `main` deploy to GitHub Pages through the included workflow.
+The printer code lives in `packages/libniimai`, an npm workspace the app builds from directly. Pushes to `main` deploy to GitHub Pages; a `libniimai-v*` tag publishes the library to npm.
 
 ## Feedback
 

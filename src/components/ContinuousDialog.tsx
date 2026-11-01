@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { sizeLabel, type LabelSize } from '../doc/model';
-import { THERMAL_HEAD_MM } from '../printer/thermal';
+import { THERMAL_HEAD_MM } from 'libniimai';
 import { Dialog } from '../ui/Dialog';
 import { NumberField } from './fields';
 import { LabelSilhouette } from './LabelSizePicker';

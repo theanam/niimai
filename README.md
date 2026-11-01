@@ -53,13 +53,33 @@ niimai is built around NIIMBOT printers. It uses [niimbluelib](https://github.co
 
 Connect them with the same Bluetooth button. Label printers work like a NIIMBOT: pick the roll size and paper type, and the printer finds each label's edge. See the [known models and how well each is supported](docs/thermal-printers.md).
 
-### Use it in your own app
-
-The printer support ships as [libniimai](packages/libniimai) on npm: connect, detect and print from your own web page with `npm i libniimai`.
-
 ### Browsers
 
 Printing needs a browser with Web Bluetooth or Web Serial: Chrome or Edge on desktop, or Chrome on Android, where niimai has a phone-sized layout. iPhone and iPad browsers cannot reach printers; the Bluefy browser adds Bluetooth there. Designing labels works in any modern browser.
+
+## libniimai: the printer library
+
+[![npm](https://img.shields.io/npm/v/libniimai?color=e8553e)](https://www.npmjs.com/package/libniimai)
+[![downloads](https://img.shields.io/npm/dm/libniimai)](https://www.npmjs.com/package/libniimai)
+[![types](https://img.shields.io/npm/types/libniimai)](https://www.npmjs.com/package/libniimai)
+[![size](https://img.shields.io/bundlephobia/minzip/libniimai)](https://bundlephobia.com/package/libniimai)
+[![license](https://img.shields.io/npm/l/libniimai)](LICENSE)
+
+Everything niimai does to reach a printer ships on its own as **libniimai**: connect over Web Bluetooth or Web Serial, detect the printer family, and print any canvas on NIIMBOT, TSPL, ESC/POS and cat printers from your own web page.
+
+```bash
+npm i libniimai
+```
+
+```ts
+import { createPrinter } from 'libniimai';
+
+const printer = createPrinter();
+await printer.connect('bluetooth'); // from a click
+await printer.print(canvas, { density: 3, copies: 1 });
+```
+
+See the [library README](packages/libniimai/README.md) for the API and printer details.
 
 ## Development
 

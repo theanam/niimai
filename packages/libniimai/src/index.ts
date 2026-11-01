@@ -7,7 +7,7 @@
 import { BluetoothPrinter } from './bluetooth';
 import type { ClientLike, ConnectionKind } from './client';
 import { MockClient } from './mock';
-import { PrinterService } from './service';
+import { PrinterService, type ClientFactory } from './service';
 
 // niimbluelib loads only when it is needed, so pages that never meet a NIIMBOT stay light.
 const niimbot = () => import('@mmote/niimbluelib');
@@ -24,9 +24,19 @@ export async function createClient(kind: ConnectionKind): Promise<ClientLike> {
   return new lib.NiimbotSerialClient() as unknown as ClientLike;
 }
 
+export interface CreatePrinterOptions {
+  /**
+   * Makes the client for each connection. Defaults to createClient; wrap it
+   * to change one kind of connection and keep the others.
+   */
+  createClient?: ClientFactory;
+}
+
 /** A ready printer service: connect, watch its status, print canvases. */
-export function createPrinter(): PrinterService {
-  return new PrinterService(createClient, async (canvas, direction) => (await niimbot()).ImageEncoder.encodeCanvas(canvas, 0, direction));
+export function createPrinter(options: CreatePrinterOptions = {}): PrinterService {
+  return new PrinterService(options.createClient ?? createClient, async (canvas, direction) =>
+    (await niimbot()).ImageEncoder.encodeCanvas(canvas, 0, direction),
+  );
 }
 
 export { PrinterService, DEMO_NAME, friendlyError, fitToPrinthead, shiftCanvas } from './service';

@@ -80,9 +80,13 @@ Draw black on white. Thermal printers print each dot black or white, so dither p
 
 ## API
 
-### `createPrinter()`
+### `createPrinter(options?)`
 
 Returns a `PrinterService`, which owns one printer connection.
+
+| Option | What it does |
+| --- | --- |
+| `createClient` | Makes the client for each connection. Defaults to `createClient`. |
 
 | Member | What it does |
 | --- | --- |
@@ -112,6 +116,37 @@ Returns a `PrinterService`, which owns one printer connection.
 | `label` | The loaded roll, where the printer reports one. |
 | `battery` | Battery level, where the printer reports one. |
 | `progress` | `{ page, total, sending }`; `sending` is 0–100 for the page going over the link. |
+
+### Your own clients
+
+Pass `createClient` to change how one kind of connection is made and keep the others. This demo prints like a 58 mm ESC/POS printer into memory, while Bluetooth and USB use the built-in clients:
+
+```ts
+import { createClient, createPrinter, DEMO_NAME, EscPosPrinterClient } from 'libniimai';
+
+const output: Uint8Array[] = [];
+const printer = createPrinter({
+  createClient: (kind) =>
+    kind === 'demo'
+      ? Promise.resolve(
+          new EscPosPrinterClient(
+            {
+              name: DEMO_NAME,
+              write: async (chunk) => void output.push(chunk.slice()),
+              onNotify: () => {},
+              onDisconnect: () => {},
+              disconnect: async () => {},
+            },
+            null,
+            // No Bluetooth to pace for: send at once.
+            { chunkMs: 0, pauseMs: 1 },
+          ),
+        )
+      : createClient(kind),
+});
+```
+
+A printer connected as `'demo'` takes the stand-in's paper, head and density range, and always shows as `DEMO_NAME`. Thermal clients encode their own pages, so niimbluelib never loads for them.
 
 ### Lower level
 

@@ -165,7 +165,7 @@ export class PrinterService {
   private currentProfile(): PrinterProfile | null {
     const c = this.client;
     const profile = resolveProfile(c?.getModelMetadata(), c?.getPrintTaskType(), findManualProfile(this.manualProfileId), c?.getPrinterInfo().protocolVersion);
-    // The demo behaves like a D11 underneath, but never passes for one.
+    // Whatever printer stands in for the demo, it never passes for a real model.
     return profile && this.kind === 'demo' ? { ...profile, name: DEMO_NAME } : profile;
   }
 

@@ -1,6 +1,6 @@
 {
   "name": "libniimai",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Print to NIIMBOT, TSPL, ESC/POS and cat printers from the browser over Web Bluetooth and Web Serial.",
   "keywords": [
     "niimbot",

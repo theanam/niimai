@@ -1,4 +1,4 @@
-import { Bluetooth, Braces, Bug, Cable, Cat, Crosshair, Keyboard, LayoutTemplate, Mail, Printer, ScanLine, Sparkles } from 'lucide-react';
+import { Bluetooth, Braces, Bug, Cable, Cat, Crosshair, Keyboard, LayoutTemplate, Mail, Printer, RectangleHorizontal, ScanLine, Sparkles } from 'lucide-react';
 import { CAT_MODELS, CAT_UNSUPPORTED, type Confidence, ESCPOS_MODELS, type ThermalModel, TSPL_MODELS } from 'libniimai';
 import { replayTour } from '../tour/Tour';
 import { shortcutLabel } from '../shortcuts/shortcuts';
@@ -121,6 +121,15 @@ export function Help() {
           down. niimai remembers the offset for each printer model.
         </p>
         <p>If a print lands across two labels after reloading the roll, print once more; the printer finds the gap again.</p>
+      </section>
+      <section>
+        <h2>
+          <RectangleHorizontal size={18} /> Landscape
+        </h2>
+        <p>
+          Choose Landscape in the label settings to design across the length of the roll. The label panel keeps showing the
+          roll, the canvas turns a quarter, and the print window shows the label the way it comes out of the printer.
+        </p>
       </section>
       <section>
         <h2>

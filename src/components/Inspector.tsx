@@ -52,6 +52,8 @@ interface Props {
   /** Opens the dialog for naming the loaded roll's size. */
   onSetRollSize: () => void;
   onUpdate: (id: string, patch: Partial<LabelElement>, key?: string) => void;
+  /** Switches the artboard between portrait and landscape. */
+  onTurn?: () => void;
   onDocChange: (patch: Partial<Pick<LabelDoc, 'widthMm' | 'heightMm' | 'tailMm' | 'fold' | 'paper' | 'name' | 'sheet' | 'sequence'>>) => void;
   /** Opens a spreadsheet for the label's dynamic fields. */
   onAddSheet?: () => void;
@@ -81,8 +83,10 @@ const FORMATS: { value: BarcodeFormat; label: string }[] = [
   { value: 'upca', label: 'UPC-A' },
 ];
 
-export function Inspector({ doc, selected, roll, rollPaper, fitting = [], allSizes = LABEL_PRESETS, onSetRollSize, onUpdate, onDocChange, onDuplicate, onRemove, onReorder, onReplaceImage, onReplaceIcon, onEditText, printIssue, continuous = false, stickerGap, paperWidth = THERMAL_HEAD_MM, onAddSheet = () => {}, resolve = (el) => el }: Props) {
+export function Inspector({ doc, selected, roll, rollPaper, fitting = [], allSizes = LABEL_PRESETS, onSetRollSize, onUpdate, onTurn = () => {}, onDocChange, onDuplicate, onRemove, onReorder, onReplaceImage, onReplaceIcon, onEditText, printIssue, continuous = false, stickerGap, paperWidth = THERMAL_HEAD_MM, onAddSheet = () => {}, resolve = (el) => el }: Props) {
   const data = <DataSection doc={doc} onAddSheet={onAddSheet} onDocChange={onDocChange} />;
+  // Cable and flag labels wrap or fold along their length, so they stay portrait.
+  const orientation = !doc.tailMm && !doc.fold && <Orientation landscape={!!doc.landscape} onTurn={onTurn} />;
   if (!selected && continuous) {
     return (
       <aside className="inspector" aria-label="Label settings">
@@ -94,6 +98,7 @@ export function Inspector({ doc, selected, roll, rollPaper, fitting = [], allSiz
             <NumberField label="Width" icon="W" value={doc.widthMm} min={5} max={paperWidth} step={1} suffix="mm" onChange={(widthMm) => onDocChange({ widthMm })} />
             <NumberField label="Length" icon="L" value={doc.heightMm} min={5} max={500} step={1} suffix="mm" onChange={(heightMm) => onDocChange({ heightMm })} />
           </div>
+          {orientation}
         </Section>
         {data}
       </aside>
@@ -133,6 +138,7 @@ export function Inspector({ doc, selected, roll, rollPaper, fitting = [], allSiz
               ))}
             </select>
           </label>
+          {orientation}
           {!!doc.fold && (
             <div className="field-select-inline">
               <span className="field-label-text">Sides</span>
@@ -154,31 +160,35 @@ export function Inspector({ doc, selected, roll, rollPaper, fitting = [], allSiz
               <NumberField label="Width" value={doc.widthMm} min={5} max={200} step={1} suffix="mm" icon="W" onChange={(v) => onDocChange({ widthMm: v })} />
               <NumberField label="Height" value={doc.heightMm} min={5} max={200} step={1} suffix="mm" icon="H" onChange={(v) => onDocChange({ heightMm: v })} />
             </div>
-            <div className="row">
-              <Toggle
-                label="Cable label"
-                icon={
-                  <>
-                    <Cable size={15} /> Cable
-                  </>
-                }
-                checked={!!doc.tailMm}
-                onChange={(on) => onDocChange({ tailMm: on ? Math.min(35, Math.round(doc.widthMm / 3)) : undefined })}
-              />
-              {!!doc.tailMm && (
-                <NumberField label="Tail length" icon="Tail" value={doc.tailMm} min={1} max={doc.widthMm - 5} step={1} suffix="mm" onChange={(tailMm) => onDocChange({ tailMm })} />
-              )}
-            </div>
-            <Toggle
-              label="Fold in the middle"
-              icon={
-                <>
-                  <FoldHorizontal size={15} /> Fold
-                </>
-              }
-              checked={!!doc.fold}
-              onChange={(on) => onDocChange({ fold: on ? 'copy' : undefined })}
-            />
+            {!doc.landscape && (
+              <>
+                <div className="row">
+                  <Toggle
+                    label="Cable label"
+                    icon={
+                      <>
+                        <Cable size={15} /> Cable
+                      </>
+                    }
+                    checked={!!doc.tailMm}
+                    onChange={(on) => onDocChange({ tailMm: on ? Math.min(35, Math.round(doc.widthMm / 3)) : undefined })}
+                  />
+                  {!!doc.tailMm && (
+                    <NumberField label="Tail length" icon="Tail" value={doc.tailMm} min={1} max={doc.widthMm - 5} step={1} suffix="mm" onChange={(tailMm) => onDocChange({ tailMm })} />
+                  )}
+                </div>
+                <Toggle
+                  label="Fold in the middle"
+                  icon={
+                    <>
+                      <FoldHorizontal size={15} /> Fold
+                    </>
+                  }
+                  checked={!!doc.fold}
+                  onChange={(on) => onDocChange({ fold: on ? 'copy' : undefined })}
+                />
+              </>
+            )}
           </details>
         </Section>
         {data}
@@ -373,5 +383,22 @@ export function Inspector({ doc, selected, roll, rollPaper, fitting = [], allSiz
         </Section>
       )}
     </aside>
+  );
+}
+
+/** Portrait draws on the paper as it lies; landscape turns the artboard a quarter, and the print turns back onto the paper. */
+function Orientation({ landscape, onTurn }: { landscape: boolean; onTurn: () => void }) {
+  return (
+    <div className="orientation">
+      <Segmented<'portrait' | 'landscape'>
+        label="Orientation"
+        value={landscape ? 'landscape' : 'portrait'}
+        onChange={(v) => v !== (landscape ? 'landscape' : 'portrait') && onTurn()}
+        options={[
+          { value: 'portrait', label: 'Portrait' },
+          { value: 'landscape', label: 'Landscape' },
+        ]}
+      />
+    </div>
   );
 }

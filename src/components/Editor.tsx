@@ -1,12 +1,12 @@
 import { LayoutTemplate, Loader2 } from 'lucide-react';
 import { type DragEvent, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
-import { createDoc, createElement, parseDoc, serializeDoc, usedFonts, type ElementType, type LabelDoc, type LabelElement, type LabelSize } from '../doc/model';
+import { createDoc, createElement, onPaper, paperSize, parseDoc, serializeDoc, turnPatch, usedFonts, type ElementType, type LabelDoc, type LabelElement, type LabelSize } from '../doc/model';
 import { useEditor } from '../doc/useEditor';
 import { baseName, LABEL_EXT, openImageFile, openLabelFile, openSheetFile, readAsDataUrl, safeFileName, saveTextAs, writeToHandle, type FileHandle } from '../files/fs-access';
 import { round1, uid } from '../lib/units';
 import { printer } from '../printer';
-import { type ConnectionKind, DEMO_NAME, effectivePaper, inkOutsideHead, labelTypeOf, type PrintOffset, printheadMm, THERMAL_DEFAULT_SIZE, THERMAL_HEAD_MM, THERMAL_SIZES } from 'libniimai';
+import { type ConnectionKind, DEMO_NAME, effectivePaper, inkOutsideHead, labelTypeOf, type PrintOffset, printheadMm, rotateCanvas, THERMAL_DEFAULT_SIZE, THERMAL_HEAD_MM, THERMAL_SIZES } from 'libniimai';
 import { allSizesFor, resolveRoll, sameSize, sizesForPrinter } from '../printer/roll';
 import { asSvgBlob, isImageFile, isSvgFile, looksLikeSvg, svgSize } from '../files/svg';
 import { browserPrint } from '../render/browserPrint';
@@ -28,7 +28,7 @@ import { SizeDialog } from './SizeDialog';
 import { StartScreen } from './StartScreen';
 import { PrintDialog } from './PrintDialog';
 import { printIssues } from '../render/printability';
-import { fitBorders, safeArea } from '../printer/safeArea';
+import { fitBorders, safeArea, turnedArea } from '../printer/safeArea';
 import { alignmentDoc } from '../printer/alignment';
 import type { LabelLengths, PaperWidths, StickerGaps } from '../printer/thermalPaper';
 import { TEMPLATES } from '../templates';
@@ -41,6 +41,8 @@ type DialogName = 'new' | 'roll' | 'continuous' | 'library' | 'print' | 'printer
 const DEFAULT_DPI = 203;
 
 /** A size as a document patch; always sets the tail, so a plain size clears a cable label's tail. */
+/** Landscape labels print a quarter turn clockwise. */
+const LANDSCAPE_TURN = 90;
 const asPatch = (s: LabelSize) => ({ widthMm: s.widthMm, heightMm: s.heightMm, tailMm: s.tailMm, fold: s.fold });
 
 /** A friendly first label, so the editor never opens blank. */
@@ -87,6 +89,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
   const [dialog, setDialog] = useState<DialogName>(null);
   const [previewOn, setPreviewOn] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
+  const [printPreview, setPrintPreview] = useState<string | null>(null);
   /** True while the preview is being drawn, so a loader can show over an old or missing one. */
   const [previewBusy, setPreviewBusy] = useState(false);
   /** The latest raster has dots the printhead cannot reach. */
@@ -156,12 +159,15 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
 
   // Match the label to the loaded roll, once per roll. Undo puts the old size back.
   const docSize: LabelSize = { widthMm: doc.widthMm, heightMm: doc.heightMm, tailMm: doc.tailMm, fold: doc.fold };
+  // Where the label meets the paper; a landscape label's artboard is turned from it.
+  const paper = paperSize(doc);
+  const toPaper = (size: LabelSize) => onPaper(asPatch(size), doc.landscape);
   useEffect(() => {
     if (status.state === 'disconnected') appliedRoll.current = null;
     if (!roll.key || appliedRoll.current === roll.key) return;
     appliedRoll.current = roll.key;
-    if (roll.size && !sameSize(roll.size, docSize)) {
-      dispatch({ type: 'setDoc', patch: asPatch(roll.size) });
+    if (roll.size && !sameSize(roll.size, paper)) {
+      dispatch({ type: 'setDoc', patch: toPaper(roll.size) });
       dispatch({ type: 'commit' });
       toast(`Label resized to the ${roll.size.widthMm} × ${roll.size.heightMm} mm roll`, {
         action: { label: 'Undo', onClick: () => dispatch({ type: 'undo' }) },
@@ -177,7 +183,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
   useEffect(() => setZoomLevel(null), [doc.id, doc.widthMm, doc.heightMm]);
 
   // What the printhead reaches. Borders past it print with sides missing, so they move inside once per border.
-  const safe = safeArea(docSize, status.profile);
+  const safe = doc.landscape ? turnedArea(safeArea(paper, status.profile), doc.heightMm) : safeArea(docSize, status.profile);
   // Details thinner than the printer's dots look crisp on screen but vanish on paper. Fonts change the text measurements.
   const issues = useMemo(() => printIssues(doc, dpi), [doc, dpi, fontsVersion]);
 
@@ -204,7 +210,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
   };
   const fittedBorders = useRef<string | null>(null);
   // Read before effects run: when the label is about to follow a new roll, wait for that size.
-  const resizePending = !!roll.key && appliedRoll.current !== roll.key && !!roll.size && !sameSize(roll.size, docSize);
+  const resizePending = !!roll.key && appliedRoll.current !== roll.key && !!roll.size && !sameSize(roll.size, paper);
   useEffect(() => {
     if (resizePending) return;
     const boxes = fitBorders(doc.elements, docSize, safe);
@@ -225,22 +231,22 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
   const offeredContinuous = useRef<string | null>(null);
   useEffect(() => {
     if (status.state === 'disconnected') offeredContinuous.current = null;
-    if (status.profile?.kind !== 'thermal' || view !== 'edit' || doc.widthMm === paperWidth) return;
+    if (status.profile?.kind !== 'thermal' || view !== 'edit' || paper.widthMm === paperWidth) return;
     const key = `${status.profile.id}:${doc.id}`;
     if (offeredContinuous.current === key) return;
     offeredContinuous.current = key;
     setDialog((d) => d ?? 'continuous');
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status.state, status.profile?.id, doc.id, doc.widthMm, view, paperWidth]);
+  }, [status.state, status.profile?.id, doc.id, paper.widthMm, view, paperWidth]);
 
   const switchToContinuous = (size: LabelSize) => {
-    dispatch({ type: 'setDoc', patch: { widthMm: size.widthMm, heightMm: size.heightMm, tailMm: undefined, fold: undefined, paper: undefined } });
+    dispatch({ type: 'setDoc', patch: { ...onPaper({ widthMm: size.widthMm, heightMm: size.heightMm }, doc.landscape), tailMm: undefined, fold: undefined, paper: undefined } });
     dispatch({ type: 'commit' });
   };
 
   /** Puts the design on the loaded roll: its size, and paper that follows the roll. */
   const matchRoll = () => {
-    const patch = { ...(roll.size ? asPatch(roll.size) : {}), ...(doc.paper && status.label?.paper && doc.paper !== status.label.paper ? { paper: undefined } : {}) };
+    const patch = { ...(roll.size ? toPaper(roll.size) : {}), ...(doc.paper && status.label?.paper && doc.paper !== status.label.paper ? { paper: undefined } : {}) };
     dispatch({ type: 'setDoc', patch });
     dispatch({ type: 'commit' });
   };
@@ -251,7 +257,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
     const next = { ...rollSizes, [barcode]: size };
     setRollSizes(next);
     void setSetting('rollSizes', next).catch(() => {});
-    if (!sameSize(size, docSize)) dispatch({ type: 'setDoc', patch: asPatch(size) });
+    if (!sameSize(size, paper)) dispatch({ type: 'setDoc', patch: toPaper(size) });
   };
 
   // Fonts: link every family in use and re-measure text once they arrive.
@@ -295,11 +301,14 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
       rasterize(shownDoc, dpi, images).then(
         (c) => {
           if (!live) return;
+          // The canvas shows the label upright; the print window shows it the way it comes out of the printer.
+          const out = shownDoc.landscape ? rotateCanvas(c, LANDSCAPE_TURN) : c;
           setPreview(c.toDataURL());
+          setPrintPreview(out === c ? null : out.toDataURL());
           setPreviewBusy(false);
           const profile = printer.getStatus().profile;
-          const data = profile && c.getContext('2d')?.getImageData(0, 0, c.width, c.height).data;
-          setClipped(!!data && inkOutsideHead(data, c.width, c.height, profile!));
+          const data = profile && out.getContext('2d')?.getImageData(0, 0, out.width, out.height).data;
+          setClipped(!!data && inkOutsideHead(data, out.width, out.height, profile!));
         },
         (err: Error) => {
           if (!live) return;
@@ -449,7 +458,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
       const source = batch
         ? { count: batch.count, page: (i: number) => rasterize(resolveDoc(doc, { index: batch.first + i, now }), dpi, images) }
         : await rasterize(resolveDoc(doc, { index: shownIndex, now }), dpi, images);
-      await printer.print(source, { density, copies, offset, labelType, gapMm });
+      await printer.print(source, { density, copies, offset, labelType, gapMm, ...(doc.landscape ? { rotate: LANDSCAPE_TURN } : {}) });
       const total = copies * (batch?.count ?? 1);
       toast.success(total > 1 ? `Printed ${total} labels` : 'Printed');
       // A run of numbers continues where it stopped next time.
@@ -485,7 +494,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
   /** Prints the alignment test label on the loaded roll, with the current offset. */
   const printAlignmentTest = async () => {
     try {
-      const test = alignmentDoc(roll.size ?? docSize);
+      const test = alignmentDoc(roll.size ?? paper);
       const canvas = await rasterize(test, dpi, {});
       await printer.print(canvas, { density, copies: 1, offset, ...paperFor() });
     } catch (err) {
@@ -673,7 +682,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
             paperWidth={paperWidth}
             labelLength={labelLength}
             onLabelLength={changeLabelLength}
-            defaultSize={{ widthMm: doc.widthMm, heightMm: doc.heightMm }}
+            defaultSize={{ widthMm: paper.widthMm, heightMm: paper.heightMm }}
             onConnect={connect}
             onSetRollSize={() => setDialog('roll')}
             onPrinterSettings={() => setDialog('printer')}
@@ -726,7 +735,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
         </main>
         <ErrorBoundary name="Inspector" resetKeys={[state.selectedId]}>
           <Inspector
-            doc={doc}
+            doc={{ ...doc, ...paper }}
             selected={selected}
             roll={roll}
             rollPaper={status.label?.paper}
@@ -734,10 +743,17 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
             allSizes={allSizesFor(null)}
             onSetRollSize={() => setDialog('roll')}
             onUpdate={update}
+            onTurn={() => {
+              dispatch({ type: 'setDoc', patch: turnPatch(doc) });
+              dispatch({ type: 'commit' });
+            }}
             onDocChange={(patch) => {
               // On paper the printer cannot sense, the length set here is the paper's, and the printer keeps it.
               if (status.canFeed && patch.heightMm !== undefined && !('widthMm' in patch)) changeLabelLength(patch.heightMm);
-              dispatch({ type: 'setDoc', patch: 'widthMm' in patch && 'heightMm' in patch ? asPatch(patch as LabelSize) : patch });
+              // The panel shows the paper's size; a landscape artboard takes it turned.
+              const { widthMm, heightMm, tailMm, fold, ...rest } = patch;
+              const size = 'widthMm' in patch && 'heightMm' in patch ? asPatch(patch as LabelSize) : Object.fromEntries(Object.entries({ widthMm, heightMm, tailMm, fold }).filter(([k]) => k in patch));
+              dispatch({ type: 'setDoc', patch: { ...rest, ...onPaper(size, doc.landscape) } });
             }}
             onDuplicate={duplicate}
             onRemove={(id) => dispatch({ type: 'remove', id })}
@@ -774,7 +790,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
         open={dialog === 'continuous'}
         onOpenChange={(o) => setDialog(o ? 'continuous' : null)}
         printerName={status.profile?.name ?? 'This printer'}
-        current={docSize}
+        current={paper}
         widthMm={paperWidth}
         onSwitch={switchToContinuous}
       />
@@ -786,7 +802,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
         description={`${status.profile?.name ?? 'This printer'} does not report it. niimai remembers it for this ${roll.manual ? 'printer' : 'roll'}.`}
         actionLabel="Remember size"
         rollSize={null}
-        initial={roll.size ?? sizesForPrinter(status.profile)[0] ?? docSize}
+        initial={roll.size ?? sizesForPrinter(status.profile)[0] ?? paper}
         presets={sizesForPrinter(status.profile)}
         onPick={saveRollSize}
       />
@@ -800,7 +816,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
         open={dialog === 'library'}
         onOpenChange={(o) => setDialog(o ? 'library' : null)}
         currentId={doc.id}
-        currentSize={roll.size ?? docSize}
+        currentSize={roll.size ?? paper}
         initialTab={libraryTab}
         templateSeed={templateSeed}
         continuous={status.profile?.kind === 'thermal'}
@@ -811,7 +827,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
         onOpenChange={(o) => setDialog(o ? 'print' : null)}
         doc={doc}
         status={status}
-        preview={preview}
+        preview={printPreview ?? preview}
         previewBusy={previewBusy}
         density={density}
         onDensity={changeDensity}

@@ -1,5 +1,5 @@
 import { DEMO_META, MockClient } from './mock';
-import { friendlyError, PrinterService, shiftCanvas } from './service';
+import { friendlyError, PrinterService, rotateCanvas, shiftCanvas } from './service';
 
 const setup = (meta?: ConstructorParameters<typeof MockClient>[0] | null) => {
   const client = new MockClient(meta === undefined ? undefined : meta);
@@ -177,6 +177,43 @@ describe('printer service', () => {
     const moved = shiftCanvas(page, 8.4, -4);
     expect(moved).not.toBe(page);
     expect(draws).toEqual([[8, -4]]);
+    spy.mockRestore();
+  });
+
+  it('turns a page by quarter turns, swapping its sides', () => {
+    const turns: number[] = [];
+    const ctx = { fillRect() {}, translate() {}, rotate: (a: number) => turns.push(a), drawImage() {}, fillStyle: '' };
+    const spy = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(ctx as never);
+    const page = Object.assign(canvas(), { width: 320, height: 96 });
+    expect(rotateCanvas(page, 0)).toBe(page);
+    expect(rotateCanvas(page, 360)).toBe(page);
+    const quarter = rotateCanvas(page, 90);
+    expect([quarter.width, quarter.height]).toEqual([96, 320]);
+    const half = rotateCanvas(page, 180);
+    expect([half.width, half.height]).toEqual([320, 96]);
+    expect([rotateCanvas(page, -90).width, rotateCanvas(page, -90).height]).toEqual([96, 320]);
+    expect(turns.slice(0, 2)).toEqual([Math.PI / 2, Math.PI]);
+    spy.mockRestore();
+  });
+
+  it('turns each page before the offset, so the offset stays relative to the paper', async () => {
+    const { service, encode } = setup();
+    await service.connect('demo');
+    const steps: string[] = [];
+    const ctx = {
+      fillRect() {},
+      translate() {},
+      rotate: (a: number) => steps.push(`rotate ${a}`),
+      drawImage: (_c: unknown, x: number, y: number) => steps.push(`draw ${x} ${y}`),
+      fillStyle: '',
+      getImageData: () => ({ data: [] }),
+    };
+    const spy = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(ctx as never);
+    const page = Object.assign(canvas(), { width: 96, height: 320 });
+    await service.print(page, { density: 2, copies: 1, rotate: 90, offset: { x: 1, y: 0 } });
+    expect(steps).toEqual([`rotate ${Math.PI / 2}`, 'draw -48 -160', 'draw 8 0']);
+    const sent = (encode.mock.calls[0] as unknown[])[0] as HTMLCanvasElement;
+    expect([sent.width, sent.height]).toEqual([320, 96]);
     spy.mockRestore();
   });
 

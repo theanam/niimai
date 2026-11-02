@@ -107,6 +107,7 @@ Returns a `PrinterService`, which owns one printer connection.
 | `labelType` | Paper type, from `PAPER_TYPES`: 1 labels with gaps, 2 black mark, 3 continuous. |
 | `offset` | Nudges the print, in mm: `{ x, y }`. |
 | `gapMm` | Stickers with gaps on printers that cannot sense them (`status.canFeed`): each label is followed by exactly this much feed, in place of the tear-off feed. |
+| `rotate` | Turns each page clockwise by 0, 90, 180 or 270 degrees before sending, for landscape labels. `offset` still moves the print relative to the paper. |
 
 **`PrinterStatus`**
 

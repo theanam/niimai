@@ -1,5 +1,5 @@
 import { createElement } from '../doc/model';
-import { fitBorders, isBorder, safeArea } from './safeArea';
+import { fitBorders, isBorder, safeArea, turnedArea } from './safeArea';
 
 const d11 = { printheadPixels: 96, dpi: 203, printDirection: 'left' as const };
 const b21 = { printheadPixels: 384, dpi: 203, printDirection: 'top' as const };
@@ -46,5 +46,12 @@ describe('safe area', () => {
     const size = { widthMm: 30, heightMm: 15 };
     const frame = { ...createElement('frame', size), id: 'f', x: 0.5, y: 2, w: 29, h: 11 };
     expect(fitBorders([frame], size, safeArea(size, d11))).toEqual({});
+  });
+
+  it('turns the printable area of the paper onto a landscape artboard', () => {
+    // 50 × 30 mm paper, 1 mm lost at each side; the 30 × 50 artboard loses it at the top and bottom.
+    expect(turnedArea({ x: 1, y: 0, w: 48, h: 30 }, 50)).toEqual({ x: 0, y: 1, w: 30, h: 48 });
+    expect(turnedArea({ x: 0, y: 2, w: 40, h: 10 }, 40)).toEqual({ x: 2, y: 0, w: 10, h: 40 });
+    expect(turnedArea(null, 50)).toBeNull();
   });
 });

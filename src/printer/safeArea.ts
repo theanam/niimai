@@ -24,6 +24,14 @@ export function safeArea(size: Pick<LabelSize, 'widthMm' | 'heightMm'>, profile:
   return acrossIsWidth ? { x: off, y: 0, w: head, h: size.heightMm } : { x: 0, y: off, w: size.widthMm, h: head };
 }
 
+/**
+ * An area of the paper on a landscape label's artboard. The artboard prints
+ * turned a quarter clockwise, so the paper's x runs down the artboard and its
+ * y runs back from the artboard's bottom edge.
+ */
+export const turnedArea = (area: Area | null, artboardHeight: number): Area | null =>
+  area && { x: area.y, y: round1(artboardHeight - area.x - area.w), w: area.h, h: area.w };
+
 /** Frames, and outlines that span most of the label, read as borders. */
 export const isBorder = (el: LabelElement, size: Pick<LabelSize, 'widthMm' | 'heightMm'>): boolean =>
   el.type === 'frame' || (el.type === 'rect' && !el.fill && !el.rotation && el.w >= size.widthMm * 0.8 && el.h >= size.heightMm * 0.8);

@@ -44,7 +44,16 @@ export interface PrintOptions {
    * much feed in place of the tear-off feed, so prints stay on the labels.
    */
   gapMm?: number;
+  /**
+   * Turns each page clockwise by this many degrees before it is sent, for
+   * labels designed landscape: the page is drawn the way it reads and prints
+   * turned onto the paper. Applied before `offset`, which stays relative to the paper.
+   */
+  rotate?: Rotation;
 }
+
+/** Quarter turns, in degrees clockwise. */
+export type Rotation = 0 | 90 | 180 | 270;
 
 /** Different labels in one job, drawn one at a time so a long batch never holds every page at once. */
 export interface PageSource {
@@ -78,6 +87,23 @@ export function shiftCanvas(canvas: HTMLCanvasElement, dx: number, dy: number): 
   ctx.fillStyle = '#fff';
   ctx.fillRect(0, 0, out.width, out.height);
   ctx.drawImage(canvas, dx, dy);
+  return out;
+}
+
+/** The page turned clockwise by `degrees`, a multiple of 90. Returns the canvas itself for no turn. */
+export function rotateCanvas(canvas: HTMLCanvasElement, degrees: number): HTMLCanvasElement {
+  const turn = (((Math.round(degrees / 90) % 4) + 4) % 4) as 0 | 1 | 2 | 3;
+  if (!turn) return canvas;
+  const out = document.createElement('canvas');
+  out.width = turn % 2 ? canvas.height : canvas.width;
+  out.height = turn % 2 ? canvas.width : canvas.height;
+  const ctx = out.getContext('2d');
+  if (!ctx) return canvas;
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, out.width, out.height);
+  ctx.translate(out.width / 2, out.height / 2);
+  ctx.rotate((turn * Math.PI) / 2);
+  ctx.drawImage(canvas, -canvas.width / 2, -canvas.height / 2);
   return out;
 }
 
@@ -324,7 +350,7 @@ export class PrinterService {
     try {
       const offset = opts.offset ?? { x: 0, y: 0 };
       for (let i = 0; i < pages.count; i++) {
-        const canvas = await pages.page(i);
+        const canvas = rotateCanvas(await pages.page(i), opts.rotate ?? 0);
         const shifted = shiftCanvas(canvas, mmToPx(offset.x, profile.dpi), mmToPx(offset.y, profile.dpi));
         const page = fitToPrinthead(shifted, profile);
         const image = client.encodePage ? await client.encodePage(page) : await this.encode(page, profile.printDirection);
@@ -335,6 +361,7 @@ export class PrinterService {
             direction: profile.printDirection,
             printhead: profile.printheadPixels,
             page: `${canvas.width}x${canvas.height}`,
+            rotate: opts.rotate ?? 0,
             sent: `${page.width}x${page.height}`,
             density,
             copies,

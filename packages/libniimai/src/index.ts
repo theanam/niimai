@@ -39,8 +39,8 @@ export function createPrinter(options: CreatePrinterOptions = {}): PrinterServic
   );
 }
 
-export { PrinterService, DEMO_NAME, friendlyError, fitToPrinthead, shiftCanvas } from './service';
-export type { ClientFactory, PageSource, PrinterState, PrinterStatus, PrintOffset, PrintOptions } from './service';
+export { PrinterService, DEMO_NAME, friendlyError, fitToPrinthead, rotateCanvas, shiftCanvas } from './service';
+export type { ClientFactory, PageSource, PrinterState, PrinterStatus, PrintOffset, PrintOptions, Rotation } from './service';
 
 export { detectPlatform, supportsBluetooth, supportsSerial, unsupportedReason } from './client';
 export type { ClientLike, ConnectionKind, Platform, PrintTaskLike } from './client';

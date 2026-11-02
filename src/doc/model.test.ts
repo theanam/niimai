@@ -1,4 +1,4 @@
-import { createDoc, createElement, parseDoc, placementArea, printableArea, reshapeLine, serializeDoc, sizeLabel, usedFonts, type LineElement } from './model';
+import { createDoc, createElement, onPaper, paperSize, parseDoc, placementArea, printableArea, reshapeLine, serializeDoc, sizeLabel, turnPatch, usedFonts, type LineElement, type TextElement } from './model';
 
 describe('document model', () => {
   it('turns a line while keeping its length and centre on the label', () => {
@@ -129,5 +129,40 @@ describe('document model', () => {
     expect(parsed.sequence).toEqual({ start: 10, step: 2, digits: 12 });
     expect(parsed.elements.map((e) => (e as { dynamic?: boolean }).dynamic)).toEqual([true, undefined]);
     expect(parseDoc({ ...doc, sheet: 'nope', sequence: { start: 'x' } })).not.toHaveProperty('sheet');
+  });
+
+  it('turns the artboard for landscape while the paper stays as it is', () => {
+    const doc = createDoc({ widthMm: 50, heightMm: 30 });
+    const turned = { ...doc, ...turnPatch(doc) };
+    expect([turned.widthMm, turned.heightMm, turned.landscape]).toEqual([30, 50, true]);
+    expect(paperSize(turned)).toEqual({ widthMm: 50, heightMm: 30 });
+    expect(paperSize(doc)).toEqual({ widthMm: 50, heightMm: 30, tailMm: undefined, fold: undefined });
+    const back = { ...turned, ...turnPatch(turned) };
+    expect([back.widthMm, back.heightMm, back.landscape]).toEqual([50, 30, undefined]);
+  });
+
+  it('keeps elements in place, in proportion, and shrinks the ones too big for the turned artboard', () => {
+    const doc = createDoc({ widthMm: 50, heightMm: 30 });
+    const text = { ...createElement('text', doc), x: 5, y: 10, w: 40, h: 10, autoFit: false, fontSize: 20 } as TextElement;
+    const dot = { ...createElement('ellipse', doc), x: 0, y: 0, w: 4, h: 4 };
+    const [t, d] = turnPatch({ ...doc, elements: [text, dot] }).elements;
+    // 40 mm wide on a 30 mm artboard: three quarters the size, centred where it was.
+    expect([t.x, t.y, t.w, t.h, (t as TextElement).fontSize]).toEqual([0, 21.3, 30, 7.5, 15]);
+    expect([d.x, d.y, d.w, d.h]).toEqual([0, 1.3, 4, 4]);
+  });
+
+  it('applies paper sizes to a landscape artboard turned, and ends landscape for cable and flag sizes', () => {
+    expect(onPaper({ widthMm: 40, heightMm: 12 }, true)).toEqual({ widthMm: 12, heightMm: 40 });
+    expect(onPaper({ heightMm: 70 }, true)).toEqual({ widthMm: 70 });
+    expect(onPaper({ widthMm: 40, heightMm: 12 }, false)).toEqual({ widthMm: 40, heightMm: 12 });
+    expect(onPaper({ widthMm: 109, heightMm: 12.5, tailMm: 35 }, true)).toEqual({ widthMm: 109, heightMm: 12.5, tailMm: 35, landscape: undefined });
+  });
+
+  it('opens landscape labels, but never a landscape cable or flag label', () => {
+    const doc = { ...createDoc({ widthMm: 12, heightMm: 40 }), landscape: true as const };
+    expect(parseDoc(JSON.parse(serializeDoc(doc))).landscape).toBe(true);
+    expect(parseDoc({ ...doc, landscape: 'yes' })).not.toHaveProperty('landscape');
+    expect(parseDoc({ ...doc, tailMm: 5 })).not.toHaveProperty('landscape');
+    expect(parseDoc({ ...doc, fold: 'copy' })).not.toHaveProperty('landscape');
   });
 });

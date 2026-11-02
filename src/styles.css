@@ -3006,6 +3006,14 @@ kbd {
   align-items: center;
   gap: 10px;
 }
+.orientation .segmented {
+  display: flex;
+}
+.orientation .segmented button {
+  flex: 1;
+  /* As tall as the selects around it. */
+  height: 28px;
+}
 
 /* Label size picker */
 .size-trigger {
@@ -3607,6 +3615,11 @@ kbd {
 .start-roll-actions .field-number {
   flex: none;
   width: 140px;
+}
+/* Fields beside buttons on the start screen, as tall as the buttons. */
+.start-roll-actions .field,
+.start-custom .field {
+  height: 34px;
 }
 @media (max-width: 520px) {
   .canvas-hud {

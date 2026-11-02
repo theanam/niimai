@@ -1,5 +1,5 @@
 import { TriangleAlert } from 'lucide-react';
-import { sizeLabel, type LabelDoc, type LabelSize } from '../doc/model';
+import { paperSize, sizeLabel, type LabelDoc, type LabelSize } from '../doc/model';
 import { paperName, type PaperType } from 'libniimai';
 import { rollMismatch } from '../printer/roll';
 
@@ -14,10 +14,12 @@ interface Props {
 
 /** Stays in view while the design and the loaded roll disagree. */
 export function RollMismatchBanner({ doc, rollSize, rollPaper, onMatch, className = '' }: Props) {
-  const mismatch = rollMismatch(doc, rollSize, rollPaper);
+  // A landscape label's artboard is turned; the paper is what meets the roll.
+  const size = paperSize(doc);
+  const mismatch = rollMismatch({ ...size, paper: doc.paper }, rollSize, rollPaper);
   if (!mismatch) return null;
   const lines = [
-    mismatch.size && rollSize && `Design is ${sizeLabel(doc)} mm, the printer has ${sizeLabel(rollSize)} mm labels.`,
+    mismatch.size && rollSize && `Design is ${sizeLabel(size)} mm, the printer has ${sizeLabel(rollSize)} mm labels.`,
     mismatch.paper && doc.paper && rollPaper && `Design is set to ${paperName(doc.paper).toLowerCase()}, the roll is ${paperName(rollPaper).toLowerCase()}.`,
   ].filter(Boolean) as string[];
   return (

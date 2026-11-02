@@ -541,6 +541,40 @@ describe('editor', () => {
     print.mockRestore();
   });
 
+  it('turns the artboard landscape, keeps the paper, and prints turned onto it', async () => {
+    const { printer } = await import('../printer');
+    const print = vi.spyOn(printer, 'print').mockResolvedValue();
+    const { createDoc } = await import('../doc/model');
+    renderApp(<Editor initialDoc={createDoc({ widthMm: 50, heightMm: 30 })} initialProfileId={null} initialDensity={2} />);
+    await userEvent.click(screen.getByRole('radio', { name: 'Landscape' }));
+    expect(screen.getByRole('img', { name: /30 × 50 mm/ })).toBeInTheDocument();
+    // The label panel keeps showing the paper.
+    expect(screen.getByRole('button', { name: 'Label size: 50 × 30 mm' })).toBeInTheDocument();
+    // Cable and flag labels wrap along the paper, so they are not offered.
+    await userEvent.click(screen.getByText('Custom size'));
+    expect(screen.queryByRole('button', { name: 'Cable label' })).toBeNull();
+    // The loaded 40 × 12 roll resizes the paper, and the artboard follows turned.
+    await connectDemo();
+    await waitFor(() => expect(screen.getByRole('img', { name: /12 × 40 mm/ })).toBeInTheDocument());
+    expect(screen.queryByRole('alert')).toBeNull();
+    fireEvent.keyDown(window, { key: 'p', metaKey: true, ctrlKey: true });
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).queryByRole('button', { name: 'Match the roll' })).toBeNull();
+    await userEvent.click(within(dialog).getByRole('button', { name: /^print$/i }));
+    await waitFor(() => expect(print).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ rotate: 90 })));
+    print.mockRestore();
+    await userEvent.keyboard('{Escape}');
+    await userEvent.click(screen.getByRole('radio', { name: 'Portrait' }));
+    expect(screen.getByRole('img', { name: /40 × 12 mm/ })).toBeInTheDocument();
+  });
+
+  it('keeps cable labels portrait', async () => {
+    renderEditor();
+    await userEvent.click(screen.getByText('Custom size'));
+    await userEvent.click(screen.getByRole('button', { name: 'Cable label' }));
+    expect(screen.queryByRole('radiogroup', { name: 'Orientation' })).toBeNull();
+  });
+
   it('turns a label into a cable label and back from the settings', async () => {
     renderEditor();
     await userEvent.click(screen.getByText('Custom size'));

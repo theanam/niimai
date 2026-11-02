@@ -125,6 +125,12 @@ export interface LabelDoc {
   tailMm?: number;
   /** The flag folds at its middle; see FoldMode. */
   fold?: FoldMode;
+  /**
+   * Drawn landscape: the artboard is the paper turned a quarter, so widthMm
+   * and heightMm are the artboard's, and the label prints turned onto the
+   * paper. Cable and flag labels never are.
+   */
+  landscape?: true;
   /** Paper to print on; unset follows what the loaded roll reports. */
   paper?: PaperType;
   /** The file this label was last saved as or opened from, without the extension. Its name follows the file. */
@@ -182,6 +188,42 @@ export const sizeLabel = (s: LabelSize): string => {
   const flag = s.fold ? `${flagWidth(s) / 2}|${flagWidth(s) / 2}` : `${flagWidth(s)}`;
   return s.tailMm ? `${flag} + ${s.tailMm} × ${s.heightMm}` : s.fold ? `${flag} × ${s.heightMm}` : `${s.widthMm} × ${s.heightMm}`;
 };
+
+/** The label as it lies on the paper: a landscape label's artboard, turned back. */
+export const paperSize = (doc: LabelSize & { landscape?: boolean }): LabelSize =>
+  doc.landscape ? { widthMm: doc.heightMm, heightMm: doc.widthMm } : { widthMm: doc.widthMm, heightMm: doc.heightMm, tailMm: doc.tailMm, fold: doc.fold };
+
+/**
+ * A size change given in paper terms, as the artboard takes it. Landscape
+ * labels swap width and height; a cable or flag size ends landscape.
+ */
+export function onPaper(patch: Partial<LabelSize>, landscape: boolean | undefined): Partial<LabelSize> & { landscape?: true } {
+  if (!landscape) return patch;
+  if (patch.tailMm || patch.fold) return { ...patch, landscape: undefined };
+  const { widthMm, heightMm, ...rest } = patch;
+  return { ...rest, ...(heightMm !== undefined ? { widthMm: heightMm } : {}), ...(widthMm !== undefined ? { heightMm: widthMm } : {}) };
+}
+
+/**
+ * Switches between portrait and landscape: the artboard turns, the paper
+ * stays. Each element keeps its place in proportion, shrunk to fit when the
+ * turned artboard is too small for it.
+ */
+export function turnPatch(doc: Pick<LabelDoc, 'widthMm' | 'heightMm' | 'landscape' | 'elements'>) {
+  const to = { widthMm: doc.heightMm, heightMm: doc.widthMm };
+  const elements = doc.elements.map((el): LabelElement => {
+    const s = Math.min(1, to.widthMm / el.w, to.heightMm / el.h);
+    const w = round1(el.w * s);
+    const h = round1(el.h * s);
+    const cx = ((el.x + el.w / 2) / doc.widthMm) * to.widthMm;
+    const cy = ((el.y + el.h / 2) / doc.heightMm) * to.heightMm;
+    const x = round1(Math.min(Math.max(cx - w / 2, 0), to.widthMm - w));
+    const y = round1(Math.min(Math.max(cy - h / 2, 0), to.heightMm - h));
+    const font = el.type === 'text' && s < 1 ? { fontSize: round1(el.fontSize * s) } : {};
+    return { ...el, x, y, w, h, ...font };
+  });
+  return { ...to, landscape: doc.landscape ? undefined : (true as const), elements };
+}
 
 /** Common NIIMBOT roll sizes, width × height in millimetres. */
 export const LABEL_PRESETS: LabelSize[] = [
@@ -303,6 +345,7 @@ export function parseDoc(input: unknown): LabelDoc {
   const now = Date.now();
   const tail = isNum(raw.tailMm) && raw.tailMm > 0 && raw.tailMm < size.widthMm ? { tailMm: raw.tailMm } : {};
   const fold = FOLD_MODES.includes(raw.fold as FoldMode) ? { fold: raw.fold as FoldMode } : {};
+  const landscape = raw.landscape === true && !tail.tailMm && !fold.fold ? { landscape: true as const } : {};
   const paper = PAPER_TYPES.some((p) => p.value === raw.paper) ? { paper: raw.paper as PaperType } : {};
   const fileName = typeof raw.fileName === 'string' && raw.fileName ? { fileName: raw.fileName } : {};
   const printer = typeof raw.printer === 'string' && raw.printer ? { printer: raw.printer } : {};
@@ -326,6 +369,7 @@ export function parseDoc(input: unknown): LabelDoc {
     ...size,
     ...tail,
     ...fold,
+    ...landscape,
     ...paper,
     ...fileName,
     ...printer,

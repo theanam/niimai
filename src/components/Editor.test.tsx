@@ -317,6 +317,27 @@ describe('editor', () => {
     expect(labelWidth).toHaveAttribute('max', '40');
   });
 
+  it('remembers the label length set in the editor for the printer, and starts new labels on its paper', async () => {
+    const { printer, restore } = await useEscPosPrinter();
+    onTestFinished(restore);
+    renderApp(<Editor initialDoc={{ ...starterDoc(), widthMm: 48, heightMm: 30 }} initialProfileId={null} initialDensity={2} />);
+    await act(() => printer.connect('bluetooth'));
+    const length = screen.getByRole('spinbutton', { name: 'Length' });
+    await userEvent.clear(length);
+    await userEvent.type(length, '62');
+    // The printer window shows it, and it survives a reconnect.
+    await act(() => printer.disconnect());
+    await act(() => printer.connect('bluetooth'));
+    await userEvent.click(screen.getByRole('button', { name: 'Printer ready' }));
+    expect(within(await screen.findByRole('dialog')).getByRole('spinbutton', { name: 'Label length' })).toHaveValue(62);
+    await userEvent.keyboard('{Escape}');
+    fireEvent.keyDown(window, { key: 'n', metaKey: true, ctrlKey: true });
+    const dialog = await screen.findByRole('dialog', { name: 'New label' });
+    expect(within(dialog).getByRole('button', { name: '48 × 62' })).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: '48 × 15' })).toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: '40 × 12' })).toBeNull();
+  });
+
   it('keeps NIIMBOT printing as it was: no receipt-printer controls, and the same print options', async () => {
     const stickerGaps = { D11: 3 };
     renderApp(<Editor initialDoc={starterDoc()} initialProfileId="escpos-58" initialDensity={2} initialStickerGaps={stickerGaps} initialPaperWidths={{ D11: 40 }} />);

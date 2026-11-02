@@ -6,7 +6,7 @@ import { useEditor } from '../doc/useEditor';
 import { baseName, LABEL_EXT, openImageFile, openLabelFile, openSheetFile, readAsDataUrl, safeFileName, saveTextAs, writeToHandle, type FileHandle } from '../files/fs-access';
 import { round1, uid } from '../lib/units';
 import { printer } from '../printer';
-import { type ConnectionKind, DEMO_NAME, effectivePaper, inkOutsideHead, labelTypeOf, type PrintOffset, printheadMm, THERMAL_DEFAULT_SIZE, THERMAL_HEAD_MM } from 'libniimai';
+import { type ConnectionKind, DEMO_NAME, effectivePaper, inkOutsideHead, labelTypeOf, type PrintOffset, printheadMm, THERMAL_DEFAULT_SIZE, THERMAL_HEAD_MM, THERMAL_SIZES } from 'libniimai';
 import { allSizesFor, resolveRoll, sameSize, sizesForPrinter } from '../printer/roll';
 import { asSvgBlob, isImageFile, isSvgFile, looksLikeSvg, svgSize } from '../files/svg';
 import { browserPrint } from '../render/browserPrint';
@@ -734,7 +734,11 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
             allSizes={allSizesFor(null)}
             onSetRollSize={() => setDialog('roll')}
             onUpdate={update}
-            onDocChange={(patch) => dispatch({ type: 'setDoc', patch: 'widthMm' in patch && 'heightMm' in patch ? asPatch(patch as LabelSize) : patch })}
+            onDocChange={(patch) => {
+              // On paper the printer cannot sense, the length set here is the paper's, and the printer keeps it.
+              if (status.canFeed && patch.heightMm !== undefined && !('widthMm' in patch)) changeLabelLength(patch.heightMm);
+              dispatch({ type: 'setDoc', patch: 'widthMm' in patch && 'heightMm' in patch ? asPatch(patch as LabelSize) : patch });
+            }}
             onDuplicate={duplicate}
             onRemove={(id) => dispatch({ type: 'remove', id })}
             onReorder={(id, direction) => dispatch({ type: 'reorder', id, direction })}
@@ -761,7 +765,9 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
         onOpenChange={(o) => setDialog(o ? 'new' : null)}
         title="New label"
         actionLabel="Create"
-        rollSize={roll.size}
+        // On paper the printer cannot sense, the paper set for it comes first, then common lengths at its width.
+        rollSize={roll.size ?? (status.canFeed ? { widthMm: paperWidth, heightMm: labelLength } : null)}
+        presets={status.canFeed ? THERMAL_SIZES.map((s) => ({ widthMm: paperWidth, heightMm: s.heightMm })) : undefined}
         onPick={createNew}
       />
       <ContinuousDialog

@@ -9,6 +9,7 @@ Browser-based label designer and printer for NIIMBOT printers. See [SPEC.md](SPE
 20. Git remote: `git@github.com:theanam/niimai.git`.
 22. Printer connection and protocol code lives in `packages/libniimai` (published to npm as `libniimai`). It must never import from `src/`; anything the app needs from it goes through its `index.ts` exports.
 23. Every change to `packages/libniimai` bumps its `version` in the same commit (patch for fixes, minor for new features or printers, and while it is 0.x, minor for breaking changes too). After pushing to `main`, tag that commit `libniimai-v<version>` and push the tag; the tag publishes it to npm.
+25. Printer families stay apart, and features are only ever added. Each family's code (`escpos.ts`, `cat.ts`, `tspl.ts`) imports only the shared thermal base; the NIIMBOT path and the shared service import no other family; families meet only in `bluetooth.ts` and `catalog.ts`. `boundary.test.ts` enforces this. NIIMBOT printers must keep working out of the box with the exact print task they always got, and shipped model names never change (their saved settings are keyed by them); tests pin both. New detection must never take a printer from the client it worked with before.
 
 ## Git
 3. Commit author email: `anam.ahmed.a@gmail.com` (set in the repo's local git config).
@@ -27,6 +28,7 @@ Browser-based label designer and printer for NIIMBOT printers. See [SPEC.md](SPE
 11. Keep text short. Use icons wherever icons are the norm.
 12. Never use system dialogs (`alert`, `confirm`, `prompt`). Use the Radix dialog components in `src/ui/`.
 14. Peacock (VS Code) color is set to the primary color in `.vscode/settings.json` and committed.
+24. **Hard rule:** a UI check passes only if the UI and layout are not broken. Look at every changed screen and state at full size (no stale or mid-animation screenshots): alignment, spacing, consistent grids, nothing half-width or cramped. Fix any flaw before calling the work done.
 
 ## When applicable
 15. Font picker: all Google Fonts, grouped by category, with live previews (modelled on theanam/pinwheel-studio).

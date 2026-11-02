@@ -36,9 +36,8 @@ export function NumberField({ label, value, onChange, step = 0.1, min, max, suff
         onChange={(e) => {
           setText(e.target.value);
           const v = Number(e.target.value);
-          if (e.target.value !== '' && Number.isFinite(v)) {
-            onChange(min !== undefined || max !== undefined ? Math.min(max ?? v, Math.max(min ?? v, v)) : v);
-          }
+          // Below the minimum is often a number still being typed ("4" on the way to "40"); leaving the field restores the last value.
+          if (e.target.value !== '' && Number.isFinite(v) && (min === undefined || v >= min)) onChange(max !== undefined ? Math.min(max, v) : v);
         }}
         onBlur={() => setText(shown)}
       />

@@ -1,19 +1,27 @@
 # Other Bluetooth thermal printers
 
 niimai is made for NIIMBOT printers. As an extra, it also prints on TSPL
-label printers up to 80 mm wide, and on small Bluetooth thermal printers that
-use 58 mm continuous paper with a 48 mm print width and a 384-dot head at
-203 dpi.
+label printers up to 80 mm wide, on ESC/POS receipt printers (58 mm, and 80 mm
+models listed below), and on cat printers. Unless a model says otherwise, a
+receipt or cat printer has a 48 mm print width: a 384-dot head at 203 dpi.
 
 | Type | Paper | Print width | Service |
 |---|---|---|---|
 | TSPL label printers | Labels with gaps, black mark or continuous | Up to 80 mm | `18F0` |
-| ESC/POS mini printers | 58 mm continuous | 48 mm | `18F0` |
-| Cat printers | 58 mm continuous | 48 mm | `AE30` |
+| ESC/POS receipt printers | 58 or 80 mm, continuous or stickers | 48 or 72 mm | `18F0`, `E781` or another serial service |
+| Cat printers | 58 mm, continuous or stickers | 48 mm | `AE30` |
 
 Connect them the same way as a NIIMBOT printer: **Connect → Bluetooth**, then
 pick the printer in the browser's list. niimai recognises the model by its
 Bluetooth name and checks that it offers the expected service before printing.
+
+Most of these printers share one Bluetooth module, which offers the same
+services whatever the printer speaks (`18F0`, `FF00`, `FEE7`, `E781`,
+`49535343`), so the name is the only reliable sign of the family. A name niimai
+does not know is treated as a NIIMBOT. If such a printer does not connect,
+choose **Receipt printer**, **Label printer** or **Cat printer** under
+**Advanced** in the printer window and connect again: Bluetooth then lists
+every nearby device.
 
 Confidence levels:
 
@@ -31,25 +39,34 @@ head is 80 mm (640 dots) at 203 dpi; labels print from its left edge.
 | Model | Confidence | Notes |
 |---|---|---|
 | QR380A | Tested | Sold as CC390 |
+| GP-M322 | Medium | Gprinter GP-M322, 72 mm head |
 
 Darkness runs from 1 to 15. If labels come out blank, check that the roll's
 printable side faces the print head.
 
-## ESC/POS mini printers
+## ESC/POS receipt printers
 
-58 mm receipt-style printers that take standard ESC/POS raster images over the
-`18F0` printer service.
+Receipt printers that take standard ESC/POS raster images. Paper narrower than
+the head can be set in the printer window; labels then print centred.
 
-| Model | Confidence | Notes |
+| Bluetooth name | Confidence | Notes |
 |---|---|---|
 | MP583 | Tested | Sold as YAEN MPT-II |
-| MPT-II | High | |
-| MP58 | Medium | |
-| MTP-II | Medium | |
-| PT-210 | Medium | |
-| PT-200 | Medium | |
-| RPP02 | Medium | |
-| ZJ-58 | Medium | |
+| Printer… | Tested | Stock module name: Xprinter XP-58IIL (tested), HOIN, Gprinter |
+| MPT-II, MTP-II | High | Stock module names on many 58 mm printers |
+| PT-210, PT210, GOJRPT, Gojprt | High | Goojprt PT-210 |
+| RPP02 | High | Rongta RPP02N, also sold as EPPOS EP58 Plus |
+| MP58, MP210, MTP-2, PT-200 | Medium | 58 mm |
+| MPT-3, MTP-3 | Medium | 80 mm, 72 mm print width |
+| RPP300 | Medium | Rongta RPP300, 80 mm |
+| XP-P323B | Medium | Xprinter XP-P323B, 80 mm |
+| XP- | Medium | Other Xprinter models, 58 mm unless set |
+| ZJ-58 | Medium | Zjiang |
+| TM-P | Medium | Epson TM-P series |
+| BlueTooth Printer, 58Printer | Medium | Stock module names |
+
+Feeding uses line feeds (`ESC 3 n`, `LF`): the MP583 ignores `ESC J`. These
+printers have no reverse feed.
 
 Darkness is set on the printer itself, so niimai shows no density slider for
 these.
@@ -96,3 +113,8 @@ name.
   printer protocol
 - The ESC/POS command reference, for raster images (`GS v 0`)
 - TSC's TSPL programming manual, for label printers (`SIZE`, `GAP`, `BITMAP`)
+- Bluetooth names and services of receipt printers, from
+  [NielsLeenheer/WebBluetoothReceiptPrinter](https://github.com/NielsLeenheer/WebBluetoothReceiptPrinter),
+  [bitbank2/Thermal_Printer](https://github.com/bitbank2/Thermal_Printer),
+  [bitbank2/Print2BLE](https://github.com/bitbank2/Print2BLE) and
+  [ReceiptPrinterEncoder](https://github.com/at-point-of-sale/ReceiptPrinterEncoder)

@@ -68,6 +68,10 @@ interface Props {
   printIssue?: string | null;
   /** Continuous paper (ESC/POS and cat printers): the label is set by width and length, with no presets. */
   continuous?: boolean;
+  /** Sticker rolls on those printers: the gap between stickers, set in the printer window. */
+  stickerGap?: number;
+  /** The paper's width on those printers. */
+  paperWidth?: number;
 }
 
 const FORMATS: { value: BarcodeFormat; label: string }[] = [
@@ -77,15 +81,17 @@ const FORMATS: { value: BarcodeFormat; label: string }[] = [
   { value: 'upca', label: 'UPC-A' },
 ];
 
-export function Inspector({ doc, selected, roll, rollPaper, fitting = [], allSizes = LABEL_PRESETS, onSetRollSize, onUpdate, onDocChange, onDuplicate, onRemove, onReorder, onReplaceImage, onReplaceIcon, onEditText, printIssue, continuous = false, onAddSheet = () => {}, resolve = (el) => el }: Props) {
+export function Inspector({ doc, selected, roll, rollPaper, fitting = [], allSizes = LABEL_PRESETS, onSetRollSize, onUpdate, onDocChange, onDuplicate, onRemove, onReorder, onReplaceImage, onReplaceIcon, onEditText, printIssue, continuous = false, stickerGap, paperWidth = THERMAL_HEAD_MM, onAddSheet = () => {}, resolve = (el) => el }: Props) {
   const data = <DataSection doc={doc} onAddSheet={onAddSheet} onDocChange={onDocChange} />;
   if (!selected && continuous) {
     return (
       <aside className="inspector" aria-label="Label settings">
         <Section title="Label" defaultOpen>
-          <p className="muted small">Continuous paper, up to {THERMAL_HEAD_MM} mm wide.</p>
+          <p className="muted small">
+            {stickerGap !== undefined ? `Stickers with a ${stickerGap} mm gap; set the length to the sticker height.` : `Continuous paper, up to ${paperWidth} mm wide.`}
+          </p>
           <div className="grid-2">
-            <NumberField label="Width" icon="W" value={doc.widthMm} min={5} max={THERMAL_HEAD_MM} step={1} suffix="mm" onChange={(widthMm) => onDocChange({ widthMm })} />
+            <NumberField label="Width" icon="W" value={doc.widthMm} min={5} max={paperWidth} step={1} suffix="mm" onChange={(widthMm) => onDocChange({ widthMm })} />
             <NumberField label="Length" icon="L" value={doc.heightMm} min={5} max={500} step={1} suffix="mm" onChange={(heightMm) => onDocChange({ heightMm })} />
           </div>
         </Section>

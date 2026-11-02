@@ -18,8 +18,9 @@ export const CANDIDATE_SERVICES = [
 /** Name prefixes of NIIMBOT printers; the chooser lists only these and known cat printers. */
 export const NAME_PREFIXES = ['A', 'B', 'C', 'D', 'E', 'F', 'H', 'J', 'K', 'M', 'N', 'P', 'S', 'T', 'Z'];
 
-/** Opens the browser's printer chooser. */
-export function requestPrinter(extraPrefixes: string[] = []): Promise<BluetoothDevice> {
+/** Opens the browser's printer chooser. `all` lists every device, for printers whose names niimai does not know. */
+export function requestPrinter(extraPrefixes: string[] = [], all = false): Promise<BluetoothDevice> {
+  if (all) return navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: CANDIDATE_SERVICES });
   return navigator.bluetooth.requestDevice({
     filters: [...[...NAME_PREFIXES, ...extraPrefixes].map((namePrefix) => ({ namePrefix })), { services: [CANDIDATE_SERVICES[0]] }],
     optionalServices: CANDIDATE_SERVICES,

@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { cleanup, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { createDoc, createElement, type LabelDoc } from '../doc/model';
 import { findManualProfile } from 'libniimai';
@@ -137,6 +137,9 @@ describe('print dialog', () => {
     expect(strip).toHaveTextContent('MP583');
     expect(strip).toHaveTextContent('Continuous paper');
     expect(strip).not.toHaveTextContent('%');
+    cleanup();
+    renderApp(<PrintDialog {...props} stickerGap={3} status={{ state: 'ready', profile: thermal }} />);
+    expect(screen.getByRole('button', { name: 'Printer settings' })).toHaveTextContent('Stickers, 3 mm gap');
   });
 
   it('goes back to one copy after each print, and keeps the count when a print fails', async () => {

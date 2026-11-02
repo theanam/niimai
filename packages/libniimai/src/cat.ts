@@ -6,7 +6,7 @@
  * 51 78 <cmd> 00 <len> 00 <payload> <crc8(payload)> FF over service AE30,
  * written to AE01. The printer sends flow control on AE02.
  */
-import { modelFor, packRows, THERMAL_HEAD_DOTS, ThermalPrinterClient, type Confidence, type Pace, type ThermalModel, type ThermalTransport } from './thermal';
+import { modelFor, packRows, shownName, THERMAL_HEAD_DOTS, ThermalPrinterClient, type Confidence, type Pace, type ThermalModel, type ThermalTransport } from './thermal';
 
 export const CAT_SERVICE = '0000ae30-0000-1000-8000-00805f9b34fb';
 export const CAT_TX = '0000ae01-0000-1000-8000-00805f9b34fb';
@@ -74,6 +74,7 @@ export function packet(cmd: number, payload: ArrayLike<number>): number[] {
 const u16 = (v: number) => [v & 0xff, (v >> 8) & 0xff];
 
 const CMD = {
+  retract: 0xa0,
   feed: 0xa1,
   row: 0xa2,
   state: 0xa3,
@@ -102,8 +103,12 @@ const GAP_BETWEEN = 24;
 /** Rows for a cat printer: leftmost dot in the lowest bit. */
 export const encodeRows = (data: ArrayLike<number>, width: number, height: number): Uint8Array[] => packRows(data, width, height, 'lsb');
 
-/** Everything sent for one job: setup, the rows for each copy, then feed and finish. */
-export function printJob(rows: Uint8Array[], { density, copies, model }: { density: number; copies: number; model: CatModel | null }): Uint8Array {
+/**
+ * Everything sent for one job: setup, the rows for each copy, then feed and
+ * finish. With `gapDots`, for labels with gaps, every label is followed by
+ * exactly that feed, so the next print starts on the next label.
+ */
+export function printJob(rows: Uint8Array[], { density, copies, model, gapDots }: { density: number; copies: number; model: CatModel | null; gapDots?: number }): Uint8Array {
   const out: number[] = [];
   const push = (cmd: number, payload: ArrayLike<number>) => out.push(...packet(cmd, payload));
   push(CMD.state, [0]);
@@ -117,15 +122,26 @@ export function printJob(rows: Uint8Array[], { density, copies, model }: { densi
   push(CMD.lattice, LATTICE_START);
   const blank = new Uint8Array(ROW_BYTES);
   for (let c = 0; c < copies; c++) {
-    if (c > 0) for (let i = 0; i < GAP_BETWEEN; i++) push(CMD.row, blank);
+    if (c > 0) for (let i = 0; i < (gapDots ?? GAP_BETWEEN); i++) push(CMD.row, blank);
     for (const row of rows) push(CMD.row, row);
   }
   push(CMD.lattice, LATTICE_END);
   push(CMD.speed, [8]);
-  if (model?.feedWithRows) for (let i = 0; i < FEED_AFTER; i++) push(CMD.row, blank);
+  if (gapDots !== undefined) out.push(...catFeed(gapDots, model));
+  else if (model?.feedWithRows) for (let i = 0; i < FEED_AFTER; i++) push(CMD.row, blank);
   else push(CMD.feed, u16(FEED_AFTER));
   push(CMD.state, [0]);
   return Uint8Array.from(out);
+}
+
+/** Moves the paper by `dots`, back when negative. Models that mishandle the feed command get blank rows. */
+export function catFeed(dots: number, model: CatModel | null): Uint8Array {
+  const n = Math.abs(Math.round(dots));
+  if (!n) return new Uint8Array();
+  if (dots < 0) return Uint8Array.from(packet(CMD.retract, u16(n)));
+  if (!model?.feedWithRows) return Uint8Array.from(packet(CMD.feed, u16(n)));
+  const blank = new Uint8Array(ROW_BYTES);
+  return Uint8Array.from(Array.from({ length: n }, () => packet(CMD.row, blank)).flat());
 }
 
 /** A cat printer: the shared thermal client with cat packets and flow control. */
@@ -139,7 +155,7 @@ export class CatPrinterClient extends ThermalPrinterClient {
     pace: Pace = { chunkMs: 20, pauseMs: 100 },
   ) {
     super(transport, pace, 180);
-    this.modelName = model?.prefix ?? (transport.name || 'Cat printer');
+    this.modelName = shownName(model, transport, 'Cat printer');
     transport.onNotify((data) => {
       if (same(data, FLOW_PAUSE)) this.paused = true;
       else if (same(data, FLOW_RESUME)) this.paused = false;
@@ -150,8 +166,15 @@ export class CatPrinterClient extends ThermalPrinterClient {
     return encodeRows(data, width, height);
   }
 
-  protected job(rows: Uint8Array[], density: number, copies: number) {
-    return printJob(rows, { density, copies, model: this.model });
+  protected job(rows: Uint8Array[], density: number, copies: number, _labelType: number, gapDots?: number) {
+    return printJob(rows, { density, copies, model: this.model, gapDots });
+  }
+
+  readonly feedsBack = true;
+
+  /** These printers cannot sense the paper, so the user lines it up by hand. */
+  async feedPaper(dots: number): Promise<void> {
+    await this.send(catFeed(dots, this.model));
   }
 }
 

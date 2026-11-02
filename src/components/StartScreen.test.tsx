@@ -14,6 +14,7 @@ const renderStart = (onBrowseTemplates = vi.fn(), extra: Partial<Parameters<type
       defaultSize={{ widthMm: 50, heightMm: 30 }}
       onConnect={async () => {}}
       onSetRollSize={() => {}}
+      onPrinterSettings={() => {}}
       onOpen={() => {}}
       onBlank={() => {}}
       onBrowseTemplates={onBrowseTemplates}
@@ -72,6 +73,25 @@ describe('start screen', () => {
     renderStart(vi.fn(), { status: { state: 'ready', profile: null }, roll: { size: null, key: 'r', needsSize: true }, onSetRollSize });
     await userEvent.click(screen.getByRole('button', { name: /set roll size/i }));
     expect(onSetRollSize).toHaveBeenCalled();
+  });
+
+  it('opens the printer settings from the connected printer', async () => {
+    const onPrinterSettings = vi.fn();
+    renderStart(vi.fn(), { status: { state: 'ready', profile: null, deviceName: 'MP583' }, onPrinterSettings });
+    expect(screen.getByRole('heading', { name: 'MP583' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Printer settings' }));
+    expect(onPrinterSettings).toHaveBeenCalled();
+  });
+
+  it('shows the sticker roll on a continuous-paper printer and opens its paper settings', async () => {
+    const onPrinterSettings = vi.fn();
+    const thermal = { id: 'auto:MP583', name: 'MP583', kind: 'thermal', dpi: 203, printheadPixels: 384, printDirection: 'top', printTask: 'B1', densityMin: 1, densityMax: 1, densityDefault: 1 } as const;
+    renderStart(vi.fn(), { status: { state: 'ready', profile: thermal, canFeed: true }, stickerGap: 2.5, onPrinterSettings });
+    const paper = screen.getByRole('button', { name: 'Paper settings' });
+    expect(paper).toHaveTextContent('Stickers');
+    expect(paper).toHaveTextContent('2.5 mm gap');
+    await userEvent.click(paper);
+    expect(onPrinterSettings).toHaveBeenCalled();
   });
 
   it('deletes any recent label after confirming', async () => {

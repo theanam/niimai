@@ -1,4 +1,4 @@
-import { CatPrinterClient, catModelFor, crc8, encodeRows, FLOW_PAUSE, FLOW_RESUME, packet, printJob } from './cat';
+import { CatPrinterClient, catFeed, catModelFor, crc8, encodeRows, FLOW_PAUSE, FLOW_RESUME, packet, printJob } from './cat';
 import type { ThermalTransport } from './thermal';
 import { resolveProfile } from './profiles';
 import { PrinterService } from './service';
@@ -69,6 +69,18 @@ describe('cat printers', () => {
     expect(mx.filter((_, i) => mx[i] === 0x51 && mx[i + 1] === 0x78 && mx[i + 2] === 0xa1)).toHaveLength(0);
   });
 
+  it('follows every label with exactly the gap on labels with gaps', () => {
+    const rows = [new Uint8Array(48).fill(0xff)];
+    const count = (job: number[], cmd: number) => job.filter((_, i) => job[i] === 0x51 && job[i + 1] === 0x78 && job[i + 2] === cmd).length;
+    const gb = Array.from(printJob(rows, { density: 3, copies: 2, model: catModelFor('GB02'), gapDots: 16 }));
+    // One printed row per copy, 16 blank rows between, and a 16-dot feed after.
+    expect(count(gb, 0xa2)).toBe(2 + 16);
+    expect(gb).toEqual(expect.arrayContaining(packet(0xa1, [16, 0])));
+    expect(gb).not.toEqual(expect.arrayContaining(packet(0xa1, [128, 0])));
+    const mx = Array.from(printJob(rows, { density: 3, copies: 1, model: catModelFor('MX06'), gapDots: 16 }));
+    expect(count(mx, 0xa2)).toBe(1 + 16);
+  });
+
   it('describes itself as a continuous-paper printer with a 48 mm head', () => {
     const client = new CatPrinterClient(fakeTransport().t, catModelFor('MX06'));
     const profile = resolveProfile(client.getModelMetadata(), client.getPrintTaskType());
@@ -127,5 +139,16 @@ describe('cat printers', () => {
     await service.connect('bluetooth');
     link.drop();
     expect(service.getStatus().state).toBe('disconnected');
+  });
+
+  it('moves the paper forward and back, with blank rows on models that mishandle the feed', async () => {
+    expect(Array.from(catFeed(4, catModelFor('GB02')))).toEqual(packet(0xa1, [4, 0]));
+    expect(Array.from(catFeed(-4, catModelFor('GB02')))).toEqual(packet(0xa0, [4, 0]));
+    expect(Array.from(catFeed(-4, catModelFor('MX06')))).toEqual(packet(0xa0, [4, 0]));
+    expect(Array.from(catFeed(4, catModelFor('MX06')))).toEqual(Array.from({ length: 4 }, () => packet(0xa2, new Uint8Array(48))).flat());
+    const link = fakeTransport();
+    const client = new CatPrinterClient(link.t, catModelFor('GB01'), { chunkMs: 0, pauseMs: 1 });
+    await client.feedPaper(-8);
+    expect(Array.from(link.writes[0])).toEqual(packet(0xa0, [8, 0]));
   });
 });

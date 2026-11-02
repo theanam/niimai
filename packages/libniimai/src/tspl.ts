@@ -6,7 +6,7 @@
  * taken a job, and a status byte to ESC ! ?.
  */
 import type { LabelSize } from './profiles';
-import { modelFor, ThermalPrinterClient, type Pace, type ThermalModel, type ThermalTransport } from './thermal';
+import { modelFor, shownName, ThermalPrinterClient, type Pace, type ThermalModel, type ThermalTransport } from './thermal';
 
 export const TSPL_SERVICE = '000018f0-0000-1000-8000-00805f9b34fb';
 export const TSPL_WRITE = '00002af1-0000-1000-8000-00805f9b34fb';
@@ -18,9 +18,12 @@ const DOTS_PER_MM = 8;
 
 /**
  * Models known to take TSPL over 18F0. "tested": printed with niimai on real
- * hardware.
+ * hardware. "medium": reported by open-source printer projects, untested here.
  */
-export const TSPL_MODELS: ThermalModel[] = [{ prefix: 'QR380A', confidence: 'tested', note: 'Sold as CC390' }];
+export const TSPL_MODELS: ThermalModel[] = [
+  { prefix: 'QR380A', confidence: 'tested', note: 'Sold as CC390' },
+  { prefix: 'GP-M322', confidence: 'medium', brand: 'Gprinter GP-M322', headDots: 576 },
+];
 
 export const tsplModelFor = (name: string | undefined): ThermalModel | null => modelFor(TSPL_MODELS, name);
 
@@ -116,7 +119,7 @@ export function tsplJob(rows: Uint8Array[], { density, copies, labelType }: { de
 export class TsplPrinterClient extends ThermalPrinterClient {
   protected readonly densityLevels = DENSITY_LEVELS;
   protected readonly modelName: string;
-  protected readonly headDots = TSPL_HEAD_DOTS;
+  protected readonly headDots: number;
   protected readonly kind = undefined;
   protected readonly labelSizes = TSPL_SIZES;
 
@@ -131,7 +134,8 @@ export class TsplPrinterClient extends ThermalPrinterClient {
     private ackTimeoutMs = ACK_TIMEOUT_MS,
   ) {
     super(transport, pace, 100);
-    this.modelName = model?.prefix ?? (transport.name || 'Label printer');
+    this.modelName = shownName(model, transport, 'Label printer');
+    this.headDots = model?.headDots ?? TSPL_HEAD_DOTS;
     transport.onNotify((data) => {
       if (data.length >= 2 && data[0] === OK[0] && data[1] === OK[1]) this.oks++;
       else if (data.length === 1) this.status = data[0];

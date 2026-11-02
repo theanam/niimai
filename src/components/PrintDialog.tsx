@@ -29,6 +29,8 @@ interface Props {
   rollSize?: LabelSize | null;
   /** Product name of a recognised roll. */
   rollName?: string;
+  /** Sticker rolls on printers that cannot sense the gaps: the gap between stickers. */
+  stickerGap?: number;
   onMatchRoll?: () => void;
   /** Some of the design's dots fall outside the printhead. */
   clipped?: boolean;
@@ -99,11 +101,13 @@ function BatchSection({ doc, run, onRun, onAddSheet, onSequence }: { doc: LabelD
 }
 
 /** The printer at a glance, at the top of the dialog. Opens printer settings. */
-function PrinterStrip({ status, rollSize, rollName, onOpen }: { status: PrinterStatus; rollSize: LabelSize | null; rollName?: string; onOpen: () => void }) {
+function PrinterStrip({ status, rollSize, rollName, gapMm, onOpen }: { status: PrinterStatus; rollSize: LabelSize | null; rollName?: string; gapMm?: number; onOpen: () => void }) {
   const connected = status.state === 'ready' || status.state === 'printing';
   const paper =
     status.profile?.kind === 'thermal'
-      ? 'Continuous paper'
+      ? gapMm !== undefined
+        ? `Stickers, ${gapMm} mm gap`
+        : 'Continuous paper'
       : rollSize
         ? `${rollName ?? `${sizeLabel(rollSize)} mm roll`}`
         : status.label
@@ -147,7 +151,7 @@ export function sizeWarning(profile: PrinterProfile | null, clipped: boolean): s
   return `Parts outside the ${Math.round(printheadMm(profile))} mm printhead will not print`;
 }
 
-export function PrintDialog({ open, onOpenChange, doc, status, preview, previewBusy = false, density, onDensity, onPrint, onBrowserPrint, onConnect, rollSize = null, rollName, onMatchRoll, clipped = false, issueCount = 0, onAddSheet, onSequence }: Props) {
+export function PrintDialog({ open, onOpenChange, doc, status, preview, previewBusy = false, density, onDensity, onPrint, onBrowserPrint, onConnect, rollSize = null, rollName, stickerGap, onMatchRoll, clipped = false, issueCount = 0, onAddSheet, onSequence }: Props) {
   const [copies, setCopies] = useState(1);
   const [busy, setBusy] = useState(false);
   const needs = batchNeeds(doc);
@@ -216,7 +220,7 @@ export function PrintDialog({ open, onOpenChange, doc, status, preview, previewB
         </>
       }
     >
-      <PrinterStrip status={status} rollSize={rollSize} rollName={rollName} onOpen={onConnect} />
+      <PrinterStrip status={status} rollSize={rollSize} rollName={rollName} gapMm={stickerGap} onOpen={onConnect} />
       {onMatchRoll && <RollMismatchBanner doc={doc} rollSize={rollSize} rollPaper={status.label?.paper} onMatch={onMatchRoll} />}
       <div className={`print-preview${previewBusy && preview ? ' print-preview-busy' : ''}`} aria-busy={previewBusy}>
         {preview ? <RasterImage src={preview} alt="Print preview" /> : <div className="print-preview-empty" />}

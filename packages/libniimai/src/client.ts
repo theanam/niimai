@@ -40,6 +40,16 @@ export interface ClientLike {
    * size the user sets, per printer. NIIMBOT printers read their rolls instead.
    */
   rollKey?(): string;
+  /** Printers that cannot sense the paper: moves it by `dots`, back into the printer when negative. */
+  feedPaper?(dots: number): Promise<void>;
+  /** feedPaper can also move the paper back. */
+  feedsBack?: boolean;
+  /**
+   * Bluetooth: the kind of printer to treat one with an unknown name as, set
+   * before connecting: an id from PRINTER_TYPES, or a NIIMBOT profile id the
+   * client ignores.
+   */
+  unrecognisedAs?(typeId: string | null): void;
 }
 
 export type ConnectionKind = 'bluetooth' | 'serial' | 'demo';

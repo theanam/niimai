@@ -1,11 +1,38 @@
 import { Bluetooth, Braces, Bug, Cable, Cat, Crosshair, Keyboard, LayoutTemplate, Mail, Printer, ScanLine, Sparkles } from 'lucide-react';
-import { CAT_MODELS, CAT_UNSUPPORTED, type Confidence, ESCPOS_MODELS, TSPL_MODELS } from 'libniimai';
+import { CAT_MODELS, CAT_UNSUPPORTED, type Confidence, ESCPOS_MODELS, type ThermalModel, TSPL_MODELS } from 'libniimai';
 import { replayTour } from '../tour/Tour';
 import { shortcutLabel } from '../shortcuts/shortcuts';
 import { CONTACT_EMAIL, ISSUES_URL } from '../ui/links';
 import { PageShell } from './PageShell';
 
 const CONFIDENCE: Record<Confidence, string> = { tested: 'Tested', high: 'High', medium: 'Medium' };
+
+const MODEL_FAMILIES = [
+  { name: 'Receipt printers', models: ESCPOS_MODELS },
+  { name: 'Cat printers', models: CAT_MODELS },
+  { name: 'Label printers', models: TSPL_MODELS },
+];
+
+/** A family's models by confidence, by name, each brand or alias once (the most confident one). */
+function modelNames(models: ThermalModel[]): [Confidence, string][] {
+  const seen = new Set<string>();
+  return (['tested', 'high', 'medium'] as const)
+    .map((level): [Confidence, string] => [
+      level,
+      models
+        .filter((m) => m.confidence === level)
+        .filter((m) => {
+          const keys = [m.prefix, m.brand ?? m.prefix].map((k) => k.toLowerCase());
+          if (keys.some((k) => seen.has(k))) return false;
+          keys.forEach((k) => seen.add(k));
+          return true;
+        })
+        // Hyphens never break a model name across lines.
+        .map((m) => (m.brand?.includes(m.prefix) ? m.brand : m.brand ? `${m.prefix} (${m.brand})` : m.prefix).replace(/-/g, '\u2011'))
+        .join(', '),
+    ])
+    .filter(([, names]) => names);
+}
 
 const SHORTCUTS: [string, string][] = [
   ['Mod+N', 'New label'],
@@ -66,6 +93,10 @@ export function Help() {
         <p>
           Some models are not in the protocol library yet. Open printer settings and choose the closest printer type. The
           D11 family suits most small handheld models.
+        </p>
+        <p>
+          Receipt and label printers often keep a stock Bluetooth name, such as Printer001. If one does not connect, choose
+          Receipt printer or Label printer under Advanced, then connect again; Bluetooth then lists every nearby device.
         </p>
         <p>
           niimai recognises over 60 NIIMBOT rolls from the barcode on their tag. If yours is not one of them, it asks for the
@@ -174,30 +205,27 @@ export function Help() {
           <Cat size={18} /> Other Bluetooth thermal printers
         </h2>
         <p>
-          niimai is made for NIIMBOT, and also prints on small 58 mm Bluetooth thermal printers: ESC/POS mini printers and
-          cat printers. Connect them with Bluetooth like any other printer. They print on continuous paper up to 48 mm wide;
-          set the label's length in the side panel. The library adds lists, planners and notes made for continuous paper.
+          niimai is made for NIIMBOT, and also prints on ESC/POS receipt printers, cat printers and TSPL label printers.
+          Connect them with Bluetooth like any other printer.
         </p>
-        <table className="shortcuts">
-          <tbody>
-            {[...ESCPOS_MODELS, ...CAT_MODELS].map((m) => (
-              <tr key={m.prefix}>
-                <td>{m.prefix}</td>
-                <td>{CONFIDENCE[m.confidence]}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <p>
+          Receipt and cat printers print on continuous paper, 48 mm wide on 58 mm printers and 72 mm on 80 mm ones; set
+          the label's length in the side panel or the printer window. For sticker rolls, open the printer window, set
+          Paper to Stickers and enter the gap and the sticker size. Feed there lines the paper up.
+        </p>
         <p>TSPL label printers up to 80 mm wide work like a NIIMBOT: pick the roll size and paper type, and the printer finds each label's edge.</p>
-        <table className="shortcuts">
+        <table className="shortcuts help-models">
           <tbody>
-            {TSPL_MODELS.map((m) => (
-              <tr key={m.prefix}>
+            {MODEL_FAMILIES.map(({ name, models }) => (
+              <tr key={name}>
+                <th scope="row">{name}</th>
                 <td>
-                  {m.prefix}
-                  {m.note && <span className="muted"> · {m.note}</span>}
+                  {modelNames(models).map(([level, names]) => (
+                    <span key={level} className="help-models-level">
+                      <span className="muted">{CONFIDENCE[level]}:</span> {names}
+                    </span>
+                  ))}
                 </td>
-                <td>{CONFIDENCE[m.confidence]}</td>
               </tr>
             ))}
           </tbody>

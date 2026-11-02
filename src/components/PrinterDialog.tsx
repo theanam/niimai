@@ -1,10 +1,11 @@
 import * as RD from '@radix-ui/react-dialog';
-import { BatteryMedium, Bluetooth, ChevronRight, Crosshair, Ruler, FlaskConical, Loader2, MoveHorizontal, MoveVertical, Plug, Printer, RotateCcw, ScanLine, TriangleAlert, Unplug, X } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpFromLine, BatteryMedium, Bluetooth, ChevronRight, Crosshair, Ruler, FlaskConical, Loader2, MoveHorizontal, MoveVertical, Plug, Printer, RotateCcw, ScanLine, TriangleAlert, Unplug, X } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { sizeLabel, type LabelSize } from '../doc/model';
-import { type ConnectionKind, MANUAL_PROFILES, type PrinterStatus, printheadMm, type PrintOffset, unsupportedReason } from 'libniimai';
+import { type ConnectionKind, findPrinterType, MANUAL_PROFILES, PRINTER_TYPES, type PrinterStatus, printheadMm, type PrintOffset, unsupportedReason } from 'libniimai';
 import { NumberField } from './fields';
+import { DEFAULT_GAP_MM, MAX_GAP_MM, MAX_LENGTH_MM, MAX_PAPER_MM, MIN_LENGTH_MM, MIN_PAPER_MM } from '../printer/thermalPaper';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
 
 interface Props {
@@ -27,6 +28,19 @@ interface Props {
   /** Print position nudge for the connected printer. */
   offset: PrintOffset;
   onOffset: (offset: PrintOffset) => void;
+  /** Moves the paper by mm, back into the printer when negative, on printers that cannot sense it. */
+  onFeed?: (mm: number) => Promise<void>;
+  /** Sticker rolls on printers that cannot sense the gaps: the gap between stickers. Unset is continuous paper. */
+  stickerGap?: number;
+  /** Sets the sticker gap; null goes back to continuous paper. */
+  onStickerGap?: (gap: number | null) => void;
+  /** The paper's width on printers that cannot sense it, and the head's. */
+  paperWidth?: number;
+  headWidth?: number;
+  onPaperWidth?: (width: number) => void;
+  /** The length new labels start at on those printers. */
+  labelLength?: number;
+  onLabelLength?: (mm: number) => void;
   onDisconnect: () => Promise<void>;
   onManualProfile: (id: string | null) => void;
 }
@@ -126,6 +140,103 @@ function PrintPosition({ status, onAlignmentTest, offset, onOffset }: Pick<Props
   );
 }
 
+/** How far one click moves the paper, until the user picks another length. */
+export const FEED_STEP_MM = 0.5;
+const FEED_KEY = 'niimai:feedStep';
+
+/** The feed length last used, remembered on this device. */
+function storedFeedStep(): number {
+  try {
+    const mm = Number(localStorage.getItem(FEED_KEY));
+    return mm > 0 ? mm : FEED_STEP_MM;
+  } catch {
+    return FEED_STEP_MM;
+  }
+}
+
+/** Paper on printers that cannot sense it: continuous or stickers, and moving it by hand to line it up. */
+function Paper({
+  status,
+  onFeed,
+  stickerGap,
+  onStickerGap,
+  paperWidth,
+  headWidth,
+  onPaperWidth,
+  labelLength,
+  onLabelLength,
+}: Pick<Props, 'status' | 'onFeed' | 'stickerGap' | 'onStickerGap' | 'paperWidth' | 'headWidth' | 'onPaperWidth' | 'labelLength' | 'onLabelLength'>) {
+  const feed = (mm: number) => void onFeed?.(mm).catch((err: Error) => toast.error(err.message));
+  const [step, setStep] = useState(storedFeedStep);
+  const changeStep = (mm: number) => {
+    setStep(mm);
+    try {
+      localStorage.setItem(FEED_KEY, String(mm));
+    } catch {
+      // Private windows can refuse storage; the length still applies until the window closes.
+    }
+  };
+  const printing = status.state === 'printing';
+  const stickers = stickerGap !== undefined;
+  return (
+    <section className="pd-section" aria-labelledby="pd-paper">
+      <h3 id="pd-paper" className="pd-section-title">
+        <ScanLine size={15} /> Paper
+      </h3>
+      {onStickerGap && (
+        <div className="pd-paper-fields">
+          <select
+            className="select"
+            aria-label="Paper type"
+            value={stickers ? 'stickers' : 'continuous'}
+            onChange={(e) => onStickerGap(e.target.value === 'stickers' ? DEFAULT_GAP_MM : null)}
+          >
+            <option value="continuous">Continuous</option>
+            <option value="stickers">Stickers</option>
+          </select>
+          {stickers && <NumberField label="Gap" icon="Gap" value={stickerGap} min={0} max={MAX_GAP_MM} step={0.5} suffix="mm" onChange={(gap) => onStickerGap(gap)} />}
+        </div>
+      )}
+      {((onPaperWidth && paperWidth !== undefined) || (onLabelLength && labelLength !== undefined)) && (
+        <div className="pd-paper-fields">
+          {onPaperWidth && paperWidth !== undefined && (
+            <NumberField label="Paper width" icon="W" value={paperWidth} min={MIN_PAPER_MM} max={MAX_PAPER_MM} step={1} suffix="mm" onChange={onPaperWidth} />
+          )}
+          {onLabelLength && labelLength !== undefined && (
+            <NumberField label="Label length" icon="L" value={labelLength} min={MIN_LENGTH_MM} max={MAX_LENGTH_MM} step={1} suffix="mm" onChange={onLabelLength} />
+          )}
+        </div>
+      )}
+      {headWidth !== undefined && paperWidth !== undefined && paperWidth > headWidth && (
+        <p className="field-error" role="alert">
+          <TriangleAlert size={14} /> Wider than the {headWidth} mm print width. The edges will not print.
+        </p>
+      )}
+      <small className="muted">
+        {[
+          headWidth !== undefined && paperWidth !== undefined && paperWidth < headWidth && `Prints centred on the ${headWidth} mm head.`,
+          stickers ? 'Set W and L to the sticker size.' : onLabelLength && 'New labels start at this length.',
+        ]
+          .filter(Boolean)
+          .join(' ') || `Paper up to ${headWidth ?? 48} mm wide prints edge to edge.`}
+      </small>
+      {onFeed && (
+        <div className="pd-feed-row">
+          {status.canRetract && (
+            <button className="btn" onClick={() => feed(-step)} disabled={printing}>
+              <ArrowDownToLine size={16} /> Retract
+            </button>
+          )}
+          <button className="btn" onClick={() => feed(step)} disabled={printing}>
+            <ArrowUpFromLine size={16} /> Feed
+          </button>
+          <NumberField label="Feed length" icon="Step" value={step} min={0.5} max={50} step={0.5} suffix="mm" onChange={changeStep} />
+        </div>
+      )}
+    </section>
+  );
+}
+
 function Connected(props: Props) {
   const { status, rollSize, rollName, rollNeedsSize, rollManual, onSetRollSize, onDisconnect } = props;
   const title = status.profile?.name ?? status.detectedModel ?? 'Printer';
@@ -169,7 +280,12 @@ function Connected(props: Props) {
           low={battery !== undefined && battery <= 20}
         />
         {status.profile?.kind === 'thermal' ? (
-          <Meter icon={<ScanLine size={15} />} label="Paper" value="Continuous" detail={`${Math.round(printheadMm(status.profile))} mm print width`} />
+          <Meter
+            icon={<ScanLine size={15} />}
+            label="Paper"
+            value={props.stickerGap !== undefined ? 'Stickers' : 'Continuous'}
+            detail={props.stickerGap !== undefined ? `${props.stickerGap} mm gap` : `${Math.round(printheadMm(status.profile))} mm print width`}
+          />
         ) : (
           <Meter
             icon={<ScanLine size={15} />}
@@ -203,6 +319,20 @@ function Connected(props: Props) {
         </button>
       )}
 
+      {status.canFeed && (
+        <Paper
+          status={status}
+          onFeed={props.onFeed}
+          stickerGap={props.stickerGap}
+          onStickerGap={props.onStickerGap}
+          paperWidth={props.paperWidth}
+          headWidth={props.headWidth}
+          onPaperWidth={props.onPaperWidth}
+          labelLength={props.labelLength}
+          onLabelLength={props.onLabelLength}
+        />
+      )}
+
       <PrintPosition {...props} />
 
       <button className="btn btn-ghost pd-disconnect" onClick={() => void onDisconnect()}>
@@ -234,13 +364,23 @@ export function PrinterDialog(props: Props) {
                 <span>Printer type, if not recognised</span>
                 <select className="select" value={manualProfileId ?? ''} onChange={(e) => onManualProfile(e.target.value || null)}>
                   <option value="">None</option>
-                  {MANUAL_PROFILES.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} · {Math.round(printheadMm(p))} mm head
-                    </option>
-                  ))}
+                  <optgroup label="NIIMBOT">
+                    {MANUAL_PROFILES.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} · {Math.round(printheadMm(p))} mm head
+                      </option>
+                    ))}
+                  </optgroup>
+                  <optgroup label="Other printers">
+                    {PRINTER_TYPES.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </optgroup>
                 </select>
               </label>
+              {findPrinterType(manualProfileId) && !connected && <small className="muted">Bluetooth now lists every nearby device. Pick your printer there.</small>}
               {unrecognised && !status.profile && <p className="field-error">Pick the closest type to start printing.</p>}
             </details>
           </ErrorBoundary>

@@ -1,4 +1,4 @@
-import { ArrowRight, Battery, Bluetooth, Check, ChevronDown, ChevronUp, FilePlus2, FlaskConical, LayoutTemplate, Plug, Printer, ScanLine, Search, Trash2 } from 'lucide-react';
+import { ArrowRight, Battery, Bluetooth, Check, ChevronDown, ChevronRight, ChevronUp, FilePlus2, FlaskConical, LayoutTemplate, Plug, Printer, ScanLine, Search, Settings, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { LABEL_PRESETS, type LabelDoc, type LabelSize, sizeLabel } from '../doc/model';
@@ -18,20 +18,31 @@ import { LabelThumb, templateLabel, type TemplateSeed } from './LibraryDialog';
 interface Props {
   status: PrinterStatus;
   roll: RollState;
+  /** Sticker rolls on printers that cannot sense the gaps: the gap between stickers. Unset is continuous paper. */
+  stickerGap?: number;
+  /** The paper's width on a continuous-paper printer. */
+  paperWidth?: number;
+  /** The length new labels start at there, kept per printer; held here when not given. */
+  labelLength?: number;
+  onLabelLength?: (mm: number) => void;
   /** Size for blank labels and template suggestions when no roll is loaded. */
   defaultSize: LabelSize;
   onConnect: (kind: ConnectionKind) => Promise<void>;
   onSetRollSize: () => void;
+  /** Opens the printer window: paper feed, print position and the rest. */
+  onPrinterSettings: () => void;
   onOpen: (doc: LabelDoc) => void;
   onBlank: (size: LabelSize) => void;
   onBrowseTemplates: (seed?: TemplateSeed) => void;
 }
 
 
-function PrinterCard({ status, roll, onConnect, onSetRollSize, onBlank, onBrowseTemplates }: Pick<Props, 'status' | 'roll' | 'onConnect' | 'onSetRollSize' | 'onBlank' | 'onBrowseTemplates'>) {
+function PrinterCard({ status, roll, stickerGap, paperWidth = THERMAL_DEFAULT_SIZE.widthMm, labelLength, onLabelLength, onConnect, onSetRollSize, onPrinterSettings, onBlank, onBrowseTemplates }: Pick<Props, 'status' | 'roll' | 'stickerGap' | 'paperWidth' | 'labelLength' | 'onLabelLength' | 'onConnect' | 'onSetRollSize' | 'onPrinterSettings' | 'onBlank' | 'onBrowseTemplates'>) {
   const [busy, setBusy] = useState(false);
   /** Length of a new label on continuous paper. */
-  const [length, setLength] = useState(THERMAL_DEFAULT_SIZE.heightMm);
+  const [localLength, setLocalLength] = useState(THERMAL_DEFAULT_SIZE.heightMm);
+  const length = labelLength ?? localLength;
+  const setLength = onLabelLength ?? setLocalLength;
   const connected = status.state === 'ready' || status.state === 'printing';
   const connect = async (kind: ConnectionKind) => {
     setBusy(true);
@@ -47,7 +58,16 @@ function PrinterCard({ status, roll, onConnect, onSetRollSize, onBlank, onBrowse
   return (
     <section className={`start-card${connected ? ' start-card-done' : ''}`} aria-labelledby="start-printer">
       <span className="start-step">{connected ? <Check size={16} /> : 1}</span>
-      <h2 id="start-printer">{connected ? (status.profile?.name ?? status.deviceName ?? 'Printer') : 'Connect your printer'}</h2>
+      {connected ? (
+        <div className="start-card-title">
+          <h2 id="start-printer">{status.profile?.name ?? status.deviceName ?? 'Printer'}</h2>
+          <button className="icon-btn" aria-label="Printer settings" title="Printer settings" onClick={onPrinterSettings}>
+            <Settings size={17} />
+          </button>
+        </div>
+      ) : (
+        <h2 id="start-printer">Connect your printer</h2>
+      )}
       {connected ? (
         <>
           <ul className="start-facts start-facts-inline">
@@ -63,13 +83,17 @@ function PrinterCard({ status, roll, onConnect, onSetRollSize, onBlank, onBrowse
             )}
           </ul>
           {status.profile?.kind === 'thermal' ? (
-            <div className="start-roll">
-              <LabelSilhouette size={{ widthMm: THERMAL_DEFAULT_SIZE.widthMm, heightMm: length }} box={64} />
-              <div className="start-roll-text">
-                <strong>Continuous paper</strong>
-                <small className="muted">{THERMAL_DEFAULT_SIZE.widthMm} mm print width</small>
-              </div>
-            </div>
+            <button className="start-roll start-roll-button" onClick={onPrinterSettings} aria-label="Paper settings">
+              <LabelSilhouette size={{ widthMm: paperWidth, heightMm: length }} box={64} />
+              <span className="start-roll-text">
+                <strong>{stickerGap !== undefined ? 'Stickers' : 'Continuous paper'}</strong>
+                <small className="muted">
+                  {stickerGap !== undefined && `${stickerGap} mm gap · `}
+                  {paperWidth} mm wide
+                </small>
+              </span>
+              <ChevronRight size={18} className="start-roll-go" />
+            </button>
           ) : roll.size ? (
             <div className="start-roll">
               <LabelSilhouette size={roll.size} box={64} />
@@ -85,7 +109,7 @@ function PrinterCard({ status, roll, onConnect, onSetRollSize, onBlank, onBrowse
             {status.profile?.kind === 'thermal' ? (
               <>
                 <NumberField label="Length" icon="Length" value={length} min={5} max={500} step={1} suffix="mm" onChange={setLength} />
-                <button className="btn btn-primary" onClick={() => onBlank({ widthMm: THERMAL_DEFAULT_SIZE.widthMm, heightMm: length })}>
+                <button className="btn btn-primary" onClick={() => onBlank({ widthMm: paperWidth, heightMm: length })}>
                   <FilePlus2 size={16} /> New label
                 </button>
                 <button className="btn" onClick={() => onBrowseTemplates()}>
@@ -298,8 +322,13 @@ export function StartScreen(props: Props) {
             <PrinterCard
               status={props.status}
               roll={props.roll}
+              stickerGap={props.stickerGap}
+              paperWidth={props.paperWidth}
+              labelLength={props.labelLength}
+              onLabelLength={props.onLabelLength}
               onConnect={props.onConnect}
               onSetRollSize={props.onSetRollSize}
+              onPrinterSettings={props.onPrinterSettings}
               onBlank={props.onBlank}
               onBrowseTemplates={props.onBrowseTemplates}
             />

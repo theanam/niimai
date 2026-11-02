@@ -6,7 +6,7 @@ import { useEditor } from '../doc/useEditor';
 import { baseName, LABEL_EXT, openImageFile, openLabelFile, openSheetFile, readAsDataUrl, safeFileName, saveTextAs, writeToHandle, type FileHandle } from '../files/fs-access';
 import { round1, uid } from '../lib/units';
 import { printer } from '../printer';
-import { type ConnectionKind, DEMO_NAME, effectivePaper, inkOutsideHead, labelTypeOf, type PrintOffset, THERMAL_HEAD_MM } from 'libniimai';
+import { type ConnectionKind, DEMO_NAME, effectivePaper, inkOutsideHead, labelTypeOf, type PrintOffset, printheadMm, THERMAL_DEFAULT_SIZE, THERMAL_HEAD_MM } from 'libniimai';
 import { allSizesFor, resolveRoll, sameSize, sizesForPrinter } from '../printer/roll';
 import { asSvgBlob, isImageFile, isSvgFile, looksLikeSvg, svgSize } from '../files/svg';
 import { browserPrint } from '../render/browserPrint';
@@ -30,6 +30,7 @@ import { PrintDialog } from './PrintDialog';
 import { printIssues } from '../render/printability';
 import { fitBorders, safeArea } from '../printer/safeArea';
 import { alignmentDoc } from '../printer/alignment';
+import type { LabelLengths, PaperWidths, StickerGaps } from '../printer/thermalPaper';
 import { TEMPLATES } from '../templates';
 import { RollMismatchBanner } from './RollMismatchBanner';
 import { ContinuousDialog } from './ContinuousDialog';
@@ -65,11 +66,14 @@ interface Props {
   initialDensity?: number;
   initialRollSizes?: Record<string, LabelSize>;
   initialOffsets?: Record<string, PrintOffset>;
+  initialStickerGaps?: StickerGaps;
+  initialPaperWidths?: PaperWidths;
+  initialLabelLengths?: LabelLengths;
   /** The app opens on the start screen; tests can start in the editor. */
   initialView?: 'start' | 'edit';
 }
 
-export function Editor({ initialDoc, initialProfileId, initialDensity, initialRollSizes = {}, initialOffsets = {}, initialView = 'edit' }: Props) {
+export function Editor({ initialDoc, initialProfileId, initialDensity, initialRollSizes = {}, initialOffsets = {}, initialStickerGaps = {}, initialPaperWidths = {}, initialLabelLengths = {}, initialView = 'edit' }: Props) {
   const [view, setView] = useState(initialView);
   const [libraryTab, setLibraryTab] = useState<'mine' | 'templates'>('mine');
   const [templateSeed, setTemplateSeed] = useState<TemplateSeed>({});
@@ -109,6 +113,17 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
   // Offsets belong to the printer model: each one's paper path sits a little differently.
   const printerKey = status.detectedModel ?? status.profile?.id ?? null;
   const offset = (printerKey && offsets[printerKey]) || { x: 0, y: 0 };
+  const [stickerGaps, setStickerGaps] = useState(initialStickerGaps);
+  /** Sticker rolls on a printer that cannot sense the gaps: the gap fed after each sticker. Unset is continuous paper. */
+  const stickerGap = status.canFeed && printerKey ? stickerGaps[printerKey] : undefined;
+  const [paperWidths, setPaperWidths] = useState(initialPaperWidths);
+  /** What a continuous-paper printer prints across: its whole head, in whole mm. */
+  const headWidth = status.profile?.kind === 'thermal' ? Math.floor(printheadMm(status.profile)) : THERMAL_HEAD_MM;
+  /** The paper loaded on it: as wide as the head, unless set narrower (or wider) for this printer. */
+  const paperWidth = (status.canFeed && printerKey && paperWidths[printerKey]) || headWidth;
+  const [labelLengths, setLabelLengths] = useState(initialLabelLengths);
+  /** The length new labels start at on a continuous-paper printer: set in the printer window or on the start screen. */
+  const labelLength = (status.canFeed && printerKey && labelLengths[printerKey]) || THERMAL_DEFAULT_SIZE.heightMm;
 
   useEffect(() => printer.setManualProfile(initialProfileId), [initialProfileId]);
 
@@ -210,13 +225,13 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
   const offeredContinuous = useRef<string | null>(null);
   useEffect(() => {
     if (status.state === 'disconnected') offeredContinuous.current = null;
-    if (status.profile?.kind !== 'thermal' || view !== 'edit' || doc.widthMm === THERMAL_HEAD_MM) return;
+    if (status.profile?.kind !== 'thermal' || view !== 'edit' || doc.widthMm === paperWidth) return;
     const key = `${status.profile.id}:${doc.id}`;
     if (offeredContinuous.current === key) return;
     offeredContinuous.current = key;
     setDialog((d) => d ?? 'continuous');
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status.state, status.profile?.id, doc.id, doc.widthMm, view]);
+  }, [status.state, status.profile?.id, doc.id, doc.widthMm, view, paperWidth]);
 
   const switchToContinuous = (size: LabelSize) => {
     dispatch({ type: 'setDoc', patch: { widthMm: size.widthMm, heightMm: size.heightMm, tailMm: undefined, fold: undefined, paper: undefined } });
@@ -417,14 +432,24 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
     return Array.from({ length: batch.count }, (_, i) => resolveDoc(doc, { index: batch.first + i, now }));
   };
 
+  /**
+   * What the label prints on. Printers that cannot sense the paper print on
+   * continuous paper unless the printer is set to stickers, which feed exactly
+   * the gap after each one.
+   */
+  const paperFor = (): { labelType: number; gapMm?: number } => {
+    if (!status.canFeed) return { labelType: labelTypeOf(effectivePaper(doc.paper, status.label?.paper)) };
+    return stickerGap === undefined ? { labelType: labelTypeOf('continuous') } : { labelType: labelTypeOf('gaps'), gapMm: stickerGap };
+  };
+
   const printToPrinter = async (copies: number, batch?: BatchRun) => {
     try {
-      const labelType = labelTypeOf(effectivePaper(doc.paper, status.label?.paper));
+      const { labelType, gapMm } = paperFor();
       const now = new Date();
       const source = batch
         ? { count: batch.count, page: (i: number) => rasterize(resolveDoc(doc, { index: batch.first + i, now }), dpi, images) }
         : await rasterize(resolveDoc(doc, { index: shownIndex, now }), dpi, images);
-      await printer.print(source, { density, copies, offset, labelType });
+      await printer.print(source, { density, copies, offset, labelType, gapMm });
       const total = copies * (batch?.count ?? 1);
       toast.success(total > 1 ? `Printed ${total} labels` : 'Printed');
       // A run of numbers continues where it stopped next time.
@@ -462,7 +487,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
     try {
       const test = alignmentDoc(roll.size ?? docSize);
       const canvas = await rasterize(test, dpi, {});
-      await printer.print(canvas, { density, copies: 1, offset, labelType: labelTypeOf(effectivePaper(doc.paper, status.label?.paper)) });
+      await printer.print(canvas, { density, copies: 1, offset, ...paperFor() });
     } catch (err) {
       toast.error((err as Error).message);
     }
@@ -472,6 +497,31 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
     await printer.connect(kind);
     const s = printer.getStatus();
     toast.success(`Connected to ${s.deviceName ?? 'printer'}`);
+  };
+
+  /** Sets the printer's sticker gap; null goes back to continuous paper. */
+  const changeStickerGap = (gap: number | null) => {
+    if (!printerKey) return;
+    const { [printerKey]: _, ...rest } = stickerGaps;
+    const all = gap === null ? rest : { ...rest, [printerKey]: gap };
+    setStickerGaps(all);
+    void setSetting('stickerGaps', all).catch(() => {});
+  };
+
+  /** Sets the printer's paper width; the head's own width clears it. */
+  const changePaperWidth = (width: number) => {
+    if (!printerKey) return;
+    const { [printerKey]: _, ...rest } = paperWidths;
+    const all = width === headWidth ? rest : { ...rest, [printerKey]: width };
+    setPaperWidths(all);
+    void setSetting('paperWidths', all).catch(() => {});
+  };
+
+  const changeLabelLength = (length: number) => {
+    if (!printerKey) return;
+    const all = { ...labelLengths, [printerKey]: length };
+    setLabelLengths(all);
+    void setSetting('labelLengths', all).catch(() => {});
   };
 
   const changeOffset = (next: PrintOffset) => {
@@ -619,9 +669,14 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
           <StartScreen
             status={status}
             roll={roll}
+            stickerGap={stickerGap}
+            paperWidth={paperWidth}
+            labelLength={labelLength}
+            onLabelLength={changeLabelLength}
             defaultSize={{ widthMm: doc.widthMm, heightMm: doc.heightMm }}
             onConnect={connect}
             onSetRollSize={() => setDialog('roll')}
+            onPrinterSettings={() => setDialog('printer')}
             // The label still in memory reopens as it is, keeping its undo history.
             onOpen={(d) => (d.id === doc.id ? setView('edit') : loadDoc(d))}
             onBlank={(size) => loadDoc(createDoc(size))}
@@ -687,6 +742,8 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
             onEditText={(id) => setEditing({ id })}
             printIssue={selected ? issues[selected.id] : null}
             continuous={status.profile?.kind === 'thermal'}
+            stickerGap={stickerGap}
+            paperWidth={paperWidth}
             onAddSheet={() => void addSheet()}
             resolve={resolveShown}
             onReplaceIcon={(id) => {
@@ -712,6 +769,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
         onOpenChange={(o) => setDialog(o ? 'continuous' : null)}
         printerName={status.profile?.name ?? 'This printer'}
         current={docSize}
+        widthMm={paperWidth}
         onSwitch={switchToContinuous}
       />
       <SizeDialog
@@ -758,6 +816,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
         onConnect={() => setDialog('printer')}
         rollSize={roll.size}
         rollName={roll.name}
+        stickerGap={stickerGap}
         onMatchRoll={matchRoll}
         clipped={clipped}
         issueCount={Object.keys(issues).length}
@@ -776,6 +835,14 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
         onAlignmentTest={printAlignmentTest}
         offset={offset}
         onOffset={changeOffset}
+        onFeed={(mm) => printer.feed(mm)}
+        stickerGap={stickerGap}
+        onStickerGap={changeStickerGap}
+        paperWidth={paperWidth}
+        headWidth={headWidth}
+        onPaperWidth={changePaperWidth}
+        labelLength={labelLength}
+        onLabelLength={changeLabelLength}
         onDisconnect={() => printer.disconnect()}
         onManualProfile={chooseProfile}
       />
@@ -793,6 +860,9 @@ export function EditorLoader() {
       let density: number | undefined;
       let rollSizes: Record<string, LabelSize> = {};
       let offsets: Record<string, PrintOffset> = {};
+      let stickerGaps: StickerGaps = {};
+      let paperWidths: PaperWidths = {};
+      let labelLengths: LabelLengths = {};
       try {
         const lastId = await getSetting('lastLabelId');
         if (lastId) doc = await getLabel(lastId);
@@ -800,10 +870,13 @@ export function EditorLoader() {
         density = await getSetting('density');
         rollSizes = (await getSetting('rollSizes')) ?? {};
         offsets = (await getSetting('printOffsets')) ?? {};
+        stickerGaps = (await getSetting('stickerGaps')) ?? {};
+        paperWidths = (await getSetting('paperWidths')) ?? {};
+        labelLengths = (await getSetting('labelLengths')) ?? {};
       } catch {
         // Private windows can block IndexedDB; the editor still works without it.
       }
-      setBoot({ initialDoc: doc ?? starterDoc(), initialProfileId: profileId, initialDensity: density, initialRollSizes: rollSizes, initialOffsets: offsets });
+      setBoot({ initialDoc: doc ?? starterDoc(), initialProfileId: profileId, initialDensity: density, initialRollSizes: rollSizes, initialOffsets: offsets, initialStickerGaps: stickerGaps, initialPaperWidths: paperWidths, initialLabelLengths: labelLengths });
     })();
   }, []);
   if (!boot) return <div className="app-loading" aria-busy="true" />;

@@ -1952,6 +1952,25 @@ kbd {
 .start-card p {
   margin: 0;
 }
+.start-card-title {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.start-card-title h2 {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.start-card-title .icon-btn {
+  width: 30px;
+  height: 30px;
+  color: var(--muted);
+}
+.start-card-title .icon-btn:hover {
+  color: var(--text);
+}
 .start-step {
   position: absolute;
   left: 20px;
@@ -2690,6 +2709,12 @@ kbd {
   width: min(440px, calc(100vw - 32px));
   padding: 28px 24px 20px;
   gap: 16px;
+  /* Paper, position and Advanced together outgrow short screens: scroll inside the window. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.pd > * {
+  flex-shrink: 0;
 }
 .pd-close {
   position: absolute;
@@ -3214,6 +3239,21 @@ kbd {
   letter-spacing: 0.04em;
   color: var(--muted);
 }
+.pd-paper-fields {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 8px;
+}
+.pd-feed-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.pd-feed-row .field {
+  flex: 1;
+  min-width: 0;
+}
 .pd-test-row {
   display: flex;
   align-items: center;
@@ -3390,6 +3430,22 @@ kbd {
 }
 .start-roll-actions {
   margin-top: auto;
+}
+.start-roll-button {
+  border: 0;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.start-roll-button:hover {
+  background: color-mix(in srgb, var(--surface-2), var(--text) 5%);
+}
+.start-roll-go {
+  margin-left: auto;
+  color: var(--muted);
+  flex: none;
 }
 
 /* Start screen: recent labels */
@@ -3574,5 +3630,30 @@ kbd {
 @media (max-width: 1100px) {
   .templates-btn-text {
     display: none;
+  }
+}
+
+/* Help: known thermal printers, one row per family */
+.help-models th {
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+  padding-right: 16px;
+  font-weight: 600;
+}
+.help-models-level {
+  display: block;
+}
+.help-models-level + .help-models-level {
+  margin-top: 4px;
+}
+@media (max-width: 560px) {
+  .help-models tr,
+  .help-models th,
+  .help-models td {
+    display: block;
+  }
+  .help-models th {
+    padding: 10px 0 2px;
   }
 }

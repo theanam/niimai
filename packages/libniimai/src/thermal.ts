@@ -20,7 +20,17 @@ export interface ThermalModel {
   prefix: string;
   confidence: Confidence;
   note?: string;
+  /** The prefix names a brand or a generic Bluetooth module, not a model; the printer's own name is shown. */
+  generic?: boolean;
+  /** Maker and model, where the Bluetooth name does not say. */
+  brand?: string;
+  /** Dots across the head, where it differs from the family's usual one: 576 on 80 mm receipt printers. */
+  headDots?: number;
 }
+
+/** The name a printer shows: its model, or its own Bluetooth name when the model entry is only a brand or a stock name. */
+export const shownName = (model: ThermalModel | null, transport: { name?: string }, fallback: string): string =>
+  (model && !model.generic ? model.prefix : transport.name) || model?.prefix || fallback;
 
 /** The known model a Bluetooth name belongs to, longest prefix first. */
 export function modelFor<M extends ThermalModel>(models: M[], name: string | undefined): M | null {
@@ -97,7 +107,8 @@ export abstract class ThermalPrinterClient implements ClientLike {
   /** Label sizes common for this printer, offered in place of NIIMBOT roll sizes. */
   protected readonly labelSizes: LabelSize[] | undefined = undefined;
   protected abstract encodeRows(data: ArrayLike<number>, width: number, height: number): Uint8Array[];
-  protected abstract job(rows: Uint8Array[], density: number, copies: number, labelType: number): Uint8Array;
+  /** `gapDots`: labels with gaps on a printer that cannot sense them; each label is followed by exactly this much feed. */
+  protected abstract job(rows: Uint8Array[], density: number, copies: number, labelType: number, gapDots?: number): Uint8Array;
   /** Called after each page is sent; printers that confirm a job wait here. */
   protected async afterPage(): Promise<void> {}
 
@@ -201,6 +212,7 @@ export abstract class ThermalPrinterClient implements ClientLike {
     newPrintTask: (_name: PrintTaskName, options: Record<string, unknown>): PrintTaskLike => {
       const density = Number(options.density ?? 1);
       const labelType = Number(options.labelType ?? 1);
+      const gapDots = options.gapDots === undefined ? undefined : Math.max(0, Math.round(Number(options.gapDots)));
       // A batch sends several pages to one task; progress counts across them.
       let printed = 0;
       return {
@@ -209,7 +221,7 @@ export abstract class ThermalPrinterClient implements ClientLike {
           const total = () => Math.max(printed, Number(options.totalPages ?? printed));
           // Sending is the slow part over Bluetooth, so report it as it goes, in whole percents.
           let shown = -1;
-          await this.send(this.job(image as Uint8Array[], density, Math.max(1, quantity), labelType), (share) => {
+          await this.send(this.job(image as Uint8Array[], density, Math.max(1, quantity), labelType, gapDots), (share) => {
             const sending = Math.floor(share * 100);
             if (sending === shown) return;
             shown = sending;

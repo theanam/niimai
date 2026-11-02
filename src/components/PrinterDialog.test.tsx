@@ -126,4 +126,80 @@ describe('printer dialog', () => {
     expect(screen.getByRole('heading', { name: 'Demo printer' })).toBeInTheDocument();
     expect(screen.getByText('Ready')).toBeInTheDocument();
   });
+
+  it('moves the paper half a millimetre per click on printers that cannot sense it, back only where the printer can', async () => {
+    localStorage.removeItem('niimai:feedStep');
+    const onFeed = vi.fn(async () => {});
+    const { unmount } = renderApp(<PrinterDialog {...base} status={ready()} onFeed={onFeed} />);
+    expect(screen.queryByRole('button', { name: 'Feed' })).not.toBeInTheDocument();
+    unmount();
+    const { rerender } = renderApp(<PrinterDialog {...base} status={ready({ canFeed: true })} onFeed={onFeed} />);
+    expect(screen.queryByRole('button', { name: 'Retract' })).not.toBeInTheDocument();
+    rerender(<PrinterDialog {...base} status={ready({ canFeed: true, canRetract: true })} onFeed={onFeed} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Feed' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Retract' }));
+    expect(onFeed.mock.calls).toEqual([[0.5], [-0.5]]);
+    rerender(<PrinterDialog {...base} status={ready({ canFeed: true, state: 'printing' })} onFeed={onFeed} />);
+    expect(screen.getByRole('button', { name: 'Feed' })).toBeDisabled();
+  });
+
+  it('feeds by the length the user sets, and remembers it', async () => {
+    localStorage.removeItem('niimai:feedStep');
+    const onFeed = vi.fn(async () => {});
+    const { unmount } = renderApp(<PrinterDialog {...base} status={ready({ canFeed: true })} onFeed={onFeed} />);
+    const length = screen.getByRole('spinbutton', { name: 'Feed length' });
+    expect(length).toHaveValue(0.5);
+    await userEvent.clear(length);
+    await userEvent.type(length, '5');
+    await userEvent.click(screen.getByRole('button', { name: 'Feed' }));
+    expect(onFeed).toHaveBeenLastCalledWith(5);
+    unmount();
+    renderApp(<PrinterDialog {...base} status={ready({ canFeed: true })} onFeed={onFeed} />);
+    expect(screen.getByRole('spinbutton', { name: 'Feed length' })).toHaveValue(5);
+    localStorage.removeItem('niimai:feedStep');
+  });
+
+  it('sets a narrower paper width, and warns when it is wider than the print width', async () => {
+    const onPaperWidth = vi.fn();
+    const props = { ...base, status: ready({ canFeed: true }), headWidth: 48, onPaperWidth };
+    const { rerender } = renderApp(<PrinterDialog {...props} paperWidth={48} />);
+    const width = screen.getByRole('spinbutton', { name: 'Paper width' });
+    expect(width).toHaveValue(48);
+    expect(screen.queryByRole('alert')).toBeNull();
+    await userEvent.clear(width);
+    await userEvent.type(width, '40');
+    expect(onPaperWidth).toHaveBeenLastCalledWith(40);
+    rerender(<PrinterDialog {...props} paperWidth={40} />);
+    expect(screen.getByText(/Prints centred on the 48 mm head/)).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).toBeNull();
+    rerender(<PrinterDialog {...props} paperWidth={58} labelLength={30} onLabelLength={onPaperWidth} />);
+    // Width and length sit side by side.
+    expect(screen.getByRole('spinbutton', { name: 'Label length' })).toHaveValue(30);
+    expect(screen.getByRole('alert')).toHaveTextContent('Wider than the 48 mm print width');
+  });
+
+  it('switches a printer that cannot sense the paper between continuous paper and stickers', async () => {
+    const onStickerGap = vi.fn();
+    const thermal = { ...findManualProfile('b1')!, name: 'MP583', kind: 'thermal' as const };
+    const { rerender } = renderApp(<PrinterDialog {...base} status={ready({ canFeed: true, profile: thermal })} onStickerGap={onStickerGap} />);
+    expect(screen.getByRole('combobox', { name: 'Paper type' })).toHaveValue('continuous');
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Paper type' }), 'Stickers');
+    expect(onStickerGap).toHaveBeenLastCalledWith(2);
+    rerender(<PrinterDialog {...base} status={ready({ canFeed: true, profile: thermal })} stickerGap={2} onStickerGap={onStickerGap} />);
+    await userEvent.clear(screen.getByRole('spinbutton', { name: 'Gap' }));
+    await userEvent.type(screen.getByRole('spinbutton', { name: 'Gap' }), '3');
+    expect(onStickerGap).toHaveBeenLastCalledWith(3);
+    await userEvent.selectOptions(screen.getByRole('combobox', { name: 'Paper type' }), 'Continuous');
+    expect(onStickerGap).toHaveBeenLastCalledWith(null);
+  });
+
+  it('offers receipt, label and cat printer types for a printer it does not recognise', async () => {
+    const onManualProfile = vi.fn();
+    const { rerender } = renderApp(<PrinterDialog {...base} status={{ state: 'disconnected', profile: null }} onManualProfile={onManualProfile} />);
+    const select = screen.getByRole('combobox', { name: /Printer type, if not recognised/ });
+    await userEvent.selectOptions(select, 'Receipt printer, 80 mm');
+    expect(onManualProfile).toHaveBeenLastCalledWith('escpos-80');
+    rerender(<PrinterDialog {...base} status={{ state: 'disconnected', profile: null }} manualProfileId="escpos-80" onManualProfile={onManualProfile} />);
+    expect(screen.getByText(/lists every nearby device/)).toBeInTheDocument();
+  });
 });

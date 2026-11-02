@@ -79,6 +79,11 @@ describe('inspector', () => {
     expect(onRemove).toHaveBeenCalledWith(el.id);
   });
 
+  it('says when a continuous-paper printer has stickers loaded', () => {
+    renderApp(<Inspector {...base} doc={createDoc({ widthMm: 48, heightMm: 25 })} selected={null} onUpdate={noop} onDocChange={noop} continuous stickerGap={2} />);
+    expect(screen.getByText(/Stickers with a 2 mm gap/)).toBeInTheDocument();
+  });
+
   it('sets width and length directly on continuous paper, with no presets', async () => {
     const onDocChange = vi.fn();
     renderApp(<Inspector {...base} doc={createDoc({ widthMm: 48, heightMm: 30 })} selected={null} onUpdate={noop} onDocChange={onDocChange} continuous />);

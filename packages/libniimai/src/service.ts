@@ -20,6 +20,10 @@ export interface PrinterStatus {
   paperInserted?: boolean;
   /** Pages done of the total; `sending` is how much of the current page has gone over the link, 0–100, for printers that report it. */
   progress?: { page: number; total: number; sending?: number };
+  /** The paper can be moved by hand with `feed()`, on printers that cannot sense it. */
+  canFeed?: boolean;
+  /** `feed()` can also move the paper back. */
+  canRetract?: boolean;
 }
 
 /** Nudges the printed image, in mm: positive x moves right, positive y moves down. */
@@ -34,6 +38,12 @@ export interface PrintOptions {
   copies: number;
   labelType?: number;
   offset?: PrintOffset;
+  /**
+   * Labels with gaps on a printer that cannot sense them (`status.canFeed`):
+   * the gap between labels, in mm. Each label is followed by exactly this
+   * much feed in place of the tear-off feed, so prints stay on the labels.
+   */
+  gapMm?: number;
 }
 
 /** Different labels in one job, drawn one at a time so a long batch never holds every page at once. */
@@ -129,6 +139,8 @@ export class PrinterService {
   private listeners = new Set<(s: PrinterStatus) => void>();
   private manualProfileId: string | null = null;
   private detach: (() => void) | null = null;
+  /** Paper moves run one after another, and a print waits for them. */
+  private feeding: Promise<void> = Promise.resolve();
 
   /** How the current printer is connected. */
   private kind: ConnectionKind | null = null;
@@ -195,6 +207,7 @@ export class PrinterService {
     let client: ClientLike;
     try {
       client = await this.createClient(kind);
+      client.unrecognisedAs?.(this.manualProfileId);
       const info = await client.connect();
       this.client = client;
       this.set({ deviceName: info.deviceName });
@@ -228,6 +241,8 @@ export class PrinterService {
       detectedModel: meta?.model,
       profile: this.currentProfile(),
       label: this.readRfid(),
+      ...(client.feedPaper ? { canFeed: true } : {}),
+      ...(client.feedPaper && client.feedsBack ? { canRetract: true } : {}),
     });
     client.startHeartbeat();
   }
@@ -262,12 +277,32 @@ export class PrinterService {
     this.set({ progress: { page: copies, total: copies } });
   }
 
+  /**
+   * Moves the paper by `mm`, out of the printer when positive and back in when
+   * negative, to line it up on printers that cannot sense it.
+   */
+  feed(mm: number): Promise<void> {
+    const client = this.client;
+    const profile = this.status.profile;
+    if (!client || !profile) return Promise.reject(new Error('Connect a printer first'));
+    if (!client.feedPaper) return Promise.reject(new Error('This printer finds the paper itself'));
+    if (mm < 0 && !client.feedsBack) return Promise.reject(new Error('This printer cannot move the paper back'));
+    if (this.status.state === 'printing') return Promise.reject(new Error('Wait for the print to finish'));
+    const dots = Math.round(mmToPx(mm, profile.dpi));
+    const run = this.feeding.then(() => (dots ? client.feedPaper!(dots) : undefined));
+    this.feeding = run.catch(() => {});
+    return run.catch((err) => {
+      throw new Error(friendlyError(err));
+    });
+  }
+
   async print(source: HTMLCanvasElement | PageSource, opts: PrintOptions): Promise<void> {
     const client = this.client;
     const profile = this.status.profile;
     if (!client) throw new Error('Connect a printer first');
     if (!profile) throw new Error('Choose your printer type');
     if (this.status.state === 'printing') throw new Error('Already printing');
+    await this.feeding;
 
     const pages: PageSource = 'page' in source ? source : { count: 1, page: async () => source };
     const copies = Math.max(1, Math.floor(opts.copies));
@@ -277,6 +312,7 @@ export class PrinterService {
       totalPages: total,
       density,
       labelType: opts.labelType ?? 1,
+      ...(opts.gapMm !== undefined && client.feedPaper ? { gapDots: Math.round(mmToPx(Math.max(0, opts.gapMm), profile.dpi)) } : {}),
       pageColor: 0,
       statusPollIntervalMs: 100,
       statusTimeoutMs: 8000,

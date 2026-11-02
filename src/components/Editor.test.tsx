@@ -268,6 +268,90 @@ describe('editor', () => {
     expect(screen.getByRole('spinbutton', { name: 'Length' })).toHaveValue(62);
   });
 
+  it('sets a sticker roll in the printer window, feeds the paper, and prints each sticker followed by its gap', async () => {
+    const { printer } = await import('../printer');
+    const { EscPosPrinterClient, escposModelFor } = await import('libniimai');
+    const sent: number[] = [];
+    const link = { name: 'MP583', write: async (b: Uint8Array) => void sent.push(...b), onNotify: () => {}, onDisconnect: () => {}, disconnect: async () => {} };
+    const target = printer as unknown as { createClient: () => Promise<unknown> };
+    const original = target.createClient;
+    target.createClient = async () => new EscPosPrinterClient(link, escposModelFor('MP583'), { chunkMs: 0, pauseMs: 1 });
+    onTestFinished(() => void (target.createClient = original));
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+
+    renderApp(<Editor initialDoc={{ ...starterDoc(), widthMm: 48, heightMm: 25 }} initialProfileId={null} initialDensity={2} />);
+    await act(() => printer.connect('bluetooth'));
+    await userEvent.click(screen.getByRole('button', { name: 'Printer ready' }));
+    const dialog = await screen.findByRole('dialog');
+    // These printers have no reverse feed.
+    expect(within(dialog).queryByRole('button', { name: 'Retract' })).toBeNull();
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Feed' }));
+    await waitFor(() => expect(sent).toEqual([0x1b, 0x33, 4, 0x0a, 0x1b, 0x32]));
+
+    await userEvent.selectOptions(within(dialog).getByRole('combobox', { name: 'Paper type' }), 'Stickers');
+    const gap = within(dialog).getByRole('spinbutton', { name: 'Gap' });
+    expect(gap).toHaveValue(2);
+    await userEvent.clear(gap);
+    await userEvent.type(gap, '3');
+    expect(within(dialog).getByRole('combobox', { name: 'Paper type' })).toHaveValue('stickers');
+    expect(within(dialog).getByText(/3 mm gap/)).toBeInTheDocument();
+
+    // Narrower sticker paper: the label panel follows it.
+    const paperWidth = within(dialog).getByRole('spinbutton', { name: 'Paper width' });
+    expect(paperWidth).toHaveValue(48);
+    await userEvent.clear(paperWidth);
+    await userEvent.type(paperWidth, '40');
+    expect(within(dialog).getByText(/Prints centred on the 48 mm head/)).toBeInTheDocument();
+
+    sent.length = 0;
+    // The printed page: the raster is stubbed, so hand the printer a blank one.
+    const ink = { getImageData: (_x: number, _y: number, w: number, h: number) => ({ data: new Uint8ClampedArray(w * h * 4).fill(255) }) };
+    const canvas = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(ink as never);
+    onTestFinished(() => canvas.mockRestore());
+    await userEvent.click(within(dialog).getByRole('button', { name: /Print test/ }));
+    // 3 mm is 24 dots at 203 dpi, fed after the sticker with no tear-off feed.
+    await waitFor(() => expect(sent.slice(-6)).toEqual([0x1b, 0x33, 24, 0x0a, 0x1b, 0x32]));
+    expect(sent.some((_, i) => sent[i] === 0x1b && sent[i + 1] === 0x64)).toBe(false);
+    await userEvent.keyboard('{Escape}');
+    const labelWidth = screen.getByRole('spinbutton', { name: 'Width' });
+    expect(labelWidth).toHaveAttribute('max', '40');
+  });
+
+  it('keeps NIIMBOT printing as it was: no receipt-printer controls, and the same print options', async () => {
+    const stickerGaps = { D11: 3 };
+    renderApp(<Editor initialDoc={starterDoc()} initialProfileId="escpos-58" initialDensity={2} initialStickerGaps={stickerGaps} initialPaperWidths={{ D11: 40 }} />);
+    await connectDemo();
+    const { printer } = await import('../printer');
+    // The label panel keeps its roll sizes and paper types.
+    expect(screen.getByRole('combobox', { name: 'Paper type' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Printer ready' }));
+    const dialog = await screen.findByRole('dialog');
+    for (const name of ['Feed', 'Retract']) expect(within(dialog).queryByRole('button', { name })).toBeNull();
+    expect(within(dialog).queryByRole('spinbutton', { name: 'Paper width' })).toBeNull();
+    expect(within(dialog).queryByRole('spinbutton', { name: 'Label length' })).toBeNull();
+    const print = vi.spyOn(printer, 'print');
+    await userEvent.click(within(dialog).getByRole('button', { name: /Print test/ }));
+    await waitFor(() => expect(print).toHaveBeenCalled());
+    expect(print.mock.calls[0][1]).toEqual({ density: 2, copies: 1, offset: { x: 0, y: 0 }, labelType: 1 });
+  });
+
+  it('shares the label length between the printer window and the start screen', async () => {
+    const { printer, restore } = await useEscPosPrinter();
+    onTestFinished(restore);
+    renderApp(<Editor initialDoc={{ ...starterDoc(), widthMm: 48, heightMm: 30 }} initialProfileId={null} initialDensity={2} initialView="start" />);
+    await act(() => printer.connect('bluetooth'));
+    await userEvent.click(screen.getByRole('button', { name: 'Printer settings' }));
+    const dialog = await screen.findByRole('dialog');
+    const length = within(dialog).getByRole('spinbutton', { name: 'Label length' });
+    expect(length).toHaveValue(30);
+    await userEvent.clear(length);
+    await userEvent.type(length, '25');
+    await userEvent.keyboard('{Escape}');
+    expect(screen.getByRole('spinbutton', { name: 'Length' })).toHaveValue(25);
+    await userEvent.click(screen.getByRole('button', { name: /new label/i }));
+    expect(await screen.findByRole('spinbutton', { name: 'Length' })).toHaveValue(25);
+  });
+
   it('keeps the label when asked, and does not ask again on this connection', async () => {
     const { printer, restore } = await useEscPosPrinter();
     onTestFinished(restore);

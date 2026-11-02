@@ -57,6 +57,29 @@ describe('printer service', () => {
     expect(service.getStatus().state).toBe('ready');
   });
 
+  it('sends a NIIMBOT exactly the print task it always got, whatever thermal-only options come along', async () => {
+    const { client, service } = setup();
+    await service.connect('demo');
+    const task = vi.spyOn(client.protocol, 'newPrintTask');
+    // gapMm is for printers that cannot sense the paper; a NIIMBOT finds its labels itself.
+    await service.print(canvas(), { density: 3, copies: 2, labelType: 1, gapMm: 3 });
+    expect(task).toHaveBeenCalledWith('D11_V1', { totalPages: 2, density: 3, labelType: 1, pageColor: 0, statusPollIntervalMs: 100, statusTimeoutMs: 8000 });
+    expect(service.getStatus()).not.toHaveProperty('canFeed');
+    expect(service.getStatus()).not.toHaveProperty('canRetract');
+    await expect(service.feed(1)).rejects.toThrow('finds the paper itself');
+  });
+
+  it('leaves a NIIMBOT untouched by a receipt printer type picked for unrecognised printers', async () => {
+    const { client, service } = setup();
+    service.setManualProfile('escpos-58');
+    await service.connect('demo');
+    // The demo stands in for a known NIIMBOT: its own profile, no manual one.
+    expect(service.getStatus().profile).toMatchObject({ printTask: 'D11_V1' });
+    expect(service.getStatus().profile?.kind).toBeUndefined();
+    await service.print(canvas(), { density: 3, copies: 1 });
+    expect(client.printed).toHaveLength(1);
+  });
+
   it('pauses the heartbeat while printing and resumes it after', async () => {
     const { service, client } = setup();
     await service.connect('demo');

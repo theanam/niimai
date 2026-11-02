@@ -16,6 +16,12 @@ export interface Settings {
   rollSizes?: Record<string, LabelSize>;
   /** Print position nudges, by printer model. */
   printOffsets?: Record<string, PrintOffset>;
+  /** Sticker gaps, by printer model, for printers that cannot sense them. */
+  stickerGaps?: Record<string, number>;
+  /** Paper widths, by printer model, for continuous-paper printers loaded with narrower paper. */
+  paperWidths?: Record<string, number>;
+  /** The length new labels start at, by printer model, for continuous-paper printers. */
+  labelLengths?: Record<string, number>;
 }
 
 let dbPromise: Promise<IDBPDatabase<Schema>> | null = null;

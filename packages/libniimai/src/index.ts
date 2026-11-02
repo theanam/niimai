@@ -51,6 +51,9 @@ export type { LabelSize, PrintDirection, PrinterProfile } from './profiles';
 export { effectivePaper, labelTypeOf, PAPER_TYPES, paperFromLabelType, paperName } from './paper';
 export type { PaperType } from './paper';
 
+export { findPrinterType, identifyPrinter, PRINTER_CATALOG, PRINTER_TYPES } from './catalog';
+export type { CatalogEntry, PrinterFamily, PrinterType } from './catalog';
+
 export { BluetoothPrinter } from './bluetooth';
 export { describeBleError } from './ble';
 export { DEMO_META, MockClient } from './mock';
@@ -58,7 +61,7 @@ export { DEMO_META, MockClient } from './mock';
 export { modelFor, THERMAL_DEFAULT_SIZE, THERMAL_HEAD_DOTS, THERMAL_HEAD_MM, THERMAL_SIZES, ThermalPrinterClient, webTransport } from './thermal';
 export type { Confidence, Pace, ThermalModel, ThermalTransport } from './thermal';
 
-export { CAT_MODELS, CAT_UNSUPPORTED, CatPrinterClient, catModelFor, printJob as catJob } from './cat';
+export { CAT_MODELS, CAT_UNSUPPORTED, CatPrinterClient, catFeed, catModelFor, printJob as catJob } from './cat';
 export type { CatModel } from './cat';
-export { ESCPOS_MODELS, EscPosPrinterClient, escposJob, escposModelFor } from './escpos';
+export { ESCPOS_MODELS, EscPosPrinterClient, escposFeed, escposJob, escposModelFor } from './escpos';
 export { TSPL_MODELS, TSPL_SIZES, TsplPrinterClient, tsplJob, tsplModelFor } from './tspl';

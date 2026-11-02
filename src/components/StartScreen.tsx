@@ -1,4 +1,4 @@
-import { ArrowRight, Battery, Bluetooth, Check, ChevronDown, ChevronRight, ChevronUp, FilePlus2, FlaskConical, LayoutTemplate, Plug, Printer, ScanLine, Search, Settings, Trash2 } from 'lucide-react';
+import { ArrowRight, Battery, Bluetooth, Check, ChevronDown, ChevronRight, ChevronUp, FilePlus2, FlaskConical, LayoutTemplate, Loader2, Plug, Printer, ScanLine, Search, Settings, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { LABEL_PRESETS, type LabelDoc, type LabelSize, sizeLabel } from '../doc/model';
@@ -38,22 +38,24 @@ interface Props {
 
 
 function PrinterCard({ status, roll, stickerGap, paperWidth = THERMAL_DEFAULT_SIZE.widthMm, labelLength, onLabelLength, onConnect, onSetRollSize, onPrinterSettings, onBlank, onBrowseTemplates }: Pick<Props, 'status' | 'roll' | 'stickerGap' | 'paperWidth' | 'labelLength' | 'onLabelLength' | 'onConnect' | 'onSetRollSize' | 'onPrinterSettings' | 'onBlank' | 'onBrowseTemplates'>) {
-  const [busy, setBusy] = useState(false);
+  /** The connection being made; its button shows a spinner in place of its icon. */
+  const [busy, setBusy] = useState<ConnectionKind | null>(null);
   /** Length of a new label on continuous paper. */
   const [localLength, setLocalLength] = useState(THERMAL_DEFAULT_SIZE.heightMm);
   const length = labelLength ?? localLength;
   const setLength = onLabelLength ?? setLocalLength;
   const connected = status.state === 'ready' || status.state === 'printing';
   const connect = async (kind: ConnectionKind) => {
-    setBusy(true);
+    setBusy(kind);
     try {
       await onConnect(kind);
     } catch (err) {
       toast.error((err as Error).message);
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   };
+  const icon = (kind: ConnectionKind, Icon: typeof Bluetooth) => (busy === kind ? <Loader2 size={16} className="spin" aria-hidden="true" /> : <Icon size={16} />);
 
   return (
     <section className={`start-card${connected ? ' start-card-done' : ''}`} aria-labelledby="start-printer">
@@ -143,14 +145,14 @@ function PrinterCard({ status, roll, stickerGap, paperWidth = THERMAL_DEFAULT_SI
         <>
           <p className="muted">Bluetooth or USB, straight from the browser.</p>
           <div className="start-actions">
-            <button className="btn btn-primary" disabled={!supportsBluetooth() || busy} onClick={() => void connect('bluetooth')}>
-              <Bluetooth size={16} /> Bluetooth
+            <button className="btn btn-primary" disabled={!supportsBluetooth() || !!busy} aria-busy={busy === 'bluetooth'} onClick={() => void connect('bluetooth')}>
+              {icon('bluetooth', Bluetooth)} Bluetooth
             </button>
-            <button className="btn" disabled={!supportsSerial() || busy} onClick={() => void connect('serial')}>
-              <Plug size={16} /> USB
+            <button className="btn" disabled={!supportsSerial() || !!busy} aria-busy={busy === 'serial'} onClick={() => void connect('serial')}>
+              {icon('serial', Plug)} USB
             </button>
-            <button className="btn btn-ghost" disabled={busy} onClick={() => void connect('demo')} title="Try the app without a printer">
-              <FlaskConical size={16} /> Demo
+            <button className="btn btn-ghost" disabled={!!busy} aria-busy={busy === 'demo'} onClick={() => void connect('demo')} title="Try the app without a printer">
+              {icon('demo', FlaskConical)} Demo
             </button>
           </div>
           {unsupportedReason('bluetooth') && <p className="muted small">{unsupportedReason('bluetooth')}.</p>}

@@ -1,5 +1,5 @@
 import * as Popover from '@radix-ui/react-popover';
-import { CircleHelp, Ellipsis, Eye, FilePlus2, FolderOpen, Info, LayoutTemplate, Library, Printer, Redo2, Save, Undo2 } from 'lucide-react';
+import { CircleHelp, Ellipsis, Eye, FilePlus2, FolderOpen, Info, LayoutTemplate, Library, Loader2, Printer, Redo2, Save, Undo2 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { LABEL_EXT } from '../files/fs-access';
 import type { PrinterStatus } from 'libniimai';
@@ -168,9 +168,10 @@ export function Header({ name, fileName, docPrinter, onRename, onSaveAs, onHome,
         aria-label={STATE_LABEL[printer.state]}
         title={STATE_LABEL[printer.state]}
       >
-        <span className="dot" />
+        {/* While connecting, a spinner takes the dot's place and the label stays, so the chip keeps its width. */}
+        {printer.state === 'connecting' ? <Loader2 size={14} className="spin chip-spin" aria-hidden="true" /> : <span className="dot" />}
         <span className="printer-chip-text">
-          {printer.state === 'disconnected' ? 'Connect' : (printer.profile?.name ?? printer.deviceName ?? 'Printer')}
+          {printer.state === 'disconnected' || printer.state === 'connecting' ? 'Connect' : (printer.profile?.name ?? printer.deviceName ?? 'Printer')}
         </span>
         {printer.battery !== undefined && <span className="battery">{printer.battery}%</span>}
       </button>

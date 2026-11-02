@@ -152,6 +152,11 @@ kbd {
   opacity: 0.45;
   cursor: default;
 }
+/* The button doing the work stays clear while the others wait. */
+.btn[aria-busy='true']:disabled {
+  opacity: 1;
+  cursor: progress;
+}
 .btn-primary {
   background: var(--primary);
   border-color: var(--primary);
@@ -295,6 +300,12 @@ kbd {
   border-radius: 50%;
   background: var(--muted);
   flex: none;
+}
+.printer-chip .chip-spin {
+  flex: none;
+  color: var(--warn);
+  /* Takes the 8 px of the dot it replaces. */
+  margin: 0 -3px;
 }
 .printer-chip.state-ready .dot {
   background: var(--ok);

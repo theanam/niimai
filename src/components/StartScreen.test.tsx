@@ -25,6 +25,20 @@ const renderStart = (onBrowseTemplates = vi.fn(), extra: Partial<Parameters<type
 };
 
 describe('start screen', () => {
+  it('shows a spinner on the connect button until the printer connects, keeping the button the same', async () => {
+    let done = () => {};
+    renderStart(vi.fn(), { onConnect: () => new Promise<void>((r) => (done = r)) });
+    const demo = screen.getByRole('button', { name: /Demo/ });
+    await userEvent.click(demo);
+    expect(demo).toHaveAttribute('aria-busy', 'true');
+    expect(demo.querySelector('.spin')).not.toBeNull();
+    expect(demo).toHaveTextContent('Demo');
+    expect(screen.getByRole('button', { name: /Bluetooth/ })).toBeDisabled();
+    done();
+    await waitFor(() => expect(demo).toHaveAttribute('aria-busy', 'false'));
+    expect(demo.querySelector('.spin')).toBeNull();
+  });
+
   it('filters templates as you type', async () => {
     renderStart();
     const suggested = screen.getByRole('list', { name: 'Suggested templates' });

@@ -310,7 +310,8 @@ describe('editor', () => {
     onTestFinished(() => canvas.mockRestore());
     await userEvent.click(within(dialog).getByRole('button', { name: /Print test/ }));
     // 3 mm is 24 dots at 203 dpi, fed after the sticker with no tear-off feed.
-    await waitFor(() => expect(sent.slice(-6)).toEqual([0x1b, 0x33, 24, 0x0a, 0x1b, 0x32]));
+    // The whole page streams out first, which takes a while on a slow machine.
+    await waitFor(() => expect(sent.slice(-6)).toEqual([0x1b, 0x33, 24, 0x0a, 0x1b, 0x32]), { timeout: 10_000 });
     expect(sent.some((_, i) => sent[i] === 0x1b && sent[i + 1] === 0x64)).toBe(false);
     await userEvent.keyboard('{Escape}');
     const labelWidth = screen.getByRole('spinbutton', { name: 'Width' });

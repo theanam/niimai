@@ -66,15 +66,125 @@ export function detectPlatform(ua = typeof navigator === 'undefined' ? '' : navi
   return 'desktop';
 }
 
+export type OperatingSystem = 'ios' | 'android' | 'chromeos' | 'linux' | 'mac' | 'windows' | 'other';
+export type BrowserName = 'chrome' | 'edge' | 'opera' | 'brave' | 'samsung' | 'bluefy' | 'firefox' | 'safari' | 'other';
+
+export interface BrowserInfo {
+  os: OperatingSystem;
+  browser: BrowserName;
+  /** Built on Chromium, so Web Bluetooth and Web Serial can be there. */
+  chromium: boolean;
+  /** Served over https or from localhost; browsers hide both APIs elsewhere. */
+  secure: boolean;
+}
+
+/** What the browser tells about itself. Defaults to the running browser. */
+export interface BrowserEnv {
+  ua: string;
+  touchPoints: number;
+  /** Brave hides itself in the user agent; it has `navigator.brave` instead. */
+  brave: boolean;
+  secure: boolean;
+}
+
+function currentEnv(): BrowserEnv {
+  if (typeof navigator === 'undefined') return { ua: '', touchPoints: 0, brave: false, secure: true };
+  return {
+    ua: navigator.userAgent,
+    touchPoints: navigator.maxTouchPoints,
+    brave: 'brave' in navigator,
+    secure: typeof window === 'undefined' || window.isSecureContext !== false,
+  };
+}
+
+export function detectBrowser(env: Partial<BrowserEnv> = {}): BrowserInfo {
+  const { ua, touchPoints, brave, secure } = { ...currentEnv(), ...env };
+  const platform = detectPlatform(ua, touchPoints);
+  const os: OperatingSystem =
+    platform !== 'desktop' ? platform : /CrOS/.test(ua) ? 'chromeos' : /Windows/.test(ua) ? 'windows' : /Macintosh|Mac OS X/.test(ua) ? 'mac' : /Linux|X11|BSD/.test(ua) ? 'linux' : 'other';
+  const browser: BrowserName = brave
+    ? 'brave'
+    : /Bluefy/i.test(ua)
+      ? 'bluefy'
+      : /Firefox|FxiOS/.test(ua)
+        ? 'firefox'
+        : /Edg(e|A|iOS)?\//.test(ua)
+          ? 'edge'
+          : /OPR\/|Opera/.test(ua)
+            ? 'opera'
+            : /SamsungBrowser/.test(ua)
+              ? 'samsung'
+              : /Chrome\/|CriOS|Chromium/.test(ua)
+                ? 'chrome'
+                : /Safari\//.test(ua)
+                  ? 'safari'
+                  : 'other';
+  // Every iOS browser runs on WebKit, whatever its name.
+  const chromium = os !== 'ios' && /Chrome\/|Chromium/.test(ua);
+  return { os, browser, chromium, secure };
+}
+
 /**
- * Why a connection type cannot be used in this browser, in a few words, or
- * null when it can. iOS browsers all run on WebKit, which has neither Web
- * Bluetooth nor Web Serial; Bluefy adds Web Bluetooth there.
+ * A Help topic that shows how to get a connection type working:
+ * - `linux`: Chrome and other Chromium browsers on Linux need a flag for Bluetooth.
+ * - `brave`: Brave keeps Bluetooth and USB behind flags.
+ * - `ios`: iPhone and iPad browsers, and Bluefy.
+ * - `https`: the page has to be served over https.
+ * - `browsers`: which browsers work.
  */
-export function unsupportedReason(kind: ConnectionKind, platform: Platform = detectPlatform()): string | null {
+export type SetupTopic = 'linux' | 'brave' | 'ios' | 'https' | 'browsers';
+
+export interface SupportIssue {
+  /** In a few words, what is missing or what to do. */
+  reason: string;
+  topic: SetupTopic;
+}
+
+const BROWSER_NAMES: Partial<Record<BrowserName, string>> = { firefox: 'Firefox', safari: 'Safari', samsung: 'Samsung Internet', opera: 'Opera' };
+
+/**
+ * Why a connection type cannot be used in this browser, and where to read how
+ * to fix it, or null when it can be used.
+ */
+export function supportIssue(kind: ConnectionKind, env: Partial<BrowserEnv> = {}): SupportIssue | null {
   if (kind === 'demo') return null;
   if (kind === 'bluetooth' ? supportsBluetooth() : supportsSerial()) return null;
-  if (platform === 'ios') return kind === 'bluetooth' ? 'On iPhone and iPad, use the Bluefy browser' : 'Not available on iPhone and iPad';
-  if (platform === 'android') return 'Open niimai in Chrome';
-  return 'Needs Chrome or Edge';
+  const { os, browser, chromium, secure } = detectBrowser(env);
+  const bluetooth = kind === 'bluetooth';
+  if (os === 'ios') return { reason: bluetooth ? 'On iPhone and iPad, use the Bluefy browser' : 'Not available on iPhone and iPad', topic: 'ios' };
+  if (!secure && chromium) return { reason: 'Needs an https page', topic: 'https' };
+  if (browser === 'brave') return { reason: 'Turn it on in Brave flags', topic: 'brave' };
+  if (os === 'android') {
+    if (!bluetooth) return { reason: 'Needs Chrome or Edge on a computer', topic: 'browsers' };
+    return { reason: browser === 'chrome' ? 'Update Chrome' : 'Open niimai in Chrome', topic: 'browsers' };
+  }
+  if (bluetooth && os === 'linux' && chromium) return { reason: 'Needs a Chrome flag on Linux', topic: 'linux' };
+  const name = BROWSER_NAMES[browser];
+  if (name) return { reason: `${name} has no ${bluetooth ? 'Bluetooth' : 'USB'} access; use Chrome or Edge`, topic: 'browsers' };
+  if (chromium) return { reason: 'Turned off in this browser', topic: 'browsers' };
+  return { reason: 'Needs Chrome or Edge', topic: 'browsers' };
+}
+
+/** Stand-ins for the platform-only signature below. */
+const PLATFORM_ENVS: Record<Platform, Partial<BrowserEnv>> = {
+  ios: { ua: 'iPhone', touchPoints: 5, brave: false },
+  android: { ua: 'Android Firefox', touchPoints: 5, brave: false },
+  desktop: { ua: '', touchPoints: 0, brave: false },
+};
+
+/** supportIssue's reason alone. */
+export function unsupportedReason(kind: ConnectionKind, platform?: Platform): string | null {
+  return supportIssue(kind, platform ? PLATFORM_ENVS[platform] : {})?.reason ?? null;
+}
+
+/**
+ * Errors browsers raise when Bluetooth is there but cannot be used: the
+ * adapter is off or missing, or the browser turned the API off. The Help topic
+ * to point to, or null.
+ */
+export function connectErrorTopic(err: unknown): SetupTopic | null {
+  const message = err instanceof Error ? err.message : String(err);
+  if (/globally disabled/i.test(message)) return 'brave';
+  if (/adapter not available|Bluetooth adapter|Bluetooth is (turned off|disabled|not available)/i.test(message)) return detectBrowser().os === 'linux' ? 'linux' : 'browsers';
+  return null;
 }

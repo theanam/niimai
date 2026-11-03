@@ -39,6 +39,13 @@ describe('start screen', () => {
     expect(demo.querySelector('.spin')).toBeNull();
   });
 
+  it('says why Bluetooth is unavailable and links to the fix', () => {
+    renderStart();
+    // jsdom has no Web Bluetooth.
+    expect(screen.getByText(/Needs Chrome or Edge\./)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'How to fix' })).toHaveAttribute('href', '#/help/browsers');
+  });
+
   it('filters templates as you type', async () => {
     renderStart();
     const suggested = screen.getByRole('list', { name: 'Suggested templates' });

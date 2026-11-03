@@ -50,6 +50,7 @@ describe('printer dialog', () => {
     // jsdom has neither Web Bluetooth nor Web Serial.
     expect(screen.getByRole('button', { name: 'Bluetooth' })).toBeDisabled();
     expect(screen.getAllByText(/Needs Chrome or Edge/).length).toBe(2);
+    expect(screen.getByRole('link', { name: 'How to fix Bluetooth and USB' })).toHaveAttribute('href', '#/help/browsers');
     await userEvent.click(screen.getByRole('button', { name: 'Demo printer' }));
     expect(onConnect).toHaveBeenCalledWith('demo');
   });

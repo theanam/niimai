@@ -1,5 +1,6 @@
-import { Bluetooth, Braces, Bug, Cable, Cat, Crosshair, Keyboard, LayoutTemplate, Mail, Printer, RectangleHorizontal, ScanLine, Sparkles } from 'lucide-react';
-import { CAT_MODELS, CAT_UNSUPPORTED, type Confidence, ESCPOS_MODELS, type ThermalModel, TSPL_MODELS } from 'libniimai';
+import { Bluetooth, Braces, Bug, Cable, Cat, Check, Copy, Crosshair, Globe, Keyboard, LayoutTemplate, Mail, Printer, RectangleHorizontal, ScanLine, Sparkles } from 'lucide-react';
+import { CAT_MODELS, CAT_UNSUPPORTED, type Confidence, detectBrowser, ESCPOS_MODELS, type SetupTopic, supportIssue, type ThermalModel, TSPL_MODELS } from 'libniimai';
+import { type ReactNode, useEffect, useState } from 'react';
 import { replayTour } from '../tour/Tour';
 import { shortcutLabel } from '../shortcuts/shortcuts';
 import { CONTACT_EMAIL, ISSUES_URL } from '../ui/links';
@@ -57,6 +58,137 @@ const SHORTCUTS: [string, string][] = [
   ['Shift (resize)', 'Keep proportions'],
 ];
 
+/** The setup topic in `#/help/<topic>`, if any. */
+const topicInHash = () => window.location.hash.replace(/^#\/?help\/?/, '').split(/[?/]/)[0];
+
+/** A flag or command to paste; browsers do not open chrome:// links from a page. */
+function CopyCode({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <span className="copy-code">
+      <code>{text}</code>
+      <button
+        className="icon-btn"
+        aria-label={`Copy ${text}`}
+        title="Copy"
+        onClick={() => {
+          void navigator.clipboard?.writeText(text).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+          });
+        }}
+      >
+        {copied ? <Check size={14} /> : <Copy size={14} />}
+      </button>
+    </span>
+  );
+}
+
+const TOPICS: SetupTopic[] = ['browsers', 'linux', 'brave', 'ios', 'https'];
+
+/** Which topic applies to this browser, so Help can mark it. */
+function ownTopic(): SetupTopic | null {
+  const issue = supportIssue('bluetooth') ?? supportIssue('serial');
+  if (issue) return issue.topic;
+  const { os, chromium } = detectBrowser();
+  return os === 'linux' && chromium ? 'linux' : null;
+}
+
+function BrowserSetup() {
+  const [target, setTarget] = useState<string>(topicInHash);
+  const mine = ownTopic();
+  useEffect(() => {
+    const on = () => setTarget(topicInHash());
+    window.addEventListener('hashchange', on);
+    return () => window.removeEventListener('hashchange', on);
+  }, []);
+  useEffect(() => {
+    if (!TOPICS.includes(target as SetupTopic)) return;
+    document.getElementById(`setup-${target}`)?.scrollIntoView?.({ block: 'start' });
+  }, [target]);
+  const topic = (id: SetupTopic, title: string, body: ReactNode) => (
+    <div id={`setup-${id}`} className={`setup-topic${id === target ? ' setup-target' : ''}`}>
+      <h3>
+        {title}
+        {id === mine && <span className="setup-mine">This browser</span>}
+      </h3>
+      {body}
+    </div>
+  );
+  return (
+    <section>
+      <h2>
+        <Globe size={18} /> Browser setup
+      </h2>
+      {topic(
+        'browsers',
+        'Which browsers work',
+        <>
+          <p>
+            Bluetooth works in Chrome, Edge and Opera on Windows, macOS and ChromeOS, and in Chrome on Android. USB works in
+            the same browsers on a computer. Firefox and Safari cannot reach printers. Designing and browser printing work
+            everywhere.
+          </p>
+          <p>If Chrome says Bluetooth is unavailable, check that Bluetooth is on in the system settings and that Chrome is up to date.</p>
+        </>,
+      )}
+      {topic(
+        'linux',
+        'Chrome on Linux',
+        <>
+          <p>Chrome, Edge and other Chromium browsers keep Bluetooth behind a flag on Linux.</p>
+          <ol>
+            <li>
+              Open <CopyCode text="chrome://flags/#enable-web-bluetooth" /> in a new tab. In Edge, start with{' '}
+              <code>edge://</code>; in Opera, <code>opera://</code>.
+            </li>
+            <li>Set Web Bluetooth to Enabled and relaunch the browser.</li>
+            <li>
+              Still unavailable? Also enable <CopyCode text="chrome://flags/#enable-experimental-web-platform-features" />
+            </li>
+          </ol>
+          <p>
+            Bluetooth needs BlueZ 5.41 or newer with the bluetooth service running. USB works without a flag; if the port
+            cannot be opened, add yourself to the dialout group, then log out and back in:
+          </p>
+          <p>
+            <CopyCode text="sudo usermod -aG dialout $USER" />
+          </p>
+        </>,
+      )}
+      {topic(
+        'brave',
+        'Brave',
+        <ol>
+          <li>
+            Open <CopyCode text="brave://flags" /> in a new tab.
+          </li>
+          <li>Search for Web Bluetooth API and Web Serial API, set both to Enabled, then relaunch.</li>
+          <li>
+            On Linux, also enable <CopyCode text="brave://flags/#enable-web-bluetooth" />
+          </li>
+        </ol>,
+      )}
+      {topic(
+        'ios',
+        'iPhone and iPad',
+        <p>
+          Every iPhone and iPad browser runs on Safari's engine, which has no Bluetooth or USB access. The free Bluefy
+          browser adds Bluetooth: install it from the App Store and open niimai.app there.
+        </p>,
+      )}
+      {topic(
+        'https',
+        'Secure page',
+        <p>
+          Browsers only allow Bluetooth and USB on https pages and on localhost. Open niimai.app, or serve your own copy
+          over https.
+        </p>,
+      )}
+    </section>
+  );
+}
+
 export function Help() {
   return (
     <PageShell title="Help">
@@ -81,11 +213,10 @@ export function Help() {
           <li>Pick your printer from the browser's list.</li>
         </ol>
         <p>
-          Bluetooth printing works in Chrome and Edge on desktop, and in Chrome on Android. USB works in Chrome and Edge on
-          desktop; niimai shows the USB option wherever the browser supports it. iPhone and iPad browsers cannot reach
-          printers; the Bluefy browser adds Bluetooth on iOS. Designing labels works everywhere.
+          Bluetooth and USB need a supported browser, and some need a setting turned on first. <a href="#/help/browsers">Browser setup</a> shows what to do for yours.
         </p>
       </section>
+      <BrowserSetup />
       <section>
         <h2>
           <ScanLine size={18} /> Printer not recognised?

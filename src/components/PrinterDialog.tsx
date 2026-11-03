@@ -1,12 +1,13 @@
 import * as RD from '@radix-ui/react-dialog';
-import { ArrowDownToLine, ArrowUpFromLine, BatteryMedium, Bluetooth, ChevronRight, Crosshair, Ruler, FlaskConical, Loader2, MoveHorizontal, MoveVertical, Plug, Printer, RotateCcw, ScanLine, TriangleAlert, Unplug, X } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpFromLine, BatteryMedium, Bluetooth, ChevronRight, CircleHelp, Crosshair, Ruler, FlaskConical, Loader2, MoveHorizontal, MoveVertical, Plug, Printer, RotateCcw, ScanLine, TriangleAlert, Unplug, X } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { sizeLabel, type LabelSize } from '../doc/model';
-import { type ConnectionKind, findPrinterType, MANUAL_PROFILES, PRINTER_TYPES, type PrinterStatus, printheadMm, type PrintOffset, unsupportedReason } from 'libniimai';
+import { type ConnectionKind, findPrinterType, MANUAL_PROFILES, PRINTER_TYPES, type PrinterStatus, printheadMm, type PrintOffset, supportIssue, type SupportIssue } from 'libniimai';
 import { NumberField } from './fields';
 import { DEFAULT_GAP_MM, MAX_GAP_MM, MAX_LENGTH_MM, MAX_PAPER_MM, MIN_LENGTH_MM, MIN_PAPER_MM } from '../printer/thermalPaper';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
+import { connectFailed, setupHref } from '../ui/setup';
 
 interface Props {
   open: boolean;
@@ -51,7 +52,7 @@ interface Option {
   title: string;
   hint: string;
   /** Why the option cannot be used here, if it cannot. */
-  unavailable?: string;
+  unavailable?: SupportIssue | null;
 }
 
 function Meter({ icon, label, value, detail, fraction, low }: { icon: ReactNode; label: string; value: string; detail?: string; fraction?: number; low?: boolean }) {
@@ -75,8 +76,8 @@ function Meter({ icon, label, value, detail, fraction, low }: { icon: ReactNode;
 function Connect({ onConnect }: Pick<Props, 'onConnect'>) {
   const [busy, setBusy] = useState<ConnectionKind | null>(null);
   const options: Option[] = [
-    { kind: 'bluetooth', icon: Bluetooth, title: 'Bluetooth', hint: 'Wireless. Works with most models.', unavailable: unsupportedReason('bluetooth') ?? undefined },
-    { kind: 'serial', icon: Plug, title: 'USB cable', hint: 'For printers with a USB port.', unavailable: unsupportedReason('serial') ?? undefined },
+    { kind: 'bluetooth', icon: Bluetooth, title: 'Bluetooth', hint: 'Wireless. Works with most models.', unavailable: supportIssue('bluetooth') },
+    { kind: 'serial', icon: Plug, title: 'USB cable', hint: 'For printers with a USB port.', unavailable: supportIssue('serial') },
     { kind: 'demo', icon: FlaskConical, title: 'Demo printer', hint: 'Try everything without hardware.' },
   ];
 
@@ -85,11 +86,16 @@ function Connect({ onConnect }: Pick<Props, 'onConnect'>) {
     try {
       await onConnect(kind);
     } catch (err) {
-      toast.error((err as Error).message);
+      connectFailed(err);
     } finally {
       setBusy(null);
     }
   };
+  // One link per fix; Brave, say, needs the same one for both.
+  const fixes = [...new Set(options.flatMap((o) => (o.unavailable ? [o.unavailable.topic] : [])))].map((topic) => ({
+    topic,
+    names: options.filter((o) => o.unavailable?.topic === topic).map((o) => o.title.replace(' cable', '')),
+  }));
 
   return (
     <>
@@ -106,12 +112,17 @@ function Connect({ onConnect }: Pick<Props, 'onConnect'>) {
             <span className="pd-option-icon">{busy === kind ? <Loader2 size={20} className="spin" /> : <Icon size={20} />}</span>
             <span className="pd-option-text">
               <strong>{title}</strong>
-              <small>{busy === kind && kind !== 'demo' ? 'Pick your printer in the browser window' : (unavailable ?? hint)}</small>
+              <small>{busy === kind && kind !== 'demo' ? 'Pick your printer in the browser window' : (unavailable?.reason ?? hint)}</small>
             </span>
             <ChevronRight size={18} className="pd-option-go" />
           </button>
         ))}
       </div>
+      {fixes.map(({ topic, names }) => (
+        <a key={topic} className="pd-setup" href={setupHref(topic)}>
+          <CircleHelp size={15} /> How to fix {names.join(' and ')}
+        </a>
+      ))}
     </>
   );
 }

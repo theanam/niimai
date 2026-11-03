@@ -42,8 +42,8 @@ export function createPrinter(options: CreatePrinterOptions = {}): PrinterServic
 export { PrinterService, DEMO_NAME, friendlyError, fitToPrinthead, rotateCanvas, shiftCanvas } from './service';
 export type { ClientFactory, PageSource, PrinterState, PrinterStatus, PrintOffset, PrintOptions, Rotation } from './service';
 
-export { detectPlatform, supportsBluetooth, supportsSerial, unsupportedReason } from './client';
-export type { ClientLike, ConnectionKind, Platform, PrintTaskLike } from './client';
+export { connectErrorTopic, detectBrowser, detectPlatform, supportIssue, supportsBluetooth, supportsSerial, unsupportedReason } from './client';
+export type { BrowserEnv, BrowserInfo, BrowserName, ClientLike, ConnectionKind, OperatingSystem, Platform, PrintTaskLike, SetupTopic, SupportIssue } from './client';
 
 export { correctTask, findManualProfile, inkOutsideHead, MANUAL_PROFILES, printheadCrop, printheadMm, resolveProfile } from './profiles';
 export type { LabelSize, PrintDirection, PrinterProfile } from './profiles';

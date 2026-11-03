@@ -1,8 +1,7 @@
 import { ArrowRight, Battery, Bluetooth, Check, ChevronDown, ChevronRight, ChevronUp, FilePlus2, FlaskConical, LayoutTemplate, Loader2, Plug, Printer, ScanLine, Search, Settings, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { toast } from 'sonner';
 import { LABEL_PRESETS, type LabelDoc, type LabelSize, sizeLabel } from '../doc/model';
-import { type ConnectionKind, type PrinterStatus, supportsBluetooth, supportsSerial, THERMAL_DEFAULT_SIZE, unsupportedReason } from 'libniimai';
+import { type ConnectionKind, type PrinterStatus, supportsBluetooth, supportsSerial, supportIssue, THERMAL_DEFAULT_SIZE } from 'libniimai';
 import { sameSize, type RollState } from '../printer/roll';
 import { ensureFont } from '../render/fonts';
 import { deleteLabel, listLabels } from '../storage/db';
@@ -11,6 +10,7 @@ import { IconButton } from '../ui/IconButton';
 import { filterTemplates, labelFromTemplate, TEMPLATE_FONTS, TEMPLATES, templatePreview, templatesForSize } from '../templates';
 import { CONTINUOUS_TEMPLATES } from '../templates/continuous';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
+import { connectFailed, SupportNote } from '../ui/setup';
 import { NumberField } from './fields';
 import { LabelSilhouette } from './LabelSizePicker';
 import { LabelThumb, templateLabel, type TemplateSeed } from './LibraryDialog';
@@ -50,7 +50,7 @@ function PrinterCard({ status, roll, stickerGap, paperWidth = THERMAL_DEFAULT_SI
     try {
       await onConnect(kind);
     } catch (err) {
-      toast.error((err as Error).message);
+      connectFailed(err);
     } finally {
       setBusy(null);
     }
@@ -155,7 +155,10 @@ function PrinterCard({ status, roll, stickerGap, paperWidth = THERMAL_DEFAULT_SI
               {icon('demo', FlaskConical)} Demo
             </button>
           </div>
-          {unsupportedReason('bluetooth') && <p className="muted small">{unsupportedReason('bluetooth')}.</p>}
+          {(() => {
+            const issue = supportIssue('bluetooth') ?? supportIssue('serial');
+            return issue && <SupportNote issue={issue} />;
+          })()}
           <div className="start-printer-art" aria-hidden="true">
             <Printer size={40} strokeWidth={1.4} />
             <div className="start-models">

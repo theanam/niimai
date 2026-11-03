@@ -160,11 +160,13 @@ Every piece is exported, for building your own flow:
 - `TsplPrinterClient`, `EscPosPrinterClient` and `CatPrinterClient` take any `ThermalTransport`, so they also work over other links.
 - `tsplJob`, `escposJob` and `catJob` build the bytes for one page; `escposFeed` and `catFeed` the bytes that move the paper.
 - `identifyPrinter(name)` matches a Bluetooth name to a known model across every family, from `PRINTER_CATALOG`; `tsplModelFor`, `escposModelFor` and `catModelFor` look in one family.
-- `unsupportedReason(kind)` says in a few words why a connection type cannot be used in the current browser.
+- `supportIssue(kind)` says why a connection type cannot be used in the current browser, as `{ reason, topic }`, or null when it can. `topic` names what fixes it: `linux` (a Chrome flag), `brave` (Brave flags), `ios`, `https` or `browsers`. `unsupportedReason(kind)` returns the reason alone.
+- `detectBrowser()` returns the system, the browser and whether it is built on Chromium.
+- `connectErrorTopic(err)` maps a connect error from a browser that has Bluetooth but cannot use it (adapter off, API turned off) to the same topics.
 
 ## Browsers
 
-Needs Web Bluetooth or Web Serial: Chrome or Edge on desktop, or Chrome on Android. On iPhone and iPad, the Bluefy browser adds Web Bluetooth.
+Needs Web Bluetooth or Web Serial: Chrome or Edge on desktop, or Chrome on Android. On iPhone and iPad, the Bluefy browser adds Web Bluetooth. On Linux, Chrome needs `chrome://flags/#enable-web-bluetooth` turned on; Brave keeps both APIs behind `brave://flags`.
 
 ## Feedback
 

@@ -145,7 +145,7 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
 /** Translates the library's error codes and messages into short, readable ones. */
 export function friendlyError(err: unknown): string {
   const msg = err instanceof Error ? err.message : String(err);
-  if (/user cancelled|no device selected|chooser/i.test(msg)) return 'Connection cancelled';
+  if (/user cancelled|no (device|port) selected|chooser/i.test(msg)) return 'Connection cancelled';
   if (/timeout waiting for the printer to finish/i.test(msg)) return 'The printer did not confirm the print';
   if (/timeout/i.test(msg)) return 'Printer stopped responding';
   if (/lid|cover/i.test(msg)) return 'Close the printer lid';

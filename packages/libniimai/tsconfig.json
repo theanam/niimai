@@ -11,7 +11,7 @@
     "skipLibCheck": true,
     "isolatedModules": true,
     "noEmit": true,
-    "types": ["vitest/globals", "web-bluetooth", "node"],
+    "types": ["vitest/globals", "web-bluetooth", "w3c-web-usb", "node"],
     "resolveJsonModule": true
   },
   "include": ["src", "test", "vite.config.ts"]

@@ -17,7 +17,7 @@ function imports(file: string, { values = false } = {}): string[] {
 /** Each printer family's own code. */
 const FAMILIES = ['escpos.ts', 'cat.ts', 'tspl.ts'];
 /** The NIIMBOT path and the parts every printer shares. */
-const CORE = ['service.ts', 'client.ts', 'profiles.ts', 'paper.ts', 'ble.ts', 'mock.ts'];
+const CORE = ['service.ts', 'client.ts', 'profiles.ts', 'paper.ts', 'ble.ts', 'mock.ts', 'routed.ts'];
 
 describe('libniimai stands alone', () => {
   it('imports nothing from outside the package', () => {
@@ -46,6 +46,10 @@ describe('libniimai stands alone', () => {
   it('meets every family in one place only: the Bluetooth router and the catalog', () => {
     const mixers = sources.filter((f) => imports(f, { values: true }).filter((i) => FAMILIES.includes(i)).length > 1);
     expect(mixers.sort()).toEqual(['bluetooth.ts', 'catalog.ts']);
+  });
+
+  it('reaches label and receipt printers over USB only through the catalog', () => {
+    expect(imports('usb.ts', { values: true }).filter((f) => FAMILIES.includes(f) || f === 'bluetooth.ts')).toEqual([]);
   });
 
   it('loads niimbluelib only on demand, so pages that never meet a NIIMBOT never load it', () => {

@@ -46,6 +46,22 @@ describe('start screen', () => {
     expect(screen.getByRole('link', { name: 'How to fix' })).toHaveAttribute('href', '#/help/browsers');
   });
 
+  it('offers the other USB list when the browser has both', async () => {
+    const onConnect = vi.fn(async () => {});
+    Object.defineProperty(navigator, 'serial', { value: {}, configurable: true });
+    Object.defineProperty(navigator, 'usb', { value: { getDevices: async () => [], addEventListener() {}, removeEventListener() {} }, configurable: true });
+    try {
+      renderStart(vi.fn(), { onConnect });
+      await userEvent.click(screen.getByRole('button', { name: /^USB$/ }));
+      expect(onConnect).toHaveBeenLastCalledWith('serial');
+      await userEvent.click(screen.getByRole('button', { name: 'USB printer not listed?' }));
+      expect(onConnect).toHaveBeenLastCalledWith('usb');
+    } finally {
+      delete (navigator as unknown as Record<string, unknown>).serial;
+      delete (navigator as unknown as Record<string, unknown>).usb;
+    }
+  });
+
   it('filters templates as you type', async () => {
     renderStart();
     const suggested = screen.getByRole('list', { name: 'Suggested templates' });

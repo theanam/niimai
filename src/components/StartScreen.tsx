@@ -1,7 +1,8 @@
 import { ArrowRight, Battery, Bluetooth, Check, ChevronDown, ChevronRight, ChevronUp, FilePlus2, FlaskConical, LayoutTemplate, Loader2, Plug, Printer, ScanLine, Search, Settings, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { LABEL_PRESETS, type LabelDoc, type LabelSize, sizeLabel } from '../doc/model';
-import { type ConnectionKind, type PrinterStatus, supportsBluetooth, supportsSerial, supportIssue, THERMAL_DEFAULT_SIZE } from 'libniimai';
+import { type ConnectionKind, type PrinterStatus, supportsBluetooth, supportIssue, THERMAL_DEFAULT_SIZE } from 'libniimai';
+import { useUsbRoute } from '../printer/usbRoute';
 import { sameSize, type RollState } from '../printer/roll';
 import { ensureFont } from '../render/fonts';
 import { deleteLabel, listLabels } from '../storage/db';
@@ -28,6 +29,8 @@ interface Props {
   /** Size for blank labels and template suggestions when no roll is loaded. */
   defaultSize: LabelSize;
   onConnect: (kind: ConnectionKind) => Promise<void>;
+  /** The printer type picked under Advanced, which steers USB to label and receipt printers. */
+  printerType?: string | null;
   onSetRollSize: () => void;
   /** Opens the printer window: paper feed, print position and the rest. */
   onPrinterSettings: () => void;
@@ -37,7 +40,8 @@ interface Props {
 }
 
 
-function PrinterCard({ status, roll, stickerGap, paperWidth = THERMAL_DEFAULT_SIZE.widthMm, labelLength, onLabelLength, onConnect, onSetRollSize, onPrinterSettings, onBlank, onBrowseTemplates }: Pick<Props, 'status' | 'roll' | 'stickerGap' | 'paperWidth' | 'labelLength' | 'onLabelLength' | 'onConnect' | 'onSetRollSize' | 'onPrinterSettings' | 'onBlank' | 'onBrowseTemplates'>) {
+function PrinterCard({ status, roll, stickerGap, paperWidth = THERMAL_DEFAULT_SIZE.widthMm, labelLength, onLabelLength, onConnect, printerType = null, onSetRollSize, onPrinterSettings, onBlank, onBrowseTemplates }: Pick<Props, 'status' | 'roll' | 'stickerGap' | 'paperWidth' | 'labelLength' | 'onLabelLength' | 'onConnect' | 'printerType' | 'onSetRollSize' | 'onPrinterSettings' | 'onBlank' | 'onBrowseTemplates'>) {
+  const usb = useUsbRoute(printerType);
   /** The connection being made; its button shows a spinner in place of its icon. */
   const [busy, setBusy] = useState<ConnectionKind | null>(null);
   /** Length of a new label on continuous paper. */
@@ -148,17 +152,24 @@ function PrinterCard({ status, roll, stickerGap, paperWidth = THERMAL_DEFAULT_SI
             <button className="btn btn-primary" disabled={!supportsBluetooth() || !!busy} aria-busy={busy === 'bluetooth'} onClick={() => void connect('bluetooth')}>
               {icon('bluetooth', Bluetooth)} Bluetooth
             </button>
-            <button className="btn" disabled={!supportsSerial() || !!busy} aria-busy={busy === 'serial'} onClick={() => void connect('serial')}>
-              {icon('serial', Plug)} USB
+            <button className="btn" disabled={!!supportIssue(usb.primary) || !!busy} aria-busy={busy === 'serial' || busy === 'usb'} onClick={() => void connect(usb.primary)}>
+              {icon(busy === 'usb' ? 'usb' : 'serial', Plug)} USB
             </button>
             <button className="btn btn-ghost" disabled={!!busy} aria-busy={busy === 'demo'} onClick={() => void connect('demo')} title="Try the app without a printer">
               {icon('demo', FlaskConical)} Demo
             </button>
           </div>
           {(() => {
-            const issue = supportIssue('bluetooth') ?? supportIssue('serial');
+            const issue = supportIssue('bluetooth') ?? supportIssue(usb.primary);
             return issue && <SupportNote issue={issue} />;
           })()}
+          {usb.other && (
+            <p className="muted small">
+              <button className="link-btn" disabled={!!busy} onClick={() => void connect(usb.other!)}>
+                USB printer not listed?
+              </button>
+            </p>
+          )}
           <div className="start-printer-art" aria-hidden="true">
             <Printer size={40} strokeWidth={1.4} />
             <div className="start-models">
@@ -332,6 +343,7 @@ export function StartScreen(props: Props) {
               labelLength={props.labelLength}
               onLabelLength={props.onLabelLength}
               onConnect={props.onConnect}
+              printerType={props.printerType}
               onSetRollSize={props.onSetRollSize}
               onPrinterSettings={props.onPrinterSettings}
               onBlank={props.onBlank}

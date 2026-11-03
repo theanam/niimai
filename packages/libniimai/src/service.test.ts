@@ -164,6 +164,8 @@ describe('printer service', () => {
   });
 
   it('maps common error messages', () => {
+    expect(friendlyError(new Error("Failed to execute 'requestPort' on 'Serial': No port selected by the user."))).toBe('Connection cancelled');
+    expect(friendlyError(new Error("Failed to execute 'requestDevice' on 'USB': No device selected."))).toBe('Connection cancelled');
     expect(friendlyError(new Error('GATT Server is disconnected'))).toBe('Printer disconnected');
     expect(friendlyError('weird')).toBe('weird');
   });

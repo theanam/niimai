@@ -26,6 +26,8 @@ export interface ThermalModel {
   brand?: string;
   /** Dots across the head, where it differs from the family's usual one: 576 on 80 mm receipt printers. */
   headDots?: number;
+  /** USB vendor and product IDs, for printers that also connect by cable as a standard USB printer. */
+  usbIds?: [vendorId: number, productId: number][];
 }
 
 /** The name a printer shows: its model, or its own Bluetooth name when the model entry is only a brand or a stock name. */
@@ -63,9 +65,11 @@ export function packRows(data: ArrayLike<number>, width: number, height: number,
   return rows;
 }
 
-/** The Bluetooth link, kept narrow so tests can stand in for it. */
+/** The Bluetooth or USB link, kept narrow so tests can stand in for it. */
 export interface ThermalTransport {
   name?: string;
+  /** Bytes per write, for links that take more than Bluetooth's cautious start. */
+  chunkBytes?: number;
   write(chunk: Uint8Array): Promise<void>;
   onNotify(fn: (data: Uint8Array) => void): void;
   onDisconnect(fn: () => void): void;
@@ -117,7 +121,7 @@ export abstract class ThermalPrinterClient implements ClientLike {
     protected pace: Pace,
     firstChunk: number,
   ) {
-    this.chunk = firstChunk;
+    this.chunk = transport.chunkBytes ?? firstChunk;
     transport.onDisconnect(() => {
       this.connected = false;
       this.emit('disconnect', {});

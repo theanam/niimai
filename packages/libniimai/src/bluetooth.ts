@@ -5,6 +5,7 @@ import { ESCPOS_ALT_SERVICE, ESCPOS_ALT_WRITE, ESCPOS_SERVICE, ESCPOS_WRITE, Esc
 import { TSPL_NOTIFY, TSPL_SERVICE, TSPL_WRITE, TsplPrinterClient } from './tspl';
 import { webTransport } from './thermal';
 import type { ClientLike } from './client';
+import { RoutedClient } from './routed';
 
 type Lib = typeof import('@mmote/niimbluelib');
 
@@ -58,14 +59,9 @@ function looksNiimbot(lib: Lib, name: string | undefined): boolean {
  * the TSPL client; and everything else the NIIMBOT client exactly as before.
  * Known names never overlap, so each printer matches one client at most.
  */
-export class BluetoothPrinter implements ClientLike {
-  private inner: ClientLike | null = null;
-
-  constructor(private lib: () => Promise<Lib>) {}
-
-  private get client(): ClientLike {
-    if (!this.inner) throw new Error('Not connected');
-    return this.inner;
+export class BluetoothPrinter extends RoutedClient {
+  constructor(private lib: () => Promise<Lib>) {
+    super();
   }
 
   /** The kind of printer to treat an unrecognised one as; null leaves it to NIIMBOT. */
@@ -101,73 +97,5 @@ export class BluetoothPrinter implements ClientLike {
       if (looksNiimbot(lib, device.name)) throw err;
       throw new Error(`${device.name ?? 'This printer'} did not answer as a NIIMBOT. If it is another kind, pick its type under Advanced and connect again.`);
     }
-  }
-
-  async disconnect() {
-    await this.inner?.disconnect();
-  }
-
-  isConnected() {
-    return !!this.inner?.isConnected();
-  }
-
-  on(event: string, fn: (e: any) => void) {
-    return this.client.on(event, fn);
-  }
-
-  off(event: string, fn: (e: any) => void) {
-    return this.inner?.off(event, fn);
-  }
-
-  getPrinterInfo() {
-    return this.inner?.getPrinterInfo() ?? {};
-  }
-
-  getModelMetadata() {
-    return this.inner?.getModelMetadata();
-  }
-
-  getPrintTaskType() {
-    return this.inner?.getPrintTaskType();
-  }
-
-  getRfidInfo() {
-    return this.inner?.getRfidInfo() ?? {};
-  }
-
-  fetchRfidInfo() {
-    return this.client.fetchRfidInfo();
-  }
-
-  startHeartbeat() {
-    this.inner?.startHeartbeat();
-  }
-
-  stopHeartbeat() {
-    this.inner?.stopHeartbeat();
-  }
-
-  isHeartbeatStarted() {
-    return !!this.inner?.isHeartbeatStarted?.();
-  }
-
-  get protocol() {
-    return this.client.protocol;
-  }
-
-  get encodePage() {
-    return this.inner?.encodePage?.bind(this.inner);
-  }
-
-  get rollKey() {
-    return this.inner?.rollKey?.bind(this.inner);
-  }
-
-  get feedPaper() {
-    return this.inner?.feedPaper?.bind(this.inner);
-  }
-
-  get feedsBack() {
-    return this.inner?.feedsBack;
   }
 }

@@ -55,6 +55,22 @@ describe('printer dialog', () => {
     expect(onConnect).toHaveBeenCalledWith('demo');
   });
 
+  it('sends USB to printers when a label printer type is picked', async () => {
+    const onConnect = vi.fn(async () => {});
+    Object.defineProperty(navigator, 'serial', { value: {}, configurable: true });
+    Object.defineProperty(navigator, 'usb', { value: { getDevices: async () => [], addEventListener() {}, removeEventListener() {} }, configurable: true });
+    try {
+      renderApp(<PrinterDialog {...base} manualProfileId="tspl" status={{ state: 'disconnected', profile: null }} onConnect={onConnect} />);
+      await userEvent.click(screen.getByRole('button', { name: 'USB cable' }));
+      expect(onConnect).toHaveBeenLastCalledWith('usb');
+      await userEvent.click(screen.getByRole('button', { name: /USB printer not listed/ }));
+      expect(onConnect).toHaveBeenLastCalledWith('serial');
+    } finally {
+      delete (navigator as unknown as Record<string, unknown>).serial;
+      delete (navigator as unknown as Record<string, unknown>).usb;
+    }
+  });
+
   it('shows the connected printer with battery and roll meters', () => {
     renderApp(
       <PrinterDialog {...base} status={ready({ label: { remaining: 137, capacity: 276 } })} rollSize={{ widthMm: 50, heightMm: 30 }} />,

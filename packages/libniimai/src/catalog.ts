@@ -5,10 +5,11 @@
  * The models themselves live with their family: ESCPOS_MODELS, TSPL_MODELS
  * and CAT_MODELS.
  */
+import type { ClientLike } from './client';
 import { CAT_MODELS } from './cat';
-import { ESCPOS_MODELS } from './escpos';
-import { THERMAL_HEAD_DOTS, type ThermalModel } from './thermal';
-import { TSPL_HEAD_DOTS, TSPL_MODELS } from './tspl';
+import { ESCPOS_MODELS, EscPosPrinterClient } from './escpos';
+import { THERMAL_HEAD_DOTS, type Pace, type ThermalModel, type ThermalTransport } from './thermal';
+import { TSPL_HEAD_DOTS, TSPL_MODELS, TsplPrinterClient } from './tspl';
 
 export type PrinterFamily = 'escpos' | 'tspl' | 'cat';
 
@@ -31,6 +32,22 @@ export function identifyPrinter(name: string | undefined): CatalogEntry | null {
     if (name.startsWith(entry.model.prefix) && entry.model.prefix.length > (best?.model.prefix.length ?? 0)) best = entry;
   }
   return best;
+}
+
+/** The known printer behind a USB device: by its vendor and product IDs, then by its product name. */
+export function identifyUsbPrinter({ vendorId, productId, productName }: { vendorId: number; productId: number; productName?: string }): CatalogEntry | null {
+  return PRINTER_CATALOG.find((e) => e.model.usbIds?.some(([v, p]) => v === vendorId && p === productId)) ?? identifyPrinter(productName);
+}
+
+/**
+ * The client for a thermal printer over a cable link. Cat printers are
+ * Bluetooth only, so they get null. `ackTimeoutMs`: how long a label printer
+ * waits for its "OK" before asking for its status.
+ */
+export function cableClient({ family, model }: CatalogEntry, transport: ThermalTransport, pace: Pace, ackTimeoutMs: number): ClientLike | null {
+  if (family === 'tspl') return new TsplPrinterClient(transport, model, pace, ackTimeoutMs);
+  if (family === 'escpos') return new EscPosPrinterClient(transport, model, pace);
+  return null;
 }
 
 /** A kind of printer to pick for one niimai does not recognise. */

@@ -8,6 +8,7 @@ import { NumberField } from './fields';
 import { DEFAULT_GAP_MM, MAX_GAP_MM, MAX_LENGTH_MM, MAX_PAPER_MM, MIN_LENGTH_MM, MIN_PAPER_MM } from '../printer/thermalPaper';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
 import { connectFailed, setupHref } from '../ui/setup';
+import { useUsbRoute } from '../printer/usbRoute';
 
 interface Props {
   open: boolean;
@@ -73,11 +74,12 @@ function Meter({ icon, label, value, detail, fraction, low }: { icon: ReactNode;
   );
 }
 
-function Connect({ onConnect }: Pick<Props, 'onConnect'>) {
+function Connect({ onConnect, manualProfileId }: Pick<Props, 'onConnect' | 'manualProfileId'>) {
   const [busy, setBusy] = useState<ConnectionKind | null>(null);
+  const usb = useUsbRoute(manualProfileId);
   const options: Option[] = [
     { kind: 'bluetooth', icon: Bluetooth, title: 'Bluetooth', hint: 'Wireless. Works with most models.', unavailable: supportIssue('bluetooth') },
-    { kind: 'serial', icon: Plug, title: 'USB cable', hint: 'For printers with a USB port.', unavailable: supportIssue('serial') },
+    { kind: usb.primary, icon: Plug, title: 'USB cable', hint: 'For printers with a USB port.', unavailable: supportIssue(usb.primary) },
     { kind: 'demo', icon: FlaskConical, title: 'Demo printer', hint: 'Try everything without hardware.' },
   ];
 
@@ -118,6 +120,11 @@ function Connect({ onConnect }: Pick<Props, 'onConnect'>) {
           </button>
         ))}
       </div>
+      {usb.other && (
+        <button className="pd-setup link-btn" disabled={busy !== null} onClick={() => void connect(usb.other!)}>
+          <Plug size={15} /> USB printer not listed?
+        </button>
+      )}
       {fixes.map(({ topic, names }) => (
         <a key={topic} className="pd-setup" href={setupHref(topic)}>
           <CircleHelp size={15} /> How to fix {names.join(' and ')}
@@ -368,7 +375,7 @@ export function PrinterDialog(props: Props) {
             <X size={18} />
           </RD.Close>
           <ErrorBoundary name="Printer">
-            {connected ? <Connected {...props} /> : <Connect onConnect={props.onConnect} />}
+            {connected ? <Connected {...props} /> : <Connect onConnect={props.onConnect} manualProfileId={manualProfileId} />}
             <details className="pd-advanced" open={unrecognised || undefined}>
               <summary>{unrecognised ? 'Printer not recognised' : 'Advanced'}</summary>
               <label className="pd-field">
@@ -391,7 +398,7 @@ export function PrinterDialog(props: Props) {
                   </optgroup>
                 </select>
               </label>
-              {findPrinterType(manualProfileId) && !connected && <small className="muted">Bluetooth now lists every nearby device. Pick your printer there.</small>}
+              {findPrinterType(manualProfileId) && !connected && <small className="muted">{findPrinterType(manualProfileId)!.family === 'cat' ? 'Bluetooth now lists every nearby device. Pick your printer there.' : 'Bluetooth now lists every nearby device, and USB lists printers. Pick yours there.'}</small>}
               {unrecognised && !status.profile && <p className="field-error">Pick the closest type to start printing.</p>}
             </details>
           </ErrorBoundary>

@@ -6,7 +6,7 @@
     "emitDeclarationOnly": true,
     "outDir": "dist",
     "rootDir": "src",
-    "types": ["web-bluetooth"]
+    "types": ["web-bluetooth", "w3c-web-usb"]
   },
   "include": ["src"],
   "exclude": ["src/**/*.test.ts"]

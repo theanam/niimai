@@ -84,7 +84,7 @@ function CopyCode({ text }: { text: string }) {
   );
 }
 
-const TOPICS: SetupTopic[] = ['browsers', 'linux', 'brave', 'ios', 'https'];
+const TOPICS: SetupTopic[] = ['browsers', 'linux', 'brave', 'ios', 'https', 'usb'];
 
 /** Which topic applies to this browser, so Help can mark it. */
 function ownTopic(): SetupTopic | null {
@@ -149,7 +149,8 @@ function BrowserSetup() {
           </ol>
           <p>
             Bluetooth needs BlueZ 5.41 or newer with the bluetooth service running. USB works without a flag; if the port
-            cannot be opened, add yourself to the dialout group, then log out and back in:
+            of a NIIMBOT cannot be opened, add yourself to the dialout group, then log out and back in. Label and receipt
+            printers have their own steps under <a href="#/help/usb">USB label and receipt printers</a>.
           </p>
           <p>
             <CopyCode text="sudo usermod -aG dialout $USER" />
@@ -176,6 +177,38 @@ function BrowserSetup() {
           Every iPhone and iPad browser runs on Safari's engine, which has no Bluetooth or USB access. The free Bluefy
           browser adds Bluetooth: install it from the App Store and open niimai.app there.
         </p>,
+      )}
+      {topic(
+        'usb',
+        'USB label and receipt printers',
+        <>
+          <p>
+            NIIMBOT printers show up in the USB list as serial ports. Label and receipt printers usually show up as USB
+            printers, in a list of their own: choose “USB printer not listed?” under the USB button. Once connected, niimai
+            goes straight to that printer next time, and picking Label printer or Receipt printer under Advanced does the
+            same.
+          </p>
+          <p>macOS and ChromeOS need nothing more.</p>
+          <p>
+            <strong>Windows</strong> keeps USB printers for its own printing. Install the free{' '}
+            <a href="https://zadig.akeo.ie" target="_blank" rel="noreferrer">
+              Zadig
+            </a>
+            , choose Options › List All Devices, pick the printer, choose WinUSB and press Replace Driver. Other Windows
+            apps cannot use the printer until you roll the driver back in Device Manager.
+          </p>
+          <p>
+            <strong>Linux</strong> holds USB printers with the usblp module. Unload it, then give yourself access to the
+            printer, using the vendor ID <code>lsusb</code> shows (28e9 is the CC390):
+          </p>
+          <p>
+            <CopyCode text="sudo rmmod usblp" />
+          </p>
+          <p>
+            <CopyCode text={'echo \'SUBSYSTEM=="usb", ATTRS{idVendor}=="28e9", TAG+="uaccess"\' | sudo tee /etc/udev/rules.d/70-label-printer.rules'} />
+          </p>
+          <p>Unplug the printer and plug it back in.</p>
+        </>,
       )}
       {topic(
         'https',

@@ -55,7 +55,7 @@ Connect them with the same Bluetooth button. Label printers work like a NIIMBOT:
 
 ### Browsers
 
-Printing needs a browser with Web Bluetooth or Web Serial: Chrome or Edge on desktop, or Chrome on Android, where niimai has a phone-sized layout. iPhone and iPad browsers cannot reach printers; the Bluefy browser adds Bluetooth there. Designing labels works in any modern browser.
+Printing needs a browser with Web Bluetooth, Web Serial or WebUSB: Chrome or Edge on desktop, or Chrome on Android, where niimai has a phone-sized layout. iPhone and iPad browsers cannot reach printers; the Bluefy browser adds Bluetooth there. Designing labels works in any modern browser.
 
 ## libniimai: the printer library
 
@@ -65,7 +65,7 @@ Printing needs a browser with Web Bluetooth or Web Serial: Chrome or Edge on des
 [![size](https://img.shields.io/bundlephobia/minzip/libniimai)](https://bundlephobia.com/package/libniimai)
 [![license](https://img.shields.io/npm/l/libniimai)](LICENSE)
 
-Everything niimai does to reach a printer ships on its own as **libniimai**: connect over Web Bluetooth or Web Serial, detect the printer family, and print any canvas on NIIMBOT, TSPL, ESC/POS and cat printers from your own web page.
+Everything niimai does to reach a printer ships on its own as **libniimai**: connect over Web Bluetooth, Web Serial or WebUSB, detect the printer family, and print any canvas on NIIMBOT, TSPL, ESC/POS and cat printers from your own web page.
 
 ```bash
 npm i libniimai

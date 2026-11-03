@@ -3726,3 +3726,10 @@ kbd {
   font-size: 13px;
   color: var(--primary);
 }
+button.pd-setup {
+  margin-inline: auto;
+  font-weight: 400;
+}
+button.pd-setup + .pd-setup {
+  margin-top: 6px;
+}

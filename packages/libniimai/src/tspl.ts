@@ -21,7 +21,7 @@ const DOTS_PER_MM = 8;
  * hardware. "medium": reported by open-source printer projects, untested here.
  */
 export const TSPL_MODELS: ThermalModel[] = [
-  { prefix: 'QR380A', confidence: 'tested', note: 'Sold as CC390' },
+  { prefix: 'QR380A', confidence: 'tested', note: 'Sold as CC390', usbIds: [[0x28e9, 0x0289]] },
   { prefix: 'GP-M322', confidence: 'medium', brand: 'Gprinter GP-M322', headDots: 576 },
 ];
 

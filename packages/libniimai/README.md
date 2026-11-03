@@ -1,6 +1,6 @@
 # libniimai
 
-Print from the browser on four families of thermal printers: **NIIMBOT**, **TSPL label printers**, **ESC/POS receipt printers** and **cat printers**. One API connects, detects the printer and prints any canvas, over Web Bluetooth or Web Serial. No server, no drivers, no app.
+Print from the browser on four families of thermal printers: **NIIMBOT**, **TSPL label printers**, **ESC/POS receipt printers** and **cat printers**. One API connects, detects the printer and prints any canvas, over Web Bluetooth, Web Serial or WebUSB. No server, no drivers, no app.
 
 libniimai powers [niimai](https://niimai.app), the label designer.
 
@@ -9,8 +9,8 @@ libniimai powers [niimai](https://niimai.app), the label designer.
 | Family | Paper | Print width | Connection | Models |
 |---|---|---|---|---|
 | **NIIMBOT** | Labels with gaps, black mark, continuous, transparent | 12 mm and up, by model | Bluetooth, USB | D11, D110, D101, B1, B18, B21, B3S and more |
-| **TSPL label printers** | Labels with gaps, black mark, continuous | Up to 80 mm | Bluetooth | QR380A (sold as CC390), Gprinter GP-M322 |
-| **ESC/POS receipt printers** | 58 or 80 mm, continuous or stickers with gaps | 48 or 72 mm | Bluetooth | MP583, MPT-II, Xprinter XP-58IIL, PT-210, RPP02, MPT-3, RPP300 and more |
+| **TSPL label printers** | Labels with gaps, black mark, continuous | Up to 80 mm | Bluetooth, USB | QR380A (sold as CC390), Gprinter GP-M322 |
+| **ESC/POS receipt printers** | 58 or 80 mm, continuous or stickers with gaps | 48 or 72 mm | Bluetooth, USB | MP583, MPT-II, Xprinter XP-58IIL, PT-210, RPP02, MPT-3, RPP300 and more |
 | **Cat printers** | 58 mm continuous, stickers with gaps | 48 mm | Bluetooth | GB01, GB02, GB03, MX05, MX06, MX10 and more |
 
 The family is found from the device the user picks: by its Bluetooth name in `PRINTER_CATALOG`, then checked against the services it offers. A name that matches no family is treated as a NIIMBOT, unless a type from `PRINTER_TYPES` is set for unrecognised printers. Every family gets the same treatment:
@@ -90,7 +90,7 @@ Returns a `PrinterService`, which owns one printer connection.
 
 | Member | What it does |
 | --- | --- |
-| `connect(kind)` | Opens the browser's device picker and connects. `kind` is `'bluetooth'` (every family), `'serial'` (NIIMBOT over USB) or `'demo'` (a printer in memory, for trying things out). |
+| `connect(kind)` | Opens the browser's device picker and connects. `kind` is `'bluetooth'` (every family), `'serial'` (NIIMBOT over USB, as a serial port), `'usb'` (label and receipt printers that show up as standard USB printers) or `'demo'` (a printer in memory, for trying things out). |
 | `disconnect()` | Closes the connection. |
 | `print(source, options)` | Prints a canvas, or a `{ count, page(i) }` source for a batch of different labels. |
 | `getStatus()` | The current `PrinterStatus`. |
@@ -159,14 +159,15 @@ Every piece is exported, for building your own flow:
 - `createClient(kind)` returns a raw client for one connection.
 - `TsplPrinterClient`, `EscPosPrinterClient` and `CatPrinterClient` take any `ThermalTransport`, so they also work over other links.
 - `tsplJob`, `escposJob` and `catJob` build the bytes for one page; `escposFeed` and `catFeed` the bytes that move the paper.
-- `identifyPrinter(name)` matches a Bluetooth name to a known model across every family, from `PRINTER_CATALOG`; `tsplModelFor`, `escposModelFor` and `catModelFor` look in one family.
-- `supportIssue(kind)` says why a connection type cannot be used in the current browser, as `{ reason, topic }`, or null when it can. `topic` names what fixes it: `linux` (a Chrome flag), `brave` (Brave flags), `ios`, `https` or `browsers`. `unsupportedReason(kind)` returns the reason alone.
+- `identifyPrinter(name)` matches a Bluetooth name to a known model across every family, from `PRINTER_CATALOG`; `tsplModelFor`, `escposModelFor` and `catModelFor` look in one family. `identifyUsbPrinter(device)` does the same for a USB device, by vendor and product ID, then product name.
+- `UsbPrinter` connects over WebUSB to a printer-class device (`USB_PRINTER_CLASS`, 7). The family comes from the catalog, then from a type set with `unrecognisedAs` when the printer speaks it, then from the printer's IEEE 1284 device ID (`familiesFromDeviceId`). A printer the site already uses connects without the chooser when it is the only one plugged in; `rememberedUsbPrinters()` lists them. `usbTransport(device)` gives the raw `ThermalTransport`.
+- `supportIssue(kind)` says why a connection type cannot be used in the current browser, as `{ reason, topic }`, or null when it can. `topic` names what fixes it: `linux` (a Chrome flag), `brave` (Brave flags), `ios`, `https`, `usb` (Windows and Linux drivers holding a USB printer) or `browsers`. `unsupportedReason(kind)` returns the reason alone.
 - `detectBrowser()` returns the system, the browser and whether it is built on Chromium.
-- `connectErrorTopic(err)` maps a connect error from a browser that has Bluetooth but cannot use it (adapter off, API turned off) to the same topics.
+- `connectErrorTopic(err)` maps a connect error from a browser that has Bluetooth or USB but cannot use it (adapter off, API turned off, a system driver holding the printer) to the same topics.
 
 ## Browsers
 
-Needs Web Bluetooth or Web Serial: Chrome or Edge on desktop, or Chrome on Android. On iPhone and iPad, the Bluefy browser adds Web Bluetooth. On Linux, Chrome needs `chrome://flags/#enable-web-bluetooth` turned on; Brave keeps both APIs behind `brave://flags`.
+Needs Web Bluetooth, Web Serial or WebUSB: Chrome or Edge on desktop, or Chrome on Android. On iPhone and iPad, the Bluefy browser adds Web Bluetooth. On Linux, Chrome needs `chrome://flags/#enable-web-bluetooth` turned on; Brave keeps Bluetooth and serial behind `brave://flags`. For USB printers, Windows needs the WinUSB driver (Zadig installs it), and Linux needs the `usblp` module unloaded and a udev rule granting access.
 
 ## Feedback
 

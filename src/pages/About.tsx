@@ -19,7 +19,7 @@ export function About() {
       <section>
         <p>
           Labels are stored on your device. Nothing is uploaded, and there is no account. The app talks to the printer
-          directly over Web Bluetooth or Web Serial.
+          directly over Web Bluetooth, Web Serial or WebUSB.
         </p>
         <p>
           Printer communication is powered by{' '}

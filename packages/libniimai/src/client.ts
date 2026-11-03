@@ -52,10 +52,14 @@ export interface ClientLike {
   unrecognisedAs?(typeId: string | null): void;
 }
 
-export type ConnectionKind = 'bluetooth' | 'serial' | 'demo';
+/** `serial`: a printer on a USB cable that shows up as a serial port, as NIIMBOT printers do. `usb`: one that shows up as a standard USB printer. */
+export type ConnectionKind = 'bluetooth' | 'serial' | 'usb' | 'demo';
 
 export const supportsBluetooth = (): boolean => typeof navigator !== 'undefined' && 'bluetooth' in navigator;
 export const supportsSerial = (): boolean => typeof navigator !== 'undefined' && 'serial' in navigator;
+export const supportsUsb = (): boolean => typeof navigator !== 'undefined' && 'usb' in navigator;
+
+const SUPPORTS: Record<Exclude<ConnectionKind, 'demo'>, () => boolean> = { bluetooth: supportsBluetooth, serial: supportsSerial, usb: supportsUsb };
 
 export type Platform = 'ios' | 'android' | 'desktop';
 
@@ -72,7 +76,7 @@ export type BrowserName = 'chrome' | 'edge' | 'opera' | 'brave' | 'samsung' | 'b
 export interface BrowserInfo {
   os: OperatingSystem;
   browser: BrowserName;
-  /** Built on Chromium, so Web Bluetooth and Web Serial can be there. */
+  /** Built on Chromium, so Web Bluetooth, Web Serial and WebUSB can be there. */
   chromium: boolean;
   /** Served over https or from localhost; browsers hide both APIs elsewhere. */
   secure: boolean;
@@ -131,8 +135,9 @@ export function detectBrowser(env: Partial<BrowserEnv> = {}): BrowserInfo {
  * - `ios`: iPhone and iPad browsers, and Bluefy.
  * - `https`: the page has to be served over https.
  * - `browsers`: which browsers work.
+ * - `usb`: Windows and Linux hold on to USB printers until told to let the browser have them.
  */
-export type SetupTopic = 'linux' | 'brave' | 'ios' | 'https' | 'browsers';
+export type SetupTopic = 'linux' | 'brave' | 'ios' | 'https' | 'browsers' | 'usb';
 
 export interface SupportIssue {
   /** In a few words, what is missing or what to do. */
@@ -148,7 +153,7 @@ const BROWSER_NAMES: Partial<Record<BrowserName, string>> = { firefox: 'Firefox'
  */
 export function supportIssue(kind: ConnectionKind, env: Partial<BrowserEnv> = {}): SupportIssue | null {
   if (kind === 'demo') return null;
-  if (kind === 'bluetooth' ? supportsBluetooth() : supportsSerial()) return null;
+  if (SUPPORTS[kind]()) return null;
   const { os, browser, chromium, secure } = detectBrowser(env);
   const bluetooth = kind === 'bluetooth';
   if (os === 'ios') return { reason: bluetooth ? 'On iPhone and iPad, use the Bluefy browser' : 'Not available on iPhone and iPad', topic: 'ios' };
@@ -178,13 +183,14 @@ export function unsupportedReason(kind: ConnectionKind, platform?: Platform): st
 }
 
 /**
- * Errors browsers raise when Bluetooth is there but cannot be used: the
- * adapter is off or missing, or the browser turned the API off. The Help topic
- * to point to, or null.
+ * Errors browsers raise when Bluetooth or USB is there but cannot be used:
+ * the adapter is off or missing, the browser turned the API off, or the
+ * system keeps a USB printer for itself. The Help topic to point to, or null.
  */
 export function connectErrorTopic(err: unknown): SetupTopic | null {
   const message = err instanceof Error ? err.message : String(err);
   if (/globally disabled/i.test(message)) return 'brave';
+  if (/claim interface|Access denied|Unable to open device/i.test(message)) return 'usb';
   if (/adapter not available|Bluetooth adapter|Bluetooth is (turned off|disabled|not available)/i.test(message)) return detectBrowser().os === 'linux' ? 'linux' : 'browsers';
   return null;
 }

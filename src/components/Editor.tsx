@@ -684,6 +684,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
             onLabelLength={changeLabelLength}
             defaultSize={{ widthMm: paper.widthMm, heightMm: paper.heightMm }}
             onConnect={connect}
+            printerType={manualProfileId}
             onSetRollSize={() => setDialog('roll')}
             onPrinterSettings={() => setDialog('printer')}
             // The label still in memory reopens as it is, keeping its undo history.

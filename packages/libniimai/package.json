@@ -1,13 +1,14 @@
 {
   "name": "libniimai",
-  "version": "0.5.0",
-  "description": "Print to NIIMBOT, TSPL, ESC/POS and cat printers from the browser over Web Bluetooth and Web Serial.",
+  "version": "0.6.0",
+  "description": "Print to NIIMBOT, TSPL, ESC/POS and cat printers from the browser over Web Bluetooth, Web Serial and WebUSB.",
   "keywords": [
     "niimbot",
     "label printer",
     "thermal printer",
     "web bluetooth",
     "web serial",
+    "webusb",
     "tspl",
     "esc/pos",
     "cat printer"
@@ -47,6 +48,7 @@
   "dependencies": {
     "@mmote/niimbluelib": "^0.48.0",
     "@types/w3c-web-serial": "^1.0.8",
+    "@types/w3c-web-usb": "^1.0.10",
     "@types/web-bluetooth": "^0.0.22"
   }
 }

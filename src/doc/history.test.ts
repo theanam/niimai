@@ -87,4 +87,37 @@ describe('editor history', () => {
     s = editorReducer(s, { type: 'redo' });
     expect(s.doc).toMatchObject({ widthMm: 50, fileName: 'Jars' });
   });
+
+  it('selects several elements, adding and taking out one at a time', () => {
+    const { s, el } = setup();
+    const other = createElement('ellipse', s.doc);
+    let next = editorReducer(s, { type: 'add', element: other });
+    next = editorReducer(next, { type: 'toggleSelect', id: el.id });
+    expect(next.selectedIds).toEqual([other.id, el.id]);
+    expect(next.selectedId).toBeNull();
+    next = editorReducer(next, { type: 'toggleSelect', id: other.id });
+    expect(next.selectedId).toBe(el.id);
+  });
+
+  it('moves, removes and adds several elements as one undo step each', () => {
+    const { s, el } = setup();
+    const other = createElement('ellipse', s.doc);
+    let next = editorReducer(s, { type: 'add', element: other });
+    next = editorReducer(next, { type: 'updateMany', patches: { [el.id]: { x: 1 }, [other.id]: { x: 2 } } });
+    expect(next.doc.elements.map((e) => e.x)).toEqual([1, 2]);
+    expect(editorReducer(next, { type: 'undo' }).doc.elements.map((e) => e.x)).toEqual([el.x, other.x]);
+    next = editorReducer(next, { type: 'selectMany', ids: [el.id, other.id] });
+    next = editorReducer(next, { type: 'removeMany', ids: [el.id, other.id] });
+    expect(next.doc.elements).toHaveLength(0);
+    expect(next.selectedIds).toEqual([]);
+    next = editorReducer(next, { type: 'addMany', elements: [el, other] });
+    expect(next.selectedIds).toEqual([el.id, other.id]);
+  });
+
+  it('drops elements that undo takes away from the selection', () => {
+    const { s } = setup();
+    const undone = editorReducer(s, { type: 'undo' });
+    expect(undone.selectedIds).toEqual([]);
+    expect(undone.selectedId).toBeNull();
+  });
 });

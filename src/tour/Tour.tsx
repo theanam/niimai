@@ -5,7 +5,7 @@ import { ErrorBoundary } from '../ui/ErrorBoundary';
 import { TOUR_STEPS } from './steps';
 
 /** Bump when the tour gains steps worth showing to people who saw an older one. */
-export const TOUR_KEY = 'niimai.tour.v1';
+export const TOUR_KEY = 'niimai.tour.v2';
 export const REPLAY_EVENT = 'niimai:tour';
 
 export function tourSeen(): boolean {

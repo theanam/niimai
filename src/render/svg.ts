@@ -15,6 +15,8 @@ export interface SvgOptions {
 }
 
 export const LINE_HEIGHT = 1.2;
+/** The box icon paths are drawn in. */
+export const ICON_BOX = '0 0 256 256';
 const INK = '#000';
 
 const esc = (s: string): string =>
@@ -82,7 +84,7 @@ export function elementSvg(el: LabelElement, opts: SvgOptions = {}): string {
     case 'icon':
       // The body is sanitised path data (see sanitizeIconBody), never raw file contents.
       body = el.body
-        ? `<svg x="${n(el.x)}" y="${n(el.y)}" width="${n(el.w)}" height="${n(el.h)}" viewBox="0 0 256 256" preserveAspectRatio="xMidYMid meet" fill="${INK}">${el.body}</svg>`
+        ? `<svg x="${n(el.x)}" y="${n(el.y)}" width="${n(el.w)}" height="${n(el.h)}" viewBox="${esc(el.viewBox ?? ICON_BOX)}" preserveAspectRatio="xMidYMid meet" fill="${INK}">${el.body}</svg>`
         : placeholder(el);
       break;
     case 'rect': {

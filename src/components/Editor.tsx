@@ -81,6 +81,12 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
   const [templateSeed, setTemplateSeed] = useState<TemplateSeed>({});
   const editor = useEditor(initialDoc);
   const { state, dispatch, selected, add, update, duplicate } = editor;
+  const selection = useMemo(() => state.doc.elements.filter((el) => state.selectedIds.includes(el.id)), [state.doc.elements, state.selectedIds]);
+  /** Copies of elements, 1 mm down and right, selected. */
+  const copies = useCallback(
+    (els: LabelElement[]) => dispatch({ type: 'addMany', elements: els.map((el) => ({ ...el, id: uid(), x: round1(el.x + 1), y: round1(el.y + 1) })) }),
+    [dispatch],
+  );
   const { doc } = state;
   const status = useSyncExternalStore(
     (fn) => printer.subscribe(fn),
@@ -99,7 +105,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
   const [manualProfileId, setManualProfileId] = useState<string | null>(initialProfileId);
   const [savedDensity, setDensity] = useState(initialDensity);
   const fileHandle = useRef<FileHandle | null>(null);
-  const clipboard = useRef<LabelElement | null>(null);
+  const clipboard = useRef<LabelElement[]>([]);
   const [editing, setEditing] = useState<{ id: string } | null>(null);
   /** Canvas zoom in screen pixels per millimetre; null fits the label to the view. */
   const [zoomLevel, setZoomLevel] = useState<number | null>(null);
@@ -561,6 +567,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
       if (view === 'start' && !['new', 'open', 'library'].includes(hit.action)) return;
       e.preventDefault();
       const sel = selected;
+      const all = selection;
       switch (hit.action) {
         case 'new':
           return setDialog('new');
@@ -592,23 +599,30 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
         case 'edit':
           if (sel?.type === 'text') setEditing({ id: sel.id });
           return;
+        case 'selectAll':
+          return dispatch({ type: 'selectMany', ids: doc.elements.map((el) => el.id) });
         case 'copy':
-          if (sel) clipboard.current = sel;
+          if (all.length) clipboard.current = all;
           return;
         case 'cut':
-          if (sel) {
-            clipboard.current = sel;
-            dispatch({ type: 'remove', id: sel.id });
+          if (all.length) {
+            clipboard.current = all;
+            dispatch({ type: 'removeMany', ids: all.map((el) => el.id) });
           }
           return;
         case 'duplicate':
-          if (sel) duplicate(sel);
+          if (all.length) copies(all);
           return;
         case 'delete':
-          if (sel) dispatch({ type: 'remove', id: sel.id });
+          if (all.length) dispatch({ type: 'removeMany', ids: all.map((el) => el.id) });
           return;
         case 'nudge':
-          if (sel) update(sel.id, { x: round1(sel.x + (hit.dx ?? 0)), y: round1(sel.y + (hit.dy ?? 0)) }, 'nudge');
+          if (all.length)
+            dispatch({
+              type: 'updateMany',
+              patches: Object.fromEntries(all.map((el) => [el.id, { x: round1(el.x + (hit.dx ?? 0)), y: round1(el.y + (hit.dy ?? 0)) }])),
+              key: 'nudge',
+            });
           return;
       }
     };
@@ -624,10 +638,9 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
       } else if (looksLikeSvg(text)) {
         e.preventDefault();
         void addImage(new Blob([text], { type: 'image/svg+xml' }));
-      } else if (clipboard.current) {
+      } else if (clipboard.current.length) {
         e.preventDefault();
-        const el = clipboard.current;
-        dispatch({ type: 'add', element: { ...el, id: uid(), x: round1(el.x + 1), y: round1(el.y + 1) } });
+        copies(clipboard.current);
       }
     };
     window.addEventListener('keydown', onKey);
@@ -636,7 +649,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('paste', onPaste);
     };
-  }, [selected, open, save, dispatch, duplicate, update, addImage, view]);
+  }, [selected, selection, copies, doc.elements, open, save, dispatch, addImage, view]);
 
   const onDrop = (e: DragEvent) => {
     const file = [...e.dataTransfer.files].find(isImageFile);
@@ -708,7 +721,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
           <ErrorBoundary name="Canvas" resetKeys={[doc]}>
             <Canvas
               doc={doc}
-              selectedId={state.selectedId}
+              selectedIds={state.selectedIds}
               dispatch={dispatch}
               images={images}
               preview={previewOn ? preview : null}
@@ -734,10 +747,17 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
             </button>
           )}
         </main>
-        <ErrorBoundary name="Inspector" resetKeys={[state.selectedId]}>
+        <ErrorBoundary name="Inspector" resetKeys={[state.selectedIds.join()]}>
           <Inspector
             doc={{ ...doc, ...paper }}
             selected={selected}
+            selection={selection}
+            onUpdateMany={(patches) => {
+              dispatch({ type: 'updateMany', patches });
+              dispatch({ type: 'commit' });
+            }}
+            onRemoveMany={(ids) => dispatch({ type: 'removeMany', ids })}
+            onDuplicateMany={copies}
             roll={roll}
             rollPaper={status.label?.paper}
             fitting={status.profile ? sizesForPrinter(status.profile) : []}

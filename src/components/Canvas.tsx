@@ -2,6 +2,8 @@ import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as RPoi
 import type { EditorAction } from '../doc/history';
 import { flagWidth, isMirrored, printableArea, sizeLabel, type LabelDoc, type LabelElement } from '../doc/model';
 import { HANDLES, resizeBox, snapBox, type Guide, type Handle } from '../doc/snap';
+import { coverBox, HUGS, placePatch, tighten, unionBox, type Box } from '../doc/bounds';
+import { onImageAspect } from '../render/imageAspect';
 import { round1 } from '../lib/units';
 import { elementSvg, mirroredSvg } from '../render/svg';
 import type { Area } from '../printer/safeArea';
@@ -13,7 +15,8 @@ import { RasterImage } from '../ui/RasterImage';
 
 interface Props {
   doc: LabelDoc;
-  selectedId: string | null;
+  /** Every selected element; one shows handles, several show the box around them. */
+  selectedIds: string[];
   dispatch: (a: EditorAction) => void;
   images: Record<string, string>;
   /** 1-bit preview image; when set, the canvas shows it and editing pauses. */
@@ -40,8 +43,14 @@ interface Props {
 }
 
 type Drag =
-  | { kind: 'move'; id: string; startX: number; startY: number; el: LabelElement; moved: boolean }
-  | { kind: 'resize'; id: string; handle: Handle; startX: number; startY: number; el: LabelElement };
+  | { kind: 'move'; id: string; ids: string[]; startX: number; startY: number; els: LabelElement[]; box: Box; moved: boolean }
+  | { kind: 'resize'; id: string; handle: Handle; startX: number; startY: number; el: LabelElement }
+  | { kind: 'marquee'; startX: number; startY: number; x: number; y: number; base: string[] };
+
+/** Corner handles only for elements that keep their proportions. */
+const CORNERS: Handle[] = ['nw', 'ne', 'se', 'sw'];
+
+const overlaps = (a: Box, b: Box) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 
 const PADDING = 48;
 const SNAP_PX = 6;
@@ -55,13 +64,17 @@ const ZOOM_STEP = 1.25;
 export const stepZoom = (zoom: number, dir: 'in' | 'out'): number =>
   Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, dir === 'in' ? zoom * ZOOM_STEP : zoom / ZOOM_STEP));
 
-export function Canvas({ doc, selectedId, dispatch, images, preview, fontsVersion, editingId, onEditStart, onEditEnd, safeArea = null, issues = {}, zoomLevel = null, onZoomChange, zoomRequest = null, resolve = (el) => el, record = null }: Props) {
+export function Canvas({ doc, selectedIds, dispatch, images, preview, fontsVersion, editingId, onEditStart, onEditEnd, safeArea = null, issues = {}, zoomLevel = null, onZoomChange, zoomRequest = null, resolve = (el) => el, record = null }: Props) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const [fitZoom, setFitZoom] = useState(10);
   const zoom = zoomLevel ?? fitZoom;
   const [guides, setGuides] = useState<Guide[]>([]);
+  const [marquee, setMarquee] = useState<Box | null>(null);
   const drag = useRef<Drag | null>(null);
+  // Picture boxes hug the picture once its proportions are known.
+  const [, setAspects] = useState(0);
+  useEffect(() => onImageAspect(() => setAspects((n) => n + 1)), []);
 
   useLayoutEffect(() => {
     const wrap = wrapRef.current;
@@ -98,17 +111,31 @@ export function Canvas({ doc, selectedId, dispatch, images, preview, fontsVersio
       const [mx, my] = toMm(e);
       const dx = mx - d.startX;
       const dy = my - d.startY;
-      if (d.kind === 'move') {
+      if (d.kind === 'marquee') {
+        d.x = mx;
+        d.y = my;
+        const box = { x: Math.min(d.startX, mx), y: Math.min(d.startY, my), w: Math.abs(dx), h: Math.abs(dy) };
+        if (Math.hypot(dx, dy) * zoom < 3) return;
+        setMarquee(box);
+        const hits = doc.elements.filter((el) => overlaps(coverBox(el), box)).map((el) => el.id);
+        dispatch({ type: 'selectMany', ids: [...new Set([...d.base, ...hits])] });
+      } else if (d.kind === 'move') {
         if (!d.moved && Math.hypot(dx, dy) * zoom < 2) return;
         d.moved = true;
-        const others = doc.elements.filter((o) => o.id !== d.id);
-        const box = { x: d.el.x + dx, y: d.el.y + dy, w: d.el.w, h: d.el.h };
+        // The selection snaps as one box to the label and to everything else.
+        const others = doc.elements.filter((o) => !d.ids.includes(o.id)).map(snapTarget);
+        const box = { ...d.box, x: d.box.x + dx, y: d.box.y + dy };
         const snapped = e.altKey ? { ...box, guides: [] } : snapBox(box, printableArea(doc), others, SNAP_PX / zoom, foldGuides(doc));
         setGuides(snapped.guides);
-        dispatch({ type: 'update', id: d.id, patch: { x: round1(snapped.x), y: round1(snapped.y) }, key: 'move' });
+        const [mx2, my2] = [snapped.x - d.box.x, snapped.y - d.box.y];
+        const step = (v: number) => Math.round(v * 1000) / 1000;
+        dispatch({ type: 'updateMany', patches: Object.fromEntries(d.els.map((el) => [el.id, { x: step(el.x + mx2), y: step(el.y + my2) }])), key: 'move' });
+      } else if (HUGS.has(d.el.type)) {
+        // Starts from the hugging box, so the handles sit on what is drawn and proportions hold.
+        const box = resizeBox(d.el, d.handle, dx, dy, true);
+        dispatch({ type: 'update', id: d.id, patch: placePatch(d.el, box), key: 'resize' });
       } else {
-        const keep = e.shiftKey || d.el.type === 'qr';
-        const box = resizeBox(d.el, d.handle, dx, dy, keep);
+        const box = resizeBox(d.el, d.handle, dx, dy, e.shiftKey);
         dispatch({
           type: 'update',
           id: d.id,
@@ -118,9 +145,13 @@ export function Canvas({ doc, selectedId, dispatch, images, preview, fontsVersio
       }
     };
     const onUp = () => {
-      if (!drag.current) return;
+      const d = drag.current;
+      if (!d) return;
       drag.current = null;
+      // A click without a drag on one of several selected elements picks it alone.
+      if (d.kind === 'move' && !d.moved && d.ids.length > 1) dispatch({ type: 'select', id: d.id });
       setGuides([]);
+      setMarquee(null);
       dispatch({ type: 'commit' });
     };
     window.addEventListener('pointermove', onMove);
@@ -131,22 +162,40 @@ export function Canvas({ doc, selectedId, dispatch, images, preview, fontsVersio
     };
   });
 
+  /** Shift-click adds to the selection or takes out; a plain press on a selected element drags the whole selection. */
   const startMove = (e: RPointerEvent, el: LabelElement) => {
     if (e.button !== 0) return;
     e.stopPropagation();
+    if (e.shiftKey || e.metaKey || e.ctrlKey) {
+      dispatch({ type: 'toggleSelect', id: el.id });
+      return;
+    }
     const [x, y] = toMm(e);
-    dispatch({ type: 'select', id: el.id });
-    drag.current = { kind: 'move', id: el.id, startX: x, startY: y, el, moved: false };
+    const ids = selectedIds.includes(el.id) ? selectedIds : [el.id];
+    if (ids !== selectedIds) dispatch({ type: 'select', id: el.id });
+    const els = doc.elements.filter((o) => ids.includes(o.id));
+    drag.current = { kind: 'move', id: el.id, ids, startX: x, startY: y, els, box: unionBox(els.map((o) => coverBox(o))), moved: false };
   };
 
   const startResize = (e: RPointerEvent, el: LabelElement, handle: Handle) => {
     if (e.button !== 0) return;
     e.stopPropagation();
     const [x, y] = toMm(e);
-    drag.current = { kind: 'resize', id: el.id, handle, startX: x, startY: y, el };
+    drag.current = { kind: 'resize', id: el.id, handle, startX: x, startY: y, el: tighten(el) };
   };
 
-  const selected = preview ? null : doc.elements.find((e) => e.id === selectedId);
+  /** Dragging on empty space draws a box; everything it touches is selected. Shift adds to the selection. */
+  const startMarquee = (e: RPointerEvent) => {
+    if (e.button !== 0 || preview) return;
+    const base = e.shiftKey ? selectedIds : [];
+    if (!e.shiftKey) dispatch({ type: 'select', id: null });
+    const [x, y] = toMm(e);
+    drag.current = { kind: 'marquee', startX: x, startY: y, x, y, base };
+  };
+
+  const chosen = preview ? [] : doc.elements.filter((e) => selectedIds.includes(e.id));
+  const selected = chosen.length === 1 ? tighten(chosen[0]) : null;
+  const group = chosen.length > 1 ? unionBox(chosen.map((el) => coverBox(el))) : null;
   const editing = preview ? undefined : doc.elements.find((e) => e.id === editingId && e.type === 'text');
   // Fingers need bigger targets than a mouse pointer.
   const coarse = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
@@ -154,7 +203,7 @@ export function Canvas({ doc, selectedId, dispatch, images, preview, fontsVersio
 
   return (
     <div className="canvas-frame">
-    <div className="canvas-wrap" ref={wrapRef} onPointerDown={() => dispatch({ type: 'select', id: null })}>
+    <div className="canvas-wrap" ref={wrapRef} onPointerDown={startMarquee}>
       <div className="canvas-paper" style={{ width: doc.widthMm * zoom, height: doc.heightMm * zoom }}>
         {preview ? (
           <RasterImage className="canvas-preview" src={preview} alt="Print preview" draggable={false} />
@@ -243,6 +292,7 @@ export function Canvas({ doc, selectedId, dispatch, images, preview, fontsVersio
             {!preview &&
               doc.elements
                 .filter((el) => issues[el.id])
+                .map((el) => tighten(el))
                 .map((el) => {
                   // A 16 px badge at any zoom: the 24-unit icon below scaled to 8 px radius.
                   const badge = 8 / zoom / 12;
@@ -265,9 +315,9 @@ export function Canvas({ doc, selectedId, dispatch, images, preview, fontsVersio
                   width={selected.w}
                   height={selected.h}
                   strokeWidth={1.5 / zoom}
-                  onPointerDown={(e) => startMove(e, selected)}
+                  onPointerDown={(e) => startMove(e, chosen[0])}
                 />
-                {HANDLES.map((h) => {
+                {(HUGS.has(selected.type) ? CORNERS : HANDLES).map((h) => {
                   const hx = selected.x + (h.includes('e') ? selected.w : h.includes('w') ? 0 : selected.w / 2);
                   const hy = selected.y + (h.includes('s') ? selected.h : h.includes('n') ? 0 : selected.h / 2);
                   return (
@@ -280,13 +330,36 @@ export function Canvas({ doc, selectedId, dispatch, images, preview, fontsVersio
                       width={handleSize}
                       height={handleSize}
                       strokeWidth={1 / zoom}
-                      onPointerDown={(e) => startResize(e, selected, h)}
+                      onPointerDown={(e) => startResize(e, chosen[0], h)}
                     />
                   );
                 })}
               </g>
             )}
             {selected && <SizeTag el={selected} zoom={zoom} />}
+            {group && (
+              <g className="multi-selection" aria-label={`${chosen.length} selected`}>
+                {chosen.map((el) => {
+                  const t = tighten(el);
+                  return (
+                    <rect
+                      key={el.id}
+                      className="selection selection-member"
+                      x={t.x}
+                      y={t.y}
+                      width={t.w}
+                      height={t.h}
+                      strokeWidth={1 / zoom}
+                      transform={t.rotation ? `rotate(${t.rotation} ${t.x + t.w / 2} ${t.y + t.h / 2})` : undefined}
+                      onPointerDown={(e) => startMove(e, el)}
+                    />
+                  );
+                })}
+                <rect className="selection selection-group" x={group.x} y={group.y} width={group.w} height={group.h} strokeWidth={1 / zoom} strokeDasharray={`${4 / zoom} ${3 / zoom}`} />
+                <SizeTag el={{ ...group, rotation: 0 }} zoom={zoom} />
+              </g>
+            )}
+            {marquee && <rect className="marquee" x={marquee.x} y={marquee.y} width={marquee.w} height={marquee.h} strokeWidth={1 / zoom} />}
           </svg>
         )}
         {editing?.type === 'text' && (
@@ -337,7 +410,7 @@ export function Canvas({ doc, selectedId, dispatch, images, preview, fontsVersio
 }
 
 /** The selected element's box size in a small pill just under it, the same screen size at any zoom. */
-function SizeTag({ el, zoom }: { el: LabelElement; zoom: number }) {
+function SizeTag({ el, zoom }: { el: Box & { rotation: number }; zoom: number }) {
   // Below the lowest corner, so rotated elements never cover it.
   const a = (el.rotation * Math.PI) / 180;
   const below = (Math.abs(el.w * Math.sin(a)) + Math.abs(el.h * Math.cos(a))) / 2;
@@ -368,8 +441,12 @@ function foldGuides(doc: LabelDoc): number[] {
   return [half / 2, half, half * 1.5];
 }
 
-/** An invisible box so thin lines and empty shapes are easy to grab. */
-function hitArea(el: LabelElement): string {
+/** The box an element is drawn and grabbed in: what it draws, for elements that hug it. */
+const snapTarget = (el: LabelElement): LabelElement => ({ ...el, ...coverBox(el) });
+
+/** An invisible box so thin lines and empty shapes are easy to grab; only what is drawn, for text and pictures. */
+function hitArea(original: LabelElement): string {
+  const el = tighten(original);
   const pad = el.type === 'line' ? 1 : 0;
   const t = el.rotation ? ` transform="rotate(${el.rotation} ${el.x + el.w / 2} ${el.y + el.h / 2})"` : '';
   return `<rect x="${el.x - pad}" y="${el.y - pad}" width="${el.w + pad * 2}" height="${el.h + pad * 2}" fill="transparent"${t}/>`;

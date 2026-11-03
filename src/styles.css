@@ -3733,3 +3733,35 @@ button.pd-setup {
 button.pd-setup + .pd-setup {
   margin-top: 6px;
 }
+.selection-member {
+  stroke-opacity: 0.7;
+}
+.selection-group {
+  pointer-events: none;
+}
+.marquee {
+  fill: color-mix(in srgb, var(--primary) 8%, transparent);
+  stroke: var(--primary);
+  pointer-events: none;
+}
+.font-size-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 84px;
+  gap: 8px;
+  align-items: center;
+}
+.font-size-row > * {
+  min-width: 0;
+}
+.align-tools {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  justify-items: center;
+  gap: 4px 0;
+  margin-top: 8px;
+}
+@media (pointer: coarse) {
+  .selection-hint {
+    display: none;
+  }
+}

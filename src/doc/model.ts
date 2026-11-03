@@ -71,6 +71,8 @@ export interface IconElement extends Base {
   weight: IconWeight;
   /** Path markup in a 256 × 256 box, stored so labels stay self-contained. */
   body: string;
+  /** The part of the 256 × 256 box the element shows, "x y w h": the artwork alone, once its box hugs it. */
+  viewBox?: string;
 }
 
 export interface RectElement extends Base {
@@ -334,7 +336,13 @@ export function parseDoc(input: unknown): LabelDoc {
       if (typeof merged.id !== 'string') merged.id = base.id;
       if ('dynamic' in merged) (merged as { dynamic?: boolean }).dynamic = merged.dynamic === true || undefined;
       if ('template' in merged && typeof merged.template !== 'string') delete (merged as { template?: unknown }).template;
-      if (merged.type === 'icon') merged.body = sanitizeIconBody(String(merged.body ?? ''));
+      if (merged.type === 'icon') {
+        merged.body = sanitizeIconBody(String(merged.body ?? ''));
+        // Four numbers, nothing else, since it goes into the SVG as it is.
+        const shown = typeof merged.viewBox === 'string' ? merged.viewBox.trim().split(/\s+/).map(Number) : [];
+        if (shown.length !== 4 || !shown.every(Number.isFinite) || shown[2] <= 0 || shown[3] <= 0) delete merged.viewBox;
+        else merged.viewBox = shown.join(' ');
+      }
       if (merged.type === 'line' && !LINE_DIRECTIONS.includes(merged.direction)) merged.direction = 'horizontal';
       if (merged.type === 'frame') {
         if (!isFrameStyle(merged.style)) merged.style = 'single';

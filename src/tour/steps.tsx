@@ -41,7 +41,7 @@ export const TOUR_STEPS: TourStep[] = [
     id: 'design',
     title: 'Design right on the label',
     body: 'Add text, images, icons, QR codes, barcodes, frames and shapes. Double-click any text to type straight onto the label.',
-    highlights: ['Smart guides snap to edges and centres', 'Text shrinks to fit its box as you type', 'Dynamic text prints batches from a sheet, serial numbers and dates', '11 frame styles, from double lines to tickets and scallops', 'Portrait or landscape on any roll', 'Cable flags: blank tail, matching or different sides'],
+    highlights: ['Smart guides snap to edges and centres', 'Select several to align them or space them evenly', 'Boxes hug text and pictures, so sizes read true', 'Dynamic text prints batches from a sheet, serial numbers and dates', '11 frame styles, from double lines to tickets and scallops', 'Portrait or landscape on any roll', 'Cable flags: blank tail, matching or different sides'],
     Visual: CanvasVisual,
   },
   {
@@ -69,7 +69,7 @@ export const TOUR_STEPS: TourStep[] = [
     id: 'keys',
     title: 'Fast with the keyboard',
     body: 'The shortcuts you already know work here, plus a few for labels.',
-    highlights: ['Arrow keys nudge by 0.1 mm, Shift for 1 mm', 'Zoom in for detail; every selection shows its size', 'Hold Alt to drag without snapping', 'Paste images straight from the clipboard'],
+    highlights: ['Arrow keys nudge by 0.1 mm, Shift for 1 mm', 'Shift-click or drag across to select several', 'Zoom in for detail; every selection shows its size', 'Hold Alt to drag without snapping', 'Paste images straight from the clipboard'],
     Visual: KeysVisual,
   },
   {

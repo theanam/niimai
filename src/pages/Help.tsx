@@ -49,6 +49,8 @@ const SHORTCUTS: [string, string][] = [
   ['Mod+Shift+Z', 'Redo'],
   ['Mod+C / X / V', 'Copy, cut, paste'],
   ['Mod+D', 'Duplicate'],
+  ['Mod+A', 'Select all'],
+  ['Shift (click)', 'Add to the selection'],
   ['Enter / double-click', 'Edit text'],
   ['Esc', 'Finish editing'],
   ['Delete', 'Delete'],
@@ -372,6 +374,14 @@ export function Help() {
           copied from a design app. SVGs stay vector in browser printing.
         </p>
         <p>Lines run horizontal, vertical or diagonal; pick the direction in the side panel and drag the handles to set the angle.</p>
+        <p>
+          The box around text, images, icons and codes hugs what prints, so the size under it is the printed size. They
+          resize from the corners and keep their proportions; text grows as you type.
+        </p>
+        <p>
+          Shift-click elements, or drag across empty space, to select several. Move them together, or line them up and
+          space them evenly from the side panel. With one element selected, the same buttons line it up with the label.
+        </p>
       </section>
       <section>
         <h2>

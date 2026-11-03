@@ -18,6 +18,12 @@ describe('shortcuts', () => {
     expect(matchShortcut(key('y', { ctrlKey: true }), false)?.action).toBe('redo');
   });
 
+  it('selects everything with Mod+A, but not inside a text field', () => {
+    expect(matchShortcut(key('a', { metaKey: true }), true)?.action).toBe('selectAll');
+    expect(matchShortcut(key('a', { ctrlKey: true }), false)?.action).toBe('selectAll');
+    expect(matchShortcut(key('a', { metaKey: true }, document.createElement('textarea')), true)).toBeNull();
+  });
+
   it('keeps native editing shortcuts inside text fields', () => {
     const input = document.createElement('input');
     expect(matchShortcut(key('z', { metaKey: true }, input), true)).toBeNull();

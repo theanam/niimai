@@ -18,6 +18,7 @@ export type ShortcutAction =
   | 'zoomIn'
   | 'zoomOut'
   | 'zoomFit'
+  | 'selectAll'
   | 'nudge';
 
 export interface Shortcut {
@@ -84,6 +85,8 @@ export function matchShortcut(e: KeyLike, mac = isMac()): Shortcut | null {
         return { action: 'paste' };
       case 'd':
         return { action: 'duplicate' };
+      case 'a':
+        return e.shiftKey ? null : { action: 'selectAll' };
     }
     return null;
   }

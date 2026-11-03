@@ -1,13 +1,20 @@
 import {
   AlignCenter,
+  AlignCenterHorizontal,
+  AlignCenterVertical,
+  AlignEndHorizontal,
+  AlignEndVertical,
+  AlignHorizontalSpaceBetween,
   AlignLeft,
   AlignRight,
+  AlignStartHorizontal,
+  AlignStartVertical,
+  AlignVerticalSpaceBetween,
   ArrowDownToLine,
   ArrowUpToLine,
   Bold,
   Copy,
   Italic,
-  Maximize2,
   RotateCw,
   ScanLine,
   SquareDashed,
@@ -33,6 +40,8 @@ import { symbolError } from '../render/barcode';
 import { IconButton } from '../ui/IconButton';
 import { ELEMENT_META } from './elementMeta';
 import { NumberField, Section, Segmented, Toggle } from './fields';
+import { alignPatches, distributePatches, type AlignTo, type Axis } from '../doc/align';
+import { HUGS, placePatch, shownFontSize, tighten } from '../doc/bounds';
 import { FontPicker } from './FontPicker';
 import { FramePicker } from './FramePicker';
 import { DataSection, DynamicSection } from './DataPanel';
@@ -42,6 +51,12 @@ import { LabelSizePicker } from './LabelSizePicker';
 interface Props {
   doc: LabelDoc;
   selected: LabelElement | null;
+  /** Every selected element; with more than one, the panel aligns and spaces them. */
+  selection?: LabelElement[];
+  /** Moves several elements as one step. */
+  onUpdateMany?: (patches: Record<string, Partial<LabelElement>>) => void;
+  onRemoveMany?: (ids: string[]) => void;
+  onDuplicateMany?: (els: LabelElement[]) => void;
   roll: RollState;
   /** Paper type the loaded roll reports, if any. */
   rollPaper?: PaperType;
@@ -83,10 +98,69 @@ const FORMATS: { value: BarcodeFormat; label: string }[] = [
   { value: 'upca', label: 'UPC-A' },
 ];
 
-export function Inspector({ doc, selected, roll, rollPaper, fitting = [], allSizes = LABEL_PRESETS, onSetRollSize, onUpdate, onTurn = () => {}, onDocChange, onDuplicate, onRemove, onReorder, onReplaceImage, onReplaceIcon, onEditText, printIssue, continuous = false, stickerGap, paperWidth = THERMAL_HEAD_MM, onAddSheet = () => {}, resolve = (el) => el }: Props) {
+const ALIGNS: { to: AlignTo; label: string; Icon: typeof AlignLeft }[] = [
+  { to: 'left', label: 'Align left', Icon: AlignStartVertical },
+  { to: 'centerX', label: 'Align centres across', Icon: AlignCenterVertical },
+  { to: 'right', label: 'Align right', Icon: AlignEndVertical },
+  { to: 'top', label: 'Align top', Icon: AlignStartHorizontal },
+  { to: 'centerY', label: 'Align middles', Icon: AlignCenterHorizontal },
+  { to: 'bottom', label: 'Align bottom', Icon: AlignEndHorizontal },
+];
+
+/** Align buttons, and spacing for three or more: to each other with several elements, to the label with one. */
+function AlignTools({ doc, els, onUpdateMany }: { doc: LabelDoc; els: LabelElement[]; onUpdateMany: (patches: Record<string, Partial<LabelElement>>) => void }) {
+  const area = placementArea(doc);
+  const box = { x: 0, y: 0, w: area.widthMm, h: area.heightMm };
+  const align = (to: AlignTo) => onUpdateMany(alignPatches(els, to, box));
+  const spread = (axis: Axis) => onUpdateMany(distributePatches(els, axis));
+  return (
+    <div className="align-tools" role="group" aria-label={els.length > 1 ? 'Align' : 'Align to label'}>
+      {ALIGNS.map(({ to, label, Icon }) => (
+        <IconButton key={to} label={els.length > 1 ? label : `${label} on the label`} onClick={() => align(to)}>
+          <Icon size={16} />
+        </IconButton>
+      ))}
+      {els.length > 2 && (
+        <>
+          <IconButton label="Space evenly across" onClick={() => spread('x')}>
+            <AlignHorizontalSpaceBetween size={16} />
+          </IconButton>
+          <IconButton label="Space evenly down" onClick={() => spread('y')}>
+            <AlignVerticalSpaceBetween size={16} />
+          </IconButton>
+        </>
+      )}
+    </div>
+  );
+}
+
+export function Inspector({ doc, selected, selection = [], onUpdateMany = () => {}, onRemoveMany = () => {}, onDuplicateMany = () => {}, roll, rollPaper, fitting = [], allSizes = LABEL_PRESETS, onSetRollSize, onUpdate, onTurn = () => {}, onDocChange, onDuplicate, onRemove, onReorder, onReplaceImage, onReplaceIcon, onEditText, printIssue, continuous = false, stickerGap, paperWidth = THERMAL_HEAD_MM, onAddSheet = () => {}, resolve = (el) => el }: Props) {
   const data = <DataSection doc={doc} onAddSheet={onAddSheet} onDocChange={onDocChange} />;
   // Cable and flag labels wrap or fold along their length, so they stay portrait.
   const orientation = !doc.tailMm && !doc.fold && <Orientation landscape={!!doc.landscape} onTurn={onTurn} />;
+  if (selection.length > 1) {
+    return (
+      <aside className="inspector" aria-label="Selection settings">
+        <Section
+          title={`${selection.length} selected`}
+          id="selection"
+          actions={
+            <>
+              <IconButton label="Duplicate" shortcut="⌘D" onClick={() => onDuplicateMany(selection)}>
+                <Copy size={16} />
+              </IconButton>
+              <IconButton label="Delete" shortcut="⌫" onClick={() => onRemoveMany(selection.map((e) => e.id))}>
+                <Trash2 size={16} />
+              </IconButton>
+            </>
+          }
+        >
+          <AlignTools doc={doc} els={selection} onUpdateMany={onUpdateMany} />
+          <p className="muted small selection-hint">Shift-click or drag across elements to change the selection.</p>
+        </Section>
+      </aside>
+    );
+  }
   if (!selected && continuous) {
     return (
       <aside className="inspector" aria-label="Label settings">
@@ -198,6 +272,12 @@ export function Inspector({ doc, selected, roll, rollPaper, fitting = [], allSiz
 
   const el = selected;
   const set = (patch: Partial<LabelElement>, key?: string) => onUpdate(el.id, patch, key);
+  // Text and pictures show the box that hugs them, and keep their proportions when resized.
+  const hugs = HUGS.has(el.type);
+  const box = tighten(el);
+  const frame = { x: box.x, y: box.y, w: box.w, h: box.h };
+  const resize = (w: number, h: number): Partial<LabelElement> =>
+    hugs ? placePatch(el, { x: box.x, y: box.y, w, h }) : { w, h };
   const Meta = ELEMENT_META[el.type];
   const shown = resolve(el);
   const error = shown.type === 'qr' || shown.type === 'barcode' ? symbolError(shown) : null;
@@ -230,12 +310,13 @@ export function Inspector({ doc, selected, roll, rollPaper, fitting = [], allSiz
         }
       >
         <div className="grid-2">
-          <NumberField label="X" value={el.x} suffix="mm" onChange={(x) => set({ x }, 'x')} />
-          <NumberField label="Y" value={el.y} suffix="mm" onChange={(y) => set({ y }, 'y')} />
-          <NumberField label="Width" icon="W" value={el.w} min={0.5} suffix="mm" onChange={(w) => set({ w }, 'w')} />
-          <NumberField label="Height" icon="H" value={el.h} min={0.5} suffix="mm" onChange={(h) => set({ h }, 'h')} />
+          <NumberField label="X" value={box.x} suffix="mm" onChange={(x) => set({ ...frame, x }, 'x')} />
+          <NumberField label="Y" value={box.y} suffix="mm" onChange={(y) => set({ ...frame, y }, 'y')} />
+          <NumberField label="Width" icon="W" value={box.w} min={0.5} suffix="mm" onChange={(w) => set(resize(w, hugs ? box.h * (w / box.w) : box.h), 'w')} />
+          <NumberField label="Height" icon="H" value={box.h} min={0.5} suffix="mm" onChange={(h) => set(resize(hugs ? box.w * (h / box.h) : box.w, h), 'h')} />
           <NumberField label="Rotation" icon={<RotateCw size={13} />} value={el.rotation} step={1} suffix="°" onChange={(rotation) => set({ rotation }, 'rotation')} />
         </div>
+        <AlignTools doc={doc} els={[el]} onUpdateMany={onUpdateMany} />
       </Section>
 
       {el.type === 'text' && (
@@ -245,10 +326,9 @@ export function Inspector({ doc, selected, roll, rollPaper, fitting = [], allSiz
               <Pencil size={16} /> Edit text
             </button>
           )}
-          <FontPicker value={el.fontFamily} onChange={(fontFamily) => set({ fontFamily })} />
-          <div className="row">
-            <Toggle label="Fit to box" icon={<Maximize2 size={15} />} checked={el.autoFit} onChange={(autoFit) => set({ autoFit })} />
-            <NumberField label="Font size" icon="pt" value={el.fontSize} min={1} max={400} step={1} onChange={(fontSize) => set({ fontSize, autoFit: false }, 'fontSize')} />
+          <div className="font-size-row">
+            <FontPicker value={el.fontFamily} onChange={(fontFamily) => set({ fontFamily })} />
+            <NumberField label="Font size" icon="pt" value={shownFontSize(el)} min={1} max={400} step={1} onChange={(fontSize) => set({ fontSize, autoFit: false }, 'fontSize')} />
           </div>
           <div className="row">
             <Toggle label="Bold" icon={<Bold size={15} />} checked={el.bold} onChange={(bold) => set({ bold })} />

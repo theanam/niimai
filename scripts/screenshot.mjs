@@ -43,7 +43,7 @@ const demo = {
 
 async function seed(page) {
   // The first-run tour would cover every shot.
-  await page.addInitScript(() => localStorage.setItem('niimai.tour.v1', 'done'));
+  await page.addInitScript(() => localStorage.setItem('niimai.tour.v2', 'done'));
   await page.goto(URL);
   await page.waitForSelector('.start');
   await page.evaluate(async (doc) => {

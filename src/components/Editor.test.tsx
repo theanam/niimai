@@ -64,6 +64,34 @@ describe('editor', () => {
     expect(screen.getByRole('complementary', { name: 'QR code settings' })).toBeInTheDocument();
   });
 
+  it('selects several elements with shift-click and Mod+A, then aligns and deletes them together', async () => {
+    renderEditor();
+    await userEvent.click(screen.getByRole('button', { name: 'Add QR code' }));
+    fireEvent.pointerDown(elements()[0], { button: 0, shiftKey: true });
+    expect(screen.getByRole('complementary', { name: 'Selection settings' })).toHaveTextContent('2 selected');
+    await userEvent.click(screen.getByRole('button', { name: 'Align left' }));
+    const lefts = [...document.querySelectorAll('.selection-member')].map((r) => Number(r.getAttribute('x')));
+    expect(lefts[0]).toBeCloseTo(lefts[1]);
+    fireEvent.keyDown(window, { key: 'Escape' });
+    fireEvent.keyDown(window, { key: 'a', metaKey: true, ctrlKey: true });
+    expect(screen.getByRole('complementary', { name: 'Selection settings' })).toHaveTextContent('2 selected');
+    fireEvent.keyDown(window, { key: 'Delete' });
+    expect(elements()).toHaveLength(0);
+  });
+
+  it('hugs text with its selection box: no space beside the words', () => {
+    renderEditor();
+    fireEvent.pointerDown(elements()[0], { button: 0 });
+    const box = document.querySelector('.selection')!;
+    // Corner handles only: text keeps its proportions.
+    expect(document.querySelectorAll('.handle')).toHaveLength(4);
+    const text = elements()[0].querySelector('text')!;
+    const size = Number(text.getAttribute('font-size'));
+    // jsdom measures 0.55 em a character.
+    expect(Number(box.getAttribute('width'))).toBeCloseTo('Hello, label!'.length * 0.55 * size, 1);
+    expect(Number(box.getAttribute('height'))).toBeCloseTo(size * 1.2, 1);
+  });
+
   it('edits text in place on double-click', async () => {
     renderEditor();
     const el = elements()[0];

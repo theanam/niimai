@@ -210,6 +210,26 @@ describe('printer dialog', () => {
     expect(onStickerGap).toHaveBeenLastCalledWith(null);
   });
 
+  it('shows how to measure stickers and continuous paper', async () => {
+    const thermal = { ...findManualProfile('b1')!, name: 'MP583', kind: 'thermal' as const };
+    renderApp(<PrinterDialog {...base} status={ready({ canFeed: true, profile: thermal })} stickerGap={2} onStickerGap={() => {}} />);
+    await userEvent.click(screen.getByRole('button', { name: 'How to measure' }));
+    const guide = screen.getByRole('dialog', { name: 'How to measure' });
+    expect(guide).toHaveTextContent('Measure one sticker on its own');
+    expect(guide).toHaveTextContent('One long strip');
+    // The picked paper type is marked.
+    expect(guide.querySelector('.mg-current')).toHaveTextContent('Stickers');
+    await userEvent.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog', { name: 'How to measure' })).toBeNull();
+    // The printer window stays open.
+    expect(screen.getByRole('combobox', { name: 'Paper type' })).toBeInTheDocument();
+  });
+
+  it('hides the measuring guide on printers that sense the paper', () => {
+    renderApp(<PrinterDialog {...base} status={ready()} />);
+    expect(screen.queryByRole('button', { name: 'How to measure' })).toBeNull();
+  });
+
   it('offers receipt, label and cat printer types for a printer it does not recognise', async () => {
     const onManualProfile = vi.fn();
     const { rerender } = renderApp(<PrinterDialog {...base} status={{ state: 'disconnected', profile: null }} onManualProfile={onManualProfile} />);

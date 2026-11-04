@@ -1,11 +1,11 @@
 import * as RD from '@radix-ui/react-dialog';
-import { ArrowDownToLine, ArrowUpFromLine, BatteryMedium, Bluetooth, ChevronRight, CircleHelp, Crosshair, Ruler, FlaskConical, Loader2, MoveHorizontal, MoveVertical, Plug, Printer, RotateCcw, ScanLine, TriangleAlert, Unplug, X } from 'lucide-react';
+import { ArrowDownToLine, ArrowUpFromLine, BatteryMedium, Bluetooth, BookOpen, ChevronRight, CircleHelp, Crosshair, Ruler, FlaskConical, Loader2, MoveHorizontal, MoveVertical, Plug, Printer, RotateCcw, ScanLine, TriangleAlert, Unplug, X } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { sizeLabel, type LabelSize } from '../doc/model';
 import { type ConnectionKind, findPrinterType, MANUAL_PROFILES, PRINTER_TYPES, type PrinterStatus, printheadMm, type PrintOffset, supportIssue, type SupportIssue } from 'libniimai';
 import { NumberField } from './fields';
-import { MeasureGuide } from './MeasureGuide';
+import { PaperGuide } from './PaperGuide';
 import { DEFAULT_GAP_MM, MAX_GAP_MM, MAX_LENGTH_MM, MAX_PAPER_MM, MIN_LENGTH_MM, MIN_PAPER_MM } from '../printer/thermalPaper';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
 import { connectFailed, setupHref } from '../ui/setup';
@@ -195,7 +195,7 @@ function Paper({
       // Private windows can refuse storage; the length still applies until the window closes.
     }
   };
-  const [measuring, setMeasuring] = useState(false);
+  const [guiding, setGuiding] = useState(false);
   const printing = status.state === 'printing';
   const stickers = stickerGap !== undefined;
   const sized = !!onStickerGap || (!!onPaperWidth && paperWidth !== undefined) || (!!onLabelLength && labelLength !== undefined);
@@ -206,12 +206,12 @@ function Paper({
           <ScanLine size={15} /> Paper
         </h3>
         {sized && (
-          <button className="link-btn pd-measure" onClick={() => setMeasuring(true)}>
-            <Ruler size={14} /> How to measure
+          <button className="link-btn pd-guide" onClick={() => setGuiding(true)}>
+            <BookOpen size={14} /> Paper guide
           </button>
         )}
       </div>
-      <MeasureGuide open={measuring} onOpenChange={setMeasuring} stickers={stickers} />
+      <PaperGuide open={guiding} onOpenChange={setGuiding} stickers={stickers} />
       {onStickerGap && (
         <div className="pd-paper-fields">
           <select

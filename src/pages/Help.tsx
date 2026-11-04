@@ -394,7 +394,7 @@ export function Help() {
         <p>
           Receipt and cat printers print on continuous paper, 48 mm wide on 58 mm printers and 72 mm on 80 mm ones; set
           the label's length in the side panel or the printer window. For sticker rolls, open the printer window, set
-          Paper to Stickers and enter the gap and the size of one sticker, leaving out the backing. The How to measure link there shows where each number comes from. Feed lines the paper up.
+          Paper to Stickers and enter the gap and the size of one sticker, leaving out the backing. Its Paper guide shows where each number comes from and where the gap goes when you load the roll. Feed lines the paper up.
         </p>
         <p>TSPL label printers up to 80 mm wide work like a NIIMBOT: pick the roll size and paper type, and the printer finds each label's edge.</p>
         <table className="shortcuts help-models">

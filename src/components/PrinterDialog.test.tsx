@@ -210,24 +210,33 @@ describe('printer dialog', () => {
     expect(onStickerGap).toHaveBeenLastCalledWith(null);
   });
 
-  it('shows how to measure stickers and continuous paper', async () => {
+  it('shows how to measure and load stickers and continuous paper', async () => {
     const thermal = { ...findManualProfile('b1')!, name: 'MP583', kind: 'thermal' as const };
-    renderApp(<PrinterDialog {...base} status={ready({ canFeed: true, profile: thermal })} stickerGap={2} onStickerGap={() => {}} />);
-    await userEvent.click(screen.getByRole('button', { name: 'How to measure' }));
-    const guide = screen.getByRole('dialog', { name: 'How to measure' });
+    const { unmount } = renderApp(<PrinterDialog {...base} status={ready({ canFeed: true, profile: thermal })} stickerGap={2} onStickerGap={() => {}} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Paper guide' }));
+    const guide = screen.getByRole('dialog', { name: 'Paper guide' });
     expect(guide).toHaveTextContent('Measure one sticker on its own');
     expect(guide).toHaveTextContent('One long strip');
     // The picked paper type is marked.
     expect(guide.querySelector('.mg-current')).toHaveTextContent('Stickers');
+    await userEvent.click(screen.getByRole('tab', { name: 'Load' }));
+    expect(screen.getByRole('tabpanel', { name: 'Load' })).toHaveTextContent('Put a gap on the print head');
+    expect(screen.getByRole('tabpanel', { name: 'Load' })).toHaveTextContent('Peel printed stickers off');
     await userEvent.keyboard('{Escape}');
-    expect(screen.queryByRole('dialog', { name: 'How to measure' })).toBeNull();
+    expect(screen.queryByRole('dialog', { name: 'Paper guide' })).toBeNull();
     // The printer window stays open.
     expect(screen.getByRole('combobox', { name: 'Paper type' })).toBeInTheDocument();
+    unmount();
+    renderApp(<PrinterDialog {...base} status={ready({ canFeed: true, profile: thermal })} onStickerGap={() => {}} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Paper guide' }));
+    await userEvent.click(screen.getByRole('tab', { name: 'Load' }));
+    expect(screen.getByRole('tabpanel', { name: 'Load' })).toHaveTextContent('Pull a little paper out');
+    expect(screen.getByRole('tabpanel', { name: 'Load' })).not.toHaveTextContent('Put a gap');
   });
 
-  it('hides the measuring guide on printers that sense the paper', () => {
+  it('hides the paper guide on printers that sense the paper', () => {
     renderApp(<PrinterDialog {...base} status={ready()} />);
-    expect(screen.queryByRole('button', { name: 'How to measure' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Paper guide' })).toBeNull();
   });
 
   it('offers receipt, label and cat printer types for a printer it does not recognise', async () => {

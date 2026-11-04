@@ -3766,21 +3766,21 @@ button.pd-setup + .pd-setup {
   }
 }
 
-/* Printer dialog: how to measure paper */
+/* Printer dialog: paper guide */
 .pd-section-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
 }
-.pd-measure {
+.pd-guide {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   font-size: 12px;
   color: var(--muted);
 }
-.pd-measure:hover {
+.pd-guide:hover {
   color: var(--primary);
 }
 .mg-grid {
@@ -3854,6 +3854,63 @@ button.pd-setup + .pd-setup {
 }
 @media (max-width: 560px) {
   .mg-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.mg-panel {
+  display: grid;
+  gap: 12px;
+  padding-top: 14px;
+}
+.mg-lead {
+  margin: 0;
+}
+.mg-load {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: start;
+}
+.mg-load .mg-card svg {
+  max-width: 340px;
+}
+.mg-body {
+  fill: var(--surface-2);
+  stroke: var(--border);
+}
+.mg-sheet {
+  fill: var(--surface);
+  stroke: var(--muted);
+}
+.mg-gap {
+  fill: color-mix(in srgb, var(--primary) 35%, transparent);
+}
+.mg-head {
+  stroke: var(--text);
+  stroke-width: 3;
+  stroke-linecap: round;
+}
+.mg-guide {
+  fill: var(--muted);
+}
+.mg-arrow {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+.mg-steps {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding-left: 20px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.mg-steps strong {
+  color: var(--text);
+  font-weight: 600;
+}
+@media (max-width: 560px) {
+  .mg-load {
     grid-template-columns: 1fr;
   }
 }

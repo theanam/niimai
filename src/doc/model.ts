@@ -17,6 +17,10 @@ interface Base {
   h: number;
   /** Degrees, clockwise, around the element's centre. */
   rotation: number;
+  /** Elements sharing a group id are picked and moved together. */
+  group?: string;
+  /** Locked elements print but cannot be picked on the canvas. */
+  locked?: true;
 }
 
 export interface TextElement extends Base {
@@ -334,6 +338,8 @@ export function parseDoc(input: unknown): LabelDoc {
       const merged = { ...base, ...e } as LabelElement;
       for (const k of ['x', 'y', 'w', 'h', 'rotation'] as const) if (!isNum(merged[k])) merged[k] = base[k];
       if (typeof merged.id !== 'string') merged.id = base.id;
+      if (typeof merged.group !== 'string' || !merged.group) delete merged.group;
+      if (merged.locked !== true) delete merged.locked;
       if ('dynamic' in merged) (merged as { dynamic?: boolean }).dynamic = merged.dynamic === true || undefined;
       if ('template' in merged && typeof merged.template !== 'string') delete (merged as { template?: unknown }).template;
       if (merged.type === 'icon') {

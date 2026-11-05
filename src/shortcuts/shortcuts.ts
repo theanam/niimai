@@ -19,6 +19,9 @@ export type ShortcutAction =
   | 'zoomOut'
   | 'zoomFit'
   | 'selectAll'
+  | 'group'
+  | 'ungroup'
+  | 'lock'
   | 'nudge';
 
 export interface Shortcut {
@@ -59,7 +62,8 @@ export function matchShortcut(e: KeyLike, mac = isMac()): Shortcut | null {
       case 'p':
         return { action: 'print' };
       case 'l':
-        return e.shiftKey ? null : { action: 'library' };
+        if (e.shiftKey) return typing ? null : { action: 'lock' };
+        return { action: 'library' };
       case 'e':
         return e.shiftKey ? null : { action: 'preview' };
       // The browser's page zoom keys zoom the label instead.
@@ -87,6 +91,8 @@ export function matchShortcut(e: KeyLike, mac = isMac()): Shortcut | null {
         return { action: 'duplicate' };
       case 'a':
         return e.shiftKey ? null : { action: 'selectAll' };
+      case 'g':
+        return { action: e.shiftKey ? 'ungroup' : 'group' };
     }
     return null;
   }

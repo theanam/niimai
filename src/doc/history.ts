@@ -2,6 +2,7 @@ import { fitFontSize } from '../render/svg';
 import { MM_PER_PT } from '../lib/units';
 import { HUGS, tighten } from './bounds';
 import type { LabelDoc, LabelElement } from './model';
+import { uid } from '../lib/units';
 
 export interface EditorState {
   doc: LabelDoc;
@@ -17,7 +18,8 @@ export interface EditorState {
 
 export type EditorAction =
   | { type: 'load'; doc: LabelDoc }
-  | { type: 'select'; id: string | null }
+  /** Picks an element and the rest of its group; alone picks just that element. */
+  | { type: 'select'; id: string | null; alone?: boolean }
   | { type: 'selectMany'; ids: string[] }
   /** Adds the element to the selection, or takes it out. */
   | { type: 'toggleSelect'; id: string }
@@ -28,6 +30,11 @@ export type EditorAction =
   | { type: 'updateMany'; patches: Record<string, Partial<LabelElement>>; key?: string }
   | { type: 'remove'; id: string }
   | { type: 'removeMany'; ids: string[] }
+  /** Joins the elements into one group, or takes their groups apart. */
+  | { type: 'group'; ids: string[] }
+  | { type: 'ungroup'; ids: string[] }
+  /** Locking also lets go of the elements, since the canvas no longer picks them. */
+  | { type: 'lock'; ids: string[]; locked: boolean }
   | { type: 'reorder'; id: string; direction: 'up' | 'down' }
   | { type: 'setDoc'; patch: Partial<Pick<LabelDoc, 'name' | 'widthMm' | 'heightMm' | 'tailMm' | 'fold' | 'landscape' | 'paper' | 'sheet' | 'sequence' | 'elements'>> }
   /** Facts about the label (its file, its printer) that undo leaves alone. */
@@ -56,6 +63,13 @@ function push(state: EditorState, doc: LabelDoc, key: string | null = null): Edi
     future: [],
     lastKey: key,
   };
+}
+
+/** The ids and every unlocked element grouped with them. */
+export function withGroups(elements: LabelElement[], ids: string[]): string[] {
+  const groups = new Set(elements.filter((e) => ids.includes(e.id) && e.group).map((e) => e.group));
+  if (!groups.size) return ids;
+  return [...new Set([...ids, ...elements.filter((e) => e.group && groups.has(e.group) && !e.locked).map((e) => e.id)])];
 }
 
 const selection = (ids: string[]) => ({ selectedIds: ids, selectedId: ids.length === 1 ? ids[0] : null });
@@ -104,13 +118,38 @@ export function editorReducer(state: EditorState, action: EditorAction): EditorS
   switch (action.type) {
     case 'load':
       return initialState(action.doc);
-    case 'select':
-      return { ...state, ...selection(action.id ? [action.id] : []), lastKey: null };
+    case 'select': {
+      const ids = action.id ? [action.id] : [];
+      return { ...state, ...selection(action.alone ? ids : withGroups(doc.elements, ids)), lastKey: null };
+    }
     case 'selectMany':
-      return { ...state, ...selection(action.ids.filter((id) => doc.elements.some((e) => e.id === id))), lastKey: null };
+      return { ...state, ...selection(withGroups(doc.elements, action.ids.filter((id) => doc.elements.some((e) => e.id === id)))), lastKey: null };
     case 'toggleSelect': {
+      const ids = withGroups(doc.elements, [action.id]);
       const has = state.selectedIds.includes(action.id);
-      return { ...state, ...selection(has ? state.selectedIds.filter((id) => id !== action.id) : [...state.selectedIds, action.id]), lastKey: null };
+      return { ...state, ...selection(has ? state.selectedIds.filter((id) => !ids.includes(id)) : [...new Set([...state.selectedIds, ...ids])]), lastKey: null };
+    }
+    case 'group': {
+      if (action.ids.length < 2) return state;
+      const group = uid();
+      return { ...push(state, { ...doc, elements: doc.elements.map((e) => (action.ids.includes(e.id) ? { ...e, group } : e)) }), ...selection(action.ids) };
+    }
+    case 'ungroup': {
+      const groups = new Set(doc.elements.filter((e) => action.ids.includes(e.id) && e.group).map((e) => e.group));
+      if (!groups.size) return state;
+      const elements = doc.elements.map((e) => (e.group && groups.has(e.group) ? (({ group: _, ...rest }) => rest as LabelElement)(e) : e));
+      return push(state, { ...doc, elements });
+    }
+    case 'lock': {
+      if (!action.ids.length) return state;
+      const elements = doc.elements.map((e) => {
+        if (!action.ids.includes(e.id)) return e;
+        if (action.locked) return { ...e, locked: true as const };
+        const { locked: _, ...rest } = e;
+        return rest as LabelElement;
+      });
+      const next = push(state, { ...doc, elements });
+      return action.locked ? { ...next, ...selection(state.selectedIds.filter((id) => !action.ids.includes(id))) } : next;
     }
     case 'add':
     case 'addMany': {

@@ -1,6 +1,7 @@
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type { LabelDoc, LabelSize } from '../doc/model';
 import type { PrintOffset } from 'libniimai';
+import type { PrintRecord } from './recentPrints';
 
 interface Schema extends DBSchema {
   labels: { key: string; value: LabelDoc; indexes: { updatedAt: number } };
@@ -22,6 +23,8 @@ export interface Settings {
   paperWidths?: Record<string, number>;
   /** The length new labels start at, by printer model, for continuous-paper printers. */
   labelLengths?: Record<string, number>;
+  /** The last labels printed, newest first. */
+  recentPrints?: PrintRecord[];
 }
 
 let dbPromise: Promise<IDBPDatabase<Schema>> | null = null;

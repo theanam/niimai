@@ -24,6 +24,14 @@ describe('shortcuts', () => {
     expect(matchShortcut(key('a', { metaKey: true }, document.createElement('textarea')), true)).toBeNull();
   });
 
+  it('groups with Mod+G, ungroups with Mod+Shift+G and locks with Mod+Shift+L', () => {
+    expect(matchShortcut(key('g', { metaKey: true }), true)?.action).toBe('group');
+    expect(matchShortcut(key('G', { ctrlKey: true, shiftKey: true }), false)?.action).toBe('ungroup');
+    expect(matchShortcut(key('L', { metaKey: true, shiftKey: true }), true)?.action).toBe('lock');
+    expect(matchShortcut(key('l', { metaKey: true }), true)?.action).toBe('library');
+    expect(matchShortcut(key('g', { metaKey: true }, document.createElement('input')), true)).toBeNull();
+  });
+
   it('keeps native editing shortcuts inside text fields', () => {
     const input = document.createElement('input');
     expect(matchShortcut(key('z', { metaKey: true }, input), true)).toBeNull();

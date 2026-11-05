@@ -79,6 +79,98 @@ describe('editor', () => {
     expect(elements()).toHaveLength(0);
   });
 
+  it('groups elements so a click picks them together, and locks them out of reach until unlocked', async () => {
+    renderEditor();
+    await userEvent.click(screen.getByRole('button', { name: 'Add QR code' }));
+    fireEvent.pointerDown(elements()[0], { button: 0, shiftKey: true });
+    await userEvent.click(screen.getByRole('button', { name: 'Group' }));
+    fireEvent.keyDown(window, { key: 'Escape' });
+    fireEvent.pointerDown(elements()[0], { button: 0 });
+    fireEvent.pointerUp(window);
+    expect(screen.getByRole('complementary', { name: 'Selection settings' })).toHaveTextContent('2 selected');
+    // A second click on a picked group picks that one element.
+    fireEvent.pointerDown(elements()[0], { button: 0 });
+    fireEvent.pointerUp(window);
+    expect(screen.getByRole('complementary', { name: 'Text settings' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'Ungroup' }));
+    fireEvent.keyDown(window, { key: 'Escape' });
+    fireEvent.pointerDown(elements()[1], { button: 0 });
+    fireEvent.pointerUp(window);
+    expect(screen.getByRole('complementary', { name: 'QR code settings' })).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Lock' }));
+    expect(elements()[1]).toHaveClass('locked');
+    const locked = screen.getByRole('complementary', { name: 'Label settings' });
+    expect(within(locked).getByText('Locked')).toBeInTheDocument();
+    // Select all leaves locked elements out.
+    fireEvent.keyDown(window, { key: 'a', metaKey: true, ctrlKey: true });
+    expect(screen.getByRole('complementary', { name: 'Text settings' })).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await userEvent.click(screen.getByRole('button', { name: 'Unlock QR code' }));
+    expect(elements()[1]).not.toHaveClass('locked');
+    expect(screen.queryByText('Locked')).toBeNull();
+  });
+
+  it('adds and takes out elements with a long press on touch screens, and selects all from the label panel', async () => {
+    renderEditor();
+    await userEvent.click(screen.getByRole('button', { name: 'Add QR code' }));
+    vi.useFakeTimers();
+    try {
+      fireEvent.pointerDown(elements()[0], { button: 0, pointerType: 'touch' });
+      act(() => vi.advanceTimersByTime(500));
+      fireEvent.pointerUp(window);
+      expect(screen.getByRole('complementary', { name: 'Selection settings' })).toHaveTextContent('2 selected');
+      fireEvent.pointerDown(elements()[1], { button: 0, pointerType: 'touch' });
+      act(() => vi.advanceTimersByTime(500));
+      fireEvent.pointerUp(window);
+      expect(screen.getByRole('complementary', { name: 'Text settings' })).toBeInTheDocument();
+      // A short tap still picks one element.
+      fireEvent.pointerDown(elements()[1], { button: 0, pointerType: 'touch' });
+      act(() => vi.advanceTimersByTime(100));
+      fireEvent.pointerUp(window);
+      act(() => vi.advanceTimersByTime(500));
+      expect(screen.getByRole('complementary', { name: 'QR code settings' })).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await userEvent.click(screen.getByRole('button', { name: 'Select all' }));
+    expect(screen.getByRole('complementary', { name: 'Selection settings' })).toHaveTextContent('2 selected');
+  });
+
+  it('shares the label as a link, and opens a shared link as a copy', async () => {
+    const { encodeShare } = await import('../files/share');
+    const shared = { ...starterDoc(), name: 'Spice rack' };
+    window.history.replaceState(null, '', `/#/l/${await encodeShare(shared)}`);
+    renderEditor();
+    await waitFor(() => expect(screen.getByRole('textbox', { name: 'Label name' })).toHaveValue('Spice rack'));
+    // The address goes back to the editor, so a reload does not open it again.
+    expect(window.location.hash).toBe('#/');
+    await userEvent.click(screen.getByRole('button', { name: 'Share link' }));
+    const link = await screen.findByDisplayValue(/#\/l\//);
+    expect((link as HTMLInputElement).value.startsWith(`${location.origin}/#/l/`)).toBe(true);
+    const writeText = vi.fn(async () => {});
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    await userEvent.click(screen.getByRole('button', { name: 'Copy link' }));
+    expect(writeText).toHaveBeenCalledWith((link as HTMLInputElement).value);
+  });
+
+  it('lists printed labels in the library and opens the print window for one again', async () => {
+    renderEditor();
+    const { printer } = await import('../printer');
+    const print = vi.spyOn(printer, 'print').mockResolvedValue();
+    onTestFinished(() => print.mockRestore());
+    await connectDemo();
+    await userEvent.keyboard('{Control>}p{/Control}');
+    const dialog = await screen.findByRole('dialog', { name: 'Print' });
+    await userEvent.click(dialog.querySelector('.print-go')!);
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Print' })).toBeNull());
+    await userEvent.keyboard('{Control>}l{/Control}');
+    await userEvent.click(await screen.findByRole('tab', { name: 'Printed' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Print My label again' }));
+    expect(await screen.findByRole('dialog', { name: 'Print' })).toBeInTheDocument();
+  });
+
   it('hugs text with its selection box: no space beside the words', () => {
     renderEditor();
     fireEvent.pointerDown(elements()[0], { button: 0 });
@@ -341,6 +433,18 @@ describe('editor', () => {
     // The whole page streams out first, which takes a while on a slow machine.
     await waitFor(() => expect(sent.slice(-6)).toEqual([0x1b, 0x33, 24, 0x0a, 0x1b, 0x32]), { timeout: 10_000 });
     expect(sent.some((_, i) => sent[i] === 0x1b && sent[i + 1] === 0x64)).toBe(false);
+
+    // The sticker test prints three stickers, each followed by its gap, then fixes the gap from the creep.
+    sent.length = 0;
+    await userEvent.click(within(dialog).getByText('Line up stickers'));
+    await userEvent.click(within(dialog).getByRole('button', { name: /Sticker test/ }));
+    const gaps = () => sent.filter((_, i) => [0x1b, 0x33, 24, 0x0a, 0x1b, 0x32].every((b, j) => sent[i + j] === b)).length;
+    await waitFor(() => expect(gaps()).toBe(3), { timeout: 10_000 });
+    const drift = within(dialog).getByRole('spinbutton', { name: 'Last sits lower by' });
+    await userEvent.clear(drift);
+    await userEvent.type(drift, '1');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Fix gap' }));
+    expect(within(dialog).getByRole('spinbutton', { name: 'Gap' })).toHaveValue(2.5);
     await userEvent.keyboard('{Escape}');
     const labelWidth = screen.getByRole('spinbutton', { name: 'Width' });
     expect(labelWidth).toHaveAttribute('max', '40');

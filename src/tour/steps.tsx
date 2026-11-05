@@ -20,7 +20,7 @@ export const TOUR_STEPS: TourStep[] = [
     id: 'welcome',
     title: 'Welcome to niimai',
     body: 'Design labels and print them on your NIIMBOT printer, all inside the browser.',
-    highlights: ['Free and open source', 'Works on desktop and Android phones', 'Your labels stay on your device'],
+    highlights: ['Free and open source', 'Works on desktop and Android phones, even offline', 'Your labels stay on your device'],
     Visual: WelcomeVisual,
   },
   {
@@ -41,7 +41,7 @@ export const TOUR_STEPS: TourStep[] = [
     id: 'design',
     title: 'Design right on the label',
     body: 'Add text, images, icons, QR codes, barcodes, frames and shapes. Double-click any text to type straight onto the label.',
-    highlights: ['Smart guides snap to edges and centres', 'Select several to align them or space them evenly', 'Boxes hug text and pictures, so sizes read true', 'Dynamic text prints batches from a sheet, serial numbers and dates', '11 frame styles, from double lines to tickets and scallops', 'Portrait or landscape on any roll', 'Cable flags: blank tail, matching or different sides'],
+    highlights: ['Smart guides snap to edges and centres', 'Select several to align them or space them evenly; group or lock them', 'Boxes hug text and pictures, so sizes read true', 'Dynamic text prints batches from a sheet, serial numbers and dates', '11 frame styles, from double lines to tickets and scallops', 'Portrait or landscape on any roll', 'Cable flags: blank tail, matching or different sides'],
     Visual: CanvasVisual,
   },
   {
@@ -62,7 +62,7 @@ export const TOUR_STEPS: TourStep[] = [
     id: 'files',
     title: 'Yours to keep',
     body: 'Labels save automatically to a library on this device. Save them as files to share, or print from the browser as a sharp vector page.',
-    highlights: ['Saves straight back to the same file in Chrome and Edge', 'Every label you make waits in the library', 'Browser print at the exact label size'],
+    highlights: ['Saves straight back to the same file in Chrome and Edge', 'Every label you make waits in the library', 'Reprint recent labels from the Printed tab', 'Share a label as a link, with nothing uploaded', 'Browser print at the exact label size'],
     Visual: FilesVisual,
   },
   {

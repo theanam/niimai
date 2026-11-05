@@ -23,20 +23,23 @@ import { Canvas } from './Canvas';
 import { Header } from './Header';
 import { Inspector } from './Inspector';
 import { IconPicker, type PickedIcon } from './IconPicker';
-import { LibraryDialog, type TemplateSeed } from './LibraryDialog';
+import { LibraryDialog, type LibraryTab, type TemplateSeed } from './LibraryDialog';
+import { printedDoc, recordPrint, type PrintRecord } from '../storage/recentPrints';
 import { SizeDialog } from './SizeDialog';
 import { StartScreen } from './StartScreen';
 import { PrintDialog } from './PrintDialog';
 import { printIssues } from '../render/printability';
 import { fitBorders, safeArea, turnedArea } from '../printer/safeArea';
 import { alignmentDoc } from '../printer/alignment';
-import type { LabelLengths, PaperWidths, StickerGaps } from '../printer/thermalPaper';
+import { STICKER_TEST_COUNT, type LabelLengths, type PaperWidths, type StickerGaps } from '../printer/thermalPaper';
 import { TEMPLATES } from '../templates';
 import { RollMismatchBanner } from './RollMismatchBanner';
 import { ContinuousDialog } from './ContinuousDialog';
 import { PrinterDialog } from './PrinterDialog';
+import { ShareDialog } from './ShareDialog';
+import { decodeShare, sharedPart } from '../files/share';
 
-type DialogName = 'new' | 'roll' | 'continuous' | 'library' | 'print' | 'printer' | 'icon' | null;
+type DialogName = 'new' | 'roll' | 'continuous' | 'library' | 'print' | 'printer' | 'icon' | 'share' | null;
 
 const DEFAULT_DPI = 203;
 
@@ -77,16 +80,20 @@ interface Props {
 
 export function Editor({ initialDoc, initialProfileId, initialDensity, initialRollSizes = {}, initialOffsets = {}, initialStickerGaps = {}, initialPaperWidths = {}, initialLabelLengths = {}, initialView = 'edit' }: Props) {
   const [view, setView] = useState(initialView);
-  const [libraryTab, setLibraryTab] = useState<'mine' | 'templates'>('mine');
+  const [libraryTab, setLibraryTab] = useState<LibraryTab>('mine');
   const [templateSeed, setTemplateSeed] = useState<TemplateSeed>({});
   const editor = useEditor(initialDoc);
   const { state, dispatch, selected, add, update, duplicate } = editor;
   const selection = useMemo(() => state.doc.elements.filter((el) => state.selectedIds.includes(el.id)), [state.doc.elements, state.selectedIds]);
   /** Copies of elements, 1 mm down and right, selected. */
-  const copies = useCallback(
-    (els: LabelElement[]) => dispatch({ type: 'addMany', elements: els.map((el) => ({ ...el, id: uid(), x: round1(el.x + 1), y: round1(el.y + 1) })) }),
-    [dispatch],
-  );
+  const copies = useCallback((els: LabelElement[]) => {
+    // Copied groups become groups of their own.
+    const groups = new Map(els.filter((el) => el.group).map((el) => [el.group!, uid()]));
+    dispatch({
+      type: 'addMany',
+      elements: els.map((el) => ({ ...el, id: uid(), x: round1(el.x + 1), y: round1(el.y + 1), ...(el.group ? { group: groups.get(el.group) } : {}) })),
+    });
+  }, [dispatch]);
   const { doc } = state;
   const status = useSyncExternalStore(
     (fn) => printer.subscribe(fn),
@@ -338,6 +345,24 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
     [dispatch],
   );
 
+  // Share links carry a label in the address; opening one opens a copy of that label.
+  useEffect(() => {
+    const openShared = () => {
+      const part = sharedPart(window.location.hash);
+      if (!part) return;
+      history.replaceState(null, '', `${window.location.pathname}${window.location.search}#/`);
+      decodeShare(part)
+        .then((shared) => {
+          loadDoc(shared);
+          toast.success(`Opened ${shared.name}`);
+        })
+        .catch(() => toast.error('This share link is damaged or cut short'));
+    };
+    openShared();
+    window.addEventListener('hashchange', openShared);
+    return () => window.removeEventListener('hashchange', openShared);
+  }, [loadDoc]);
+
   const addImage = useCallback(
     async (file: Blob, replaceId?: string) => {
       const svg = isSvgFile(file);
@@ -467,6 +492,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
       await printer.print(source, { density, copies, offset, labelType, gapMm, ...(doc.landscape ? { rotate: LANDSCAPE_TURN } : {}) });
       const total = copies * (batch?.count ?? 1);
       toast.success(total > 1 ? `Printed ${total} labels` : 'Printed');
+      void recordPrint(doc, total).catch(() => {});
       // A run of numbers continues where it stopped next time.
       if (batch && !needs.sheet && needs.number) {
         const seq = { start: 1, step: 1, digits: 1, ...doc.sequence };
@@ -490,11 +516,22 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
       // Original images: an office printer can reproduce more than the thermal head.
       const records = recordsFor(batch);
       browserPrint(doc, records ? await standaloneSvgs(records) : await standaloneSvg(shownDoc, dpi, {}), copies);
+      void recordPrint(doc, copies * (batch?.count ?? 1)).catch(() => {});
       return true;
     } catch (err) {
       toast.error((err as Error).message);
       return false;
     }
+  };
+
+  /** Opens a past print, as it printed; again opens the print window for it. */
+  const openPrint = async (record: PrintRecord, again: boolean) => {
+    const newest = record.doc.id === doc.id ? doc : await getLabel(record.doc.id).catch(() => undefined);
+    const next = printedDoc(record, newest);
+    // The open label, unchanged since it printed, stays open with its undo history.
+    if (next !== record.doc || newest !== doc) loadDoc(next);
+    else setView('edit');
+    if (again) setDialog('print');
   };
 
   /** Prints the alignment test label on the loaded roll, with the current offset. */
@@ -506,6 +543,12 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
     } catch (err) {
       toast.error((err as Error).message);
     }
+  };
+
+  /** Prints the alignment label on a few stickers in a row, to show whether prints creep along the roll. */
+  const printStickerTest = async () => {
+    const canvas = await rasterize(alignmentDoc(roll.size ?? paper), dpi, {});
+    await printer.print(canvas, { density, copies: STICKER_TEST_COUNT, offset, ...paperFor() });
   };
 
   const connect = async (kind: ConnectionKind) => {
@@ -600,7 +643,13 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
           if (sel?.type === 'text') setEditing({ id: sel.id });
           return;
         case 'selectAll':
-          return dispatch({ type: 'selectMany', ids: doc.elements.map((el) => el.id) });
+          return dispatch({ type: 'selectMany', ids: doc.elements.filter((el) => !el.locked).map((el) => el.id) });
+        case 'group':
+          return dispatch({ type: 'group', ids: all.map((el) => el.id) });
+        case 'ungroup':
+          return dispatch({ type: 'ungroup', ids: all.map((el) => el.id) });
+        case 'lock':
+          return dispatch({ type: 'lock', ids: all.map((el) => el.id), locked: true });
         case 'copy':
           if (all.length) clipboard.current = all;
           return;
@@ -758,6 +807,10 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
             }}
             onRemoveMany={(ids) => dispatch({ type: 'removeMany', ids })}
             onDuplicateMany={copies}
+            onGroup={(ids) => dispatch({ type: 'group', ids })}
+            onUngroup={(ids) => dispatch({ type: 'ungroup', ids })}
+            onLock={(ids, locked) => dispatch({ type: 'lock', ids, locked })}
+            onSelectAll={() => dispatch({ type: 'selectMany', ids: doc.elements.filter((el) => !el.locked).map((el) => el.id) })}
             roll={roll}
             rollPaper={status.label?.paper}
             fitting={status.profile ? sizesForPrinter(status.profile) : []}
@@ -833,6 +886,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
         weight={(selected?.type === 'icon' && iconTarget ? selected.weight : null) ?? 'bold'}
         onPick={pickIcon}
       />
+      <ShareDialog open={dialog === 'share'} onOpenChange={(o) => setDialog(o ? 'share' : null)} doc={doc} />
       <LibraryDialog
         open={dialog === 'library'}
         onOpenChange={(o) => setDialog(o ? 'library' : null)}
@@ -842,6 +896,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
         templateSeed={templateSeed}
         continuous={status.profile?.kind === 'thermal'}
         onOpen={(d) => loadDoc(d)}
+        onOpenPrint={(record, again) => void openPrint(record, again)}
       />
       <PrintDialog
         open={dialog === 'print'}
@@ -876,6 +931,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
         manualProfileId={manualProfileId}
         onConnect={connect}
         onAlignmentTest={printAlignmentTest}
+        onStickerTest={printStickerTest}
         offset={offset}
         onOffset={changeOffset}
         onFeed={(mm) => printer.feed(mm)}

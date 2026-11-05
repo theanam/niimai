@@ -1,4 +1,4 @@
-import { Bluetooth, Braces, Bug, Cable, Cat, Check, Copy, Crosshair, Globe, Keyboard, LayoutTemplate, Mail, Printer, RectangleHorizontal, ScanLine, Sparkles } from 'lucide-react';
+import { Bluetooth, Braces, Bug, Cable, Cat, Check, Copy, Crosshair, Globe, Keyboard, LayoutTemplate, Mail, Printer, RectangleHorizontal, ScanLine, Share2, Sparkles } from 'lucide-react';
 import { CAT_MODELS, CAT_UNSUPPORTED, type Confidence, detectBrowser, ESCPOS_MODELS, type SetupTopic, supportIssue, type ThermalModel, TSPL_MODELS } from 'libniimai';
 import { type ReactNode, useEffect, useState } from 'react';
 import { replayTour } from '../tour/Tour';
@@ -51,6 +51,10 @@ const SHORTCUTS: [string, string][] = [
   ['Mod+D', 'Duplicate'],
   ['Mod+A', 'Select all'],
   ['Shift (click)', 'Add to the selection'],
+  ['Long press', 'Add to the selection on touch screens'],
+  ['Mod+G', 'Group'],
+  ['Mod+Shift+G', 'Ungroup'],
+  ['Mod+Shift+L', 'Lock'],
   ['Enter / double-click', 'Edit text'],
   ['Esc', 'Finish editing'],
   ['Delete', 'Delete'],
@@ -379,8 +383,14 @@ export function Help() {
           resize from the corners and keep their proportions; text grows as you type.
         </p>
         <p>
-          Shift-click elements, or drag across empty space, to select several. Move them together, or line them up and
-          space them evenly from the side panel. With one element selected, the same buttons line it up with the label.
+          Shift-click elements, or drag across empty space, to select several. On a phone or tablet, long-press each one,
+          or use Select all in the label settings. Move them together, or line them up and space them evenly from the side
+          panel. With one element selected, the same buttons line it up with the label.
+        </p>
+        <p>
+          Group keeps a selection together: a click picks the whole group, and a second click picks one element in it.
+          Lock keeps an element in place, such as a background frame, and lets clicks reach what is on top of it. Locked
+          elements are listed in the label settings, each with its own unlock button.
         </p>
       </section>
       <section>
@@ -395,6 +405,10 @@ export function Help() {
           Receipt and cat printers print on continuous paper, 48 mm wide on 58 mm printers and 72 mm on 80 mm ones; set
           the label's length in the side panel or the printer window. For sticker rolls, open the printer window, set
           Paper to Stickers and enter the gap and the size of one sticker, leaving out the backing. Its Paper guide shows where each number comes from and where the gap goes when you load the roll. Feed lines the paper up.
+        </p>
+        <p>
+          If prints creep down or up the roll, open Line up stickers in the same window and print the sticker test. Enter how
+          much lower the last outline sits than the first, and Fix gap corrects the gap.
         </p>
         <p>TSPL label printers up to 80 mm wide work like a NIIMBOT: pick the roll size and paper type, and the printer finds each label's edge.</p>
         <table className="shortcuts help-models">
@@ -416,6 +430,20 @@ export function Help() {
         <p className="muted">
           Tested: printed with niimai. High: well known to work. Medium: reported to work, fewer reports.{' '}
           {CAT_UNSUPPORTED.map((u) => u.name).join(', ')} use other protocols and are not supported.
+        </p>
+      </section>
+      <section>
+        <h2>
+          <Share2 size={18} /> Share, reprint and offline
+        </h2>
+        <p>
+          Share link makes a link that opens a copy of the label. The label travels inside the link, so nothing is uploaded;
+          labels with pictures make long links, so send those as a file.
+        </p>
+        <p>The Printed tab in the library keeps the last labels you printed, as they printed. Print again opens the print window for one.</p>
+        <p>
+          Once niimai has loaded, it keeps working offline, with the fonts and icons you have used. Install it from the
+          browser's menu to open it like an app.
         </p>
       </section>
       <section>

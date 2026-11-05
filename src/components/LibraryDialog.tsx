@@ -1,4 +1,4 @@
-import { Copy, LayoutTemplate, Search, Shapes, Smile, Trash2 } from 'lucide-react';
+import { Copy, History, LayoutTemplate, Printer, Search, Shapes, Smile, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { sizeLabel, type LabelDoc, type LabelSize } from '../doc/model';
@@ -8,6 +8,7 @@ import { processImages } from '../render/raster';
 import { resolveDoc } from '../doc/variables';
 import { renderSvg } from '../render/svg';
 import { deleteLabel, listLabels, saveLabel } from '../storage/db';
+import { listPrints, type PrintRecord } from '../storage/recentPrints';
 import {
   CATEGORIES,
   filterTemplates,
@@ -25,7 +26,8 @@ import { Dialog, useConfirm } from '../ui/Dialog';
 import { useIncremental } from '../ui/useIncremental';
 import { IconButton } from '../ui/IconButton';
 
-type Tab = 'mine' | 'templates';
+export type LibraryTab = 'mine' | 'printed' | 'templates';
+type Tab = LibraryTab;
 
 interface Props {
   open: boolean;
@@ -34,6 +36,8 @@ interface Props {
   /** Templates are matched to this size until "All sizes" is chosen. */
   currentSize: LabelSize;
   onOpen: (doc: LabelDoc) => void;
+  /** Opens a past print, and with again, the print window for it. */
+  onOpenPrint?: (record: PrintRecord, again: boolean) => void;
   initialTab?: Tab;
   /** Where the Templates tab starts: a search, or one category. */
   templateSeed?: TemplateSeed;
@@ -162,6 +166,48 @@ function MyLabels({ currentId, onOpen }: { currentId: string; onOpen: (d: LabelD
   );
 }
 
+const ago = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
+
+/** "5 minutes ago", "yesterday": the largest unit that fits. */
+export function timeAgo(then: number, now = Date.now()): string {
+  const s = Math.round((then - now) / 1000);
+  const steps: [Intl.RelativeTimeFormatUnit, number][] = [
+    ['day', 86400],
+    ['hour', 3600],
+    ['minute', 60],
+  ];
+  for (const [unit, size] of steps) if (Math.abs(s) >= size) return ago.format(Math.round(s / size), unit);
+  return ago.format(0, 'second');
+}
+
+function Printed({ onOpen }: { onOpen: (record: PrintRecord, again: boolean) => void }) {
+  const [prints, setPrints] = useState<PrintRecord[] | null>(null);
+  useEffect(() => void listPrints().then(setPrints, () => setPrints([])), []);
+  if (prints && !prints.length) return <p className="library-empty muted">Labels you print appear here.</p>;
+  return (
+    <ul className="card-grid" aria-label="Printed">
+      {prints?.map((record) => (
+        <li key={`${record.doc.id}-${record.printedAt}`} className="card">
+          <button className="card-open" onClick={() => onOpen(record, false)} aria-label={`Open ${record.doc.name}`}>
+            <LabelThumb doc={record.doc} />
+          </button>
+          <div className="card-meta">
+            <div className="card-text">
+              <strong title={record.doc.name}>{record.doc.name}</strong>
+              <small>
+                {record.count} printed · {timeAgo(record.printedAt)}
+              </small>
+            </div>
+            <IconButton label={`Print ${record.doc.name} again`} onClick={() => onOpen(record, true)}>
+              <Printer size={15} />
+            </IconButton>
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function Templates({ currentSize, onOpen, seed, continuous = false }: { currentSize: LabelSize; onOpen: (d: LabelDoc) => void; seed?: TemplateSeed; continuous?: boolean }) {
   const [allSizes, setAllSizes] = useState(false);
   const [size, setSize] = useState<LabelSize | null>(null);
@@ -265,7 +311,7 @@ function Templates({ currentSize, onOpen, seed, continuous = false }: { currentS
   );
 }
 
-export function LibraryDialog({ open, onOpenChange, currentId, currentSize, onOpen, initialTab = 'mine', templateSeed, continuous = false }: Props) {
+export function LibraryDialog({ open, onOpenChange, currentId, currentSize, onOpen, onOpenPrint = () => {}, initialTab = 'mine', templateSeed, continuous = false }: Props) {
   const [tab, setTab] = useState<Tab>(initialTab);
   useEffect(() => {
     if (open) setTab(initialTab);
@@ -282,12 +328,27 @@ export function LibraryDialog({ open, onOpenChange, currentId, currentSize, onOp
         <button role="tab" aria-selected={tab === 'mine'} className={tab === 'mine' ? 'active' : ''} onClick={() => setTab('mine')}>
           <Shapes size={15} /> My labels
         </button>
+        <button role="tab" aria-selected={tab === 'printed'} className={tab === 'printed' ? 'active' : ''} onClick={() => setTab('printed')}>
+          <History size={15} /> Printed
+        </button>
         <button role="tab" aria-selected={tab === 'templates'} className={tab === 'templates' ? 'active' : ''} onClick={() => setTab('templates')}>
           <LayoutTemplate size={15} /> Templates
         </button>
       </div>
       <div className="tab-panel" role="tabpanel">
-        {tab === 'mine' ? <MyLabels currentId={currentId} onOpen={openDoc} /> : <Templates currentSize={currentSize} onOpen={openDoc} seed={templateSeed} continuous={continuous} />}
+        {tab === 'mine' ? (
+          <MyLabels currentId={currentId} onOpen={openDoc} />
+        ) : tab === 'printed' ? (
+          <Printed
+            onOpen={(record, again) => {
+              // Closed first, so the print window it may open stays open.
+              onOpenChange(false);
+              onOpenPrint(record, again);
+            }}
+          />
+        ) : (
+          <Templates currentSize={currentSize} onOpen={openDoc} seed={templateSeed} continuous={continuous} />
+        )}
       </div>
     </Dialog>
   );

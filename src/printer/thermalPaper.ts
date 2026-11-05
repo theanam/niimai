@@ -16,3 +16,17 @@ export const MIN_PAPER_MM = 10;
 export const MAX_PAPER_MM = 112;
 export const MIN_LENGTH_MM = 5;
 export const MAX_LENGTH_MM = 500;
+
+/** Stickers the line-up test prints in a row. */
+export const STICKER_TEST_COUNT = 3;
+
+/**
+ * The gap that stops prints creeping across a sticker roll. Each print feeds
+ * one sticker and the set gap, so a gap set too wide moves every print a
+ * little lower on its sticker than the one before. drift is how much lower
+ * the last test print sits than the first (negative when higher).
+ */
+export function correctedGap(gap: number, drift: number, prints = STICKER_TEST_COUNT): number {
+  const next = gap - drift / (prints - 1);
+  return Math.min(MAX_GAP_MM, Math.max(0, Math.round(next * 10) / 10));
+}

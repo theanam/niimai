@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
-import type { EditorAction } from '../doc/history';
+import { withGroups, type EditorAction } from '../doc/history';
 import { flagWidth, isMirrored, printableArea, sizeLabel, type LabelDoc, type LabelElement } from '../doc/model';
 import { HANDLES, resizeBox, snapBox, type Guide, type Handle } from '../doc/snap';
 import { coverBox, HUGS, placePatch, tighten, unionBox, type Box } from '../doc/bounds';
@@ -43,7 +43,7 @@ interface Props {
 }
 
 type Drag =
-  | { kind: 'move'; id: string; ids: string[]; startX: number; startY: number; els: LabelElement[]; box: Box; moved: boolean }
+  | { kind: 'move'; id: string; ids: string[]; startX: number; startY: number; els: LabelElement[]; box: Box; moved: boolean; wasSelected: boolean }
   | { kind: 'resize'; id: string; handle: Handle; startX: number; startY: number; el: LabelElement }
   | { kind: 'marquee'; startX: number; startY: number; x: number; y: number; base: string[] };
 
@@ -52,6 +52,8 @@ const CORNERS: Handle[] = ['nw', 'ne', 'se', 'sw'];
 
 const overlaps = (a: Box, b: Box) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 
+/** How long a finger rests on an element to add it to the selection, or take it out. */
+export const LONG_PRESS_MS = 450;
 const PADDING = 48;
 const SNAP_PX = 6;
 /** Screen pixels per millimetre at true size (96 CSS pixels to the inch). */
@@ -72,6 +74,11 @@ export function Canvas({ doc, selectedIds, dispatch, images, preview, fontsVersi
   const [guides, setGuides] = useState<Guide[]>([]);
   const [marquee, setMarquee] = useState<Box | null>(null);
   const drag = useRef<Drag | null>(null);
+  const press = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const endPress = () => {
+    if (press.current) clearTimeout(press.current);
+    press.current = null;
+  };
   // Picture boxes hug the picture once its proportions are known.
   const [, setAspects] = useState(0);
   useEffect(() => onImageAspect(() => setAspects((n) => n + 1)), []);
@@ -117,11 +124,12 @@ export function Canvas({ doc, selectedIds, dispatch, images, preview, fontsVersi
         const box = { x: Math.min(d.startX, mx), y: Math.min(d.startY, my), w: Math.abs(dx), h: Math.abs(dy) };
         if (Math.hypot(dx, dy) * zoom < 3) return;
         setMarquee(box);
-        const hits = doc.elements.filter((el) => overlaps(coverBox(el), box)).map((el) => el.id);
+        const hits = doc.elements.filter((el) => !el.locked && overlaps(coverBox(el), box)).map((el) => el.id);
         dispatch({ type: 'selectMany', ids: [...new Set([...d.base, ...hits])] });
       } else if (d.kind === 'move') {
         if (!d.moved && Math.hypot(dx, dy) * zoom < 2) return;
         d.moved = true;
+        endPress();
         // The selection snaps as one box to the label and to everything else.
         const others = doc.elements.filter((o) => !d.ids.includes(o.id)).map(snapTarget);
         const box = { ...d.box, x: d.box.x + dx, y: d.box.y + dy };
@@ -145,20 +153,23 @@ export function Canvas({ doc, selectedIds, dispatch, images, preview, fontsVersi
       }
     };
     const onUp = () => {
+      endPress();
       const d = drag.current;
       if (!d) return;
       drag.current = null;
-      // A click without a drag on one of several selected elements picks it alone.
-      if (d.kind === 'move' && !d.moved && d.ids.length > 1) dispatch({ type: 'select', id: d.id });
+      // A click without a drag on one of several selected elements (or a group) picks it alone.
+      if (d.kind === 'move' && !d.moved && d.ids.length > 1 && d.wasSelected) dispatch({ type: 'select', id: d.id, alone: true });
       setGuides([]);
       setMarquee(null);
       dispatch({ type: 'commit' });
     };
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
     return () => {
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
     };
   });
 
@@ -171,10 +182,24 @@ export function Canvas({ doc, selectedIds, dispatch, images, preview, fontsVersi
       return;
     }
     const [x, y] = toMm(e);
-    const ids = selectedIds.includes(el.id) ? selectedIds : [el.id];
-    if (ids !== selectedIds) dispatch({ type: 'select', id: el.id });
+    const wasSelected = selectedIds.includes(el.id);
+    // A press on an element not yet picked picks its whole group.
+    const ids = wasSelected ? selectedIds : withGroups(doc.elements, [el.id]);
+    if (!wasSelected) dispatch({ type: 'select', id: el.id });
     const els = doc.elements.filter((o) => ids.includes(o.id));
-    drag.current = { kind: 'move', id: el.id, ids, startX: x, startY: y, els, box: unionBox(els.map((o) => coverBox(o))), moved: false };
+    drag.current = { kind: 'move', id: el.id, ids, startX: x, startY: y, els, box: unionBox(els.map((o) => coverBox(o))), moved: false, wasSelected };
+    // Fingers have no Shift key: resting on an element adds it to the selection there was, or takes it out.
+    if (e.pointerType !== 'mouse') {
+      const before = selectedIds;
+      endPress();
+      press.current = setTimeout(() => {
+        press.current = null;
+        drag.current = null;
+        const group = withGroups(doc.elements, [el.id]);
+        dispatch({ type: 'selectMany', ids: wasSelected ? before.filter((id) => !group.includes(id)) : [...before, ...group] });
+        navigator.vibrate?.(10);
+      }, LONG_PRESS_MS);
+    }
   };
 
   const startResize = (e: RPointerEvent, el: LabelElement, handle: Handle) => {
@@ -223,9 +248,9 @@ export function Canvas({ doc, selectedIds, dispatch, images, preview, fontsVersi
               <g
                 key={el.id}
                 data-id={el.id}
-                className="canvas-el"
-                onPointerDown={(e) => startMove(e, el)}
-                onDoubleClick={() => el.type === 'text' && onEditStart(el.id)}
+                className={el.locked ? 'canvas-el locked' : 'canvas-el'}
+                onPointerDown={el.locked ? undefined : (e) => startMove(e, el)}
+                onDoubleClick={el.locked ? undefined : () => el.type === 'text' && onEditStart(el.id)}
                 // The element being edited is drawn by the textarea on top, so it is left out here.
                 dangerouslySetInnerHTML={{ __html: (el.id === editingId ? '' : elementSvg(resolve(el), { images })) + hitArea(el) }}
               />

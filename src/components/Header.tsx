@@ -1,5 +1,5 @@
 import * as Popover from '@radix-ui/react-popover';
-import { CircleHelp, Ellipsis, Eye, FilePlus2, FolderOpen, Info, LayoutTemplate, Library, Loader2, Printer, Redo2, Save, Undo2 } from 'lucide-react';
+import { CircleHelp, Ellipsis, Eye, FilePlus2, FolderOpen, Info, LayoutTemplate, Library, Loader2, Printer, Redo2, Save, Share2, Undo2 } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { LABEL_EXT } from '../files/fs-access';
 import type { PrinterStatus } from 'libniimai';
@@ -24,7 +24,7 @@ interface Props {
   printer: PrinterStatus;
   /** On the start screen no label is open, so label tools are hidden. */
   home?: boolean;
-  onAction: (a: 'new' | 'open' | 'save' | 'library' | 'templates' | 'undo' | 'redo' | 'preview' | 'print' | 'printer') => void;
+  onAction: (a: 'new' | 'open' | 'save' | 'share' | 'library' | 'templates' | 'undo' | 'redo' | 'preview' | 'print' | 'printer') => void;
 }
 
 const STATE_LABEL: Record<PrinterStatus['state'], string> = {
@@ -78,6 +78,7 @@ function MoreMenu({ canUndo, canRedo, preview, home, onAction }: Pick<Props, 'ca
           {item(<FilePlus2 size={17} />, 'New label', 'new')}
           {item(<FolderOpen size={17} />, 'Open file', 'open')}
           {!home && item(<Save size={17} />, 'Save file', 'save')}
+          {!home && item(<Share2 size={17} />, 'Share link', 'share')}
           {item(<LayoutTemplate size={17} />, 'Templates', 'templates')}
           {item(<Library size={17} />, 'Library', 'library')}
           <hr />
@@ -131,9 +132,14 @@ export function Header({ name, fileName, docPrinter, onRename, onSaveAs, onHome,
           <FolderOpen size={18} />
         </IconButton>
         {!home && (
-          <IconButton label="Save" shortcut={k('Mod+S')} onClick={() => onAction('save')}>
-            <Save size={18} />
-          </IconButton>
+          <>
+            <IconButton label="Save" shortcut={k('Mod+S')} onClick={() => onAction('save')}>
+              <Save size={18} />
+            </IconButton>
+            <IconButton label="Share link" onClick={() => onAction('share')}>
+              <Share2 size={18} />
+            </IconButton>
+          </>
         )}
         <IconButton label="Library" shortcut={k('Mod+L')} onClick={() => onAction('library')}>
           <Library size={18} />

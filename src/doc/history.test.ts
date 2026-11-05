@@ -1,5 +1,5 @@
 import { editorReducer, initialState } from './history';
-import { createDoc, createElement } from './model';
+import { createDoc, createElement, parseDoc } from './model';
 
 const setup = () => {
   const doc = createDoc();
@@ -119,5 +119,57 @@ describe('editor history', () => {
     const undone = editorReducer(s, { type: 'undo' });
     expect(undone.selectedIds).toEqual([]);
     expect(undone.selectedId).toBeNull();
+  });
+
+  describe('groups and locks', () => {
+    const three = () => {
+      const doc = createDoc();
+      const [a, b, c] = [createElement('rect', doc), createElement('ellipse', doc), createElement('line', doc)];
+      const s = editorReducer(initialState(doc), { type: 'addMany', elements: [a, b, c] });
+      return { s, a, b, c };
+    };
+
+    it('picks and toggles a whole group, and one member alone on request', () => {
+      const { s, a, b, c } = three();
+      const g = editorReducer(s, { type: 'group', ids: [a.id, b.id] });
+      expect(g.doc.elements.find((e) => e.id === a.id)?.group).toBeDefined();
+      expect(g.doc.elements.find((e) => e.id === a.id)?.group).toBe(g.doc.elements.find((e) => e.id === b.id)?.group);
+      expect(g.doc.elements.find((e) => e.id === c.id)?.group).toBeUndefined();
+      expect(editorReducer(g, { type: 'select', id: a.id }).selectedIds.sort()).toEqual([a.id, b.id].sort());
+      expect(editorReducer(g, { type: 'select', id: a.id, alone: true }).selectedIds).toEqual([a.id]);
+      const toggled = editorReducer(editorReducer(g, { type: 'select', id: c.id }), { type: 'toggleSelect', id: b.id });
+      expect(toggled.selectedIds.sort()).toEqual([a.id, b.id, c.id].sort());
+      expect(editorReducer(toggled, { type: 'toggleSelect', id: a.id }).selectedIds).toEqual([c.id]);
+      // Undo takes the group away again.
+      expect(editorReducer(g, { type: 'undo' }).doc.elements.some((e) => e.group)).toBe(false);
+    });
+
+    it('takes groups apart and needs two elements to make one', () => {
+      const { s, a, b } = three();
+      expect(editorReducer(s, { type: 'group', ids: [a.id] })).toBe(s);
+      const g = editorReducer(s, { type: 'group', ids: [a.id, b.id] });
+      const u = editorReducer(g, { type: 'ungroup', ids: [a.id] });
+      expect(u.doc.elements.some((e) => e.group)).toBe(false);
+      expect(editorReducer(u, { type: 'select', id: a.id }).selectedIds).toEqual([a.id]);
+    });
+
+    it('locks elements out of the selection, keeps them out of their group, and unlocks them', () => {
+      const { s, a, b } = three();
+      const g = editorReducer(editorReducer(s, { type: 'group', ids: [a.id, b.id] }), { type: 'selectMany', ids: [a.id, b.id] });
+      const l = editorReducer(g, { type: 'lock', ids: [b.id], locked: true });
+      expect(l.doc.elements.find((e) => e.id === b.id)?.locked).toBe(true);
+      expect(l.selectedIds).toEqual([a.id]);
+      expect(editorReducer(l, { type: 'select', id: a.id }).selectedIds).toEqual([a.id]);
+      const open = editorReducer(l, { type: 'lock', ids: [b.id], locked: false });
+      expect('locked' in open.doc.elements.find((e) => e.id === b.id)!).toBe(false);
+    });
+
+    it('keeps groups and locks in saved files, and drops broken values', () => {
+      const doc = createDoc();
+      const raw = JSON.parse(JSON.stringify({ ...doc, elements: [{ ...createElement('rect', doc), group: 'g1', locked: true }, { ...createElement('rect', doc), group: 5, locked: 'yes' }] }));
+      const [kept, dropped] = parseDoc(raw).elements;
+      expect(kept).toMatchObject({ group: 'g1', locked: true });
+      expect('group' in dropped || 'locked' in dropped).toBe(false);
+    });
   });
 });

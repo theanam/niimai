@@ -18,7 +18,7 @@
 
 - **A start screen** that gets you printing fast: connect, start blank, or pick a template sized for your roll.
 - **Connects directly** to NIIMBOT printers over Bluetooth or USB. No app install, no account. Warns when the design does not match the loaded roll, and prints a ruler test for fine-tuning the print position.
-- **Text, images, QR codes, barcodes, frames and shapes**, with snapping, rotation, undo, zoom and live sizes. Text is edited right on the label, frames come in 11 styles, from double lines to tickets and scallops, and SVG artwork can be imported or pasted.
+- **Text, images, QR codes, barcodes, frames and shapes**, with snapping, rotation, undo, zoom and live sizes. Select several to align, space, group or lock them. Text is edited right on the label, frames come in 11 styles, from double lines to tickets and scallops, and SVG artwork can be imported or pasted.
 - **Over 6,800 templates** across 22 categories, from pantry jars, cable flags and perfume decants to travel toiletries, lab samples and electronics drawers, most with icon versions, laid out for every common roll size.
 - **Batches from a sheet.** Mark text, QR codes or barcodes as dynamic and fill `{{fields}}` from the columns of a CSV or Excel file, one label per row, for shipping labels, name badges or price tags. Serial numbers count up on their own, and today's date or a best-before date fill in when you print.
 - **Every Google Font**, grouped by category and previewed in the picker.
@@ -27,7 +27,9 @@
 - **Works with other Bluetooth thermal printers too.** TSPL label printers up to 80 mm wide print on labels with gaps. Small 58 mm ESC/POS and cat printers print on continuous paper or sticker rolls, with the label length set right in the editor and templates made for long formats, from to-do lists to daily plans.
 - **Recognises 60+ NIIMBOT rolls** from the barcode on their RFID tag, setting the label size and paper type and showing how many labels are left ([list](docs/known-rolls.md)).
 - **Browser printing** of the label as a vector document at its exact size.
-- **Local-first.** Labels are kept on your device, and can be saved to and opened from `.niimai` files.
+- **Local-first.** Labels are kept on your device, and can be saved to and opened from `.niimai` files. Recent prints wait in the library to print again.
+- **Share as a link.** The label travels inside the link, so nothing is uploaded.
+- **Works offline** once loaded, and installs like an app.
 - **Keyboard shortcuts** for everything you do often.
 
 <table>

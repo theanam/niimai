@@ -13,11 +13,16 @@ import {
   ArrowDownToLine,
   ArrowUpToLine,
   Bold,
+  BoxSelect,
   Copy,
+  Group,
   Italic,
+  Lock,
+  LockOpen,
   RotateCw,
   ScanLine,
   SquareDashed,
+  Ungroup,
   Trash2,
   Contrast,
   ImageUp,
@@ -75,6 +80,12 @@ interface Props {
   /** The element as the shown record prints it, for checking a dynamic code's value. */
   resolve?: (el: LabelElement) => LabelElement;
   onDuplicate: (el: LabelElement) => void;
+  /** Joins elements into a group, or takes the groups they are in apart. */
+  onGroup?: (ids: string[]) => void;
+  onUngroup?: (ids: string[]) => void;
+  onLock?: (ids: string[], locked: boolean) => void;
+  /** Picks every element that is not locked. */
+  onSelectAll?: () => void;
   onRemove: (id: string) => void;
   onReorder: (id: string, direction: 'up' | 'down') => void;
   onReplaceImage: (id: string) => void;
@@ -134,10 +145,51 @@ function AlignTools({ doc, els, onUpdateMany }: { doc: LabelDoc; els: LabelEleme
   );
 }
 
-export function Inspector({ doc, selected, selection = [], onUpdateMany = () => {}, onRemoveMany = () => {}, onDuplicateMany = () => {}, roll, rollPaper, fitting = [], allSizes = LABEL_PRESETS, onSetRollSize, onUpdate, onTurn = () => {}, onDocChange, onDuplicate, onRemove, onReorder, onReplaceImage, onReplaceIcon, onEditText, printIssue, continuous = false, stickerGap, paperWidth = THERMAL_HEAD_MM, onAddSheet = () => {}, resolve = (el) => el }: Props) {
+/** Locked elements cannot be picked on the canvas, so they are listed here to unlock. */
+function LockedSection({ doc, onLock }: { doc: LabelDoc; onLock: (ids: string[], locked: boolean) => void }) {
+  const locked = doc.elements.filter((e) => e.locked);
+  if (!locked.length) return null;
+  return (
+    <Section
+      title="Locked"
+      id="locked"
+      defaultOpen
+      actions={
+        locked.length > 1 && (
+          <IconButton label="Unlock all" onClick={() => onLock(locked.map((e) => e.id), false)}>
+            <LockOpen size={16} />
+          </IconButton>
+        )
+      }
+    >
+      <ul className="locked-list">
+        {locked.map((e) => {
+          const { label, icon: Icon } = ELEMENT_META[e.type];
+          const name = e.type === 'text' && e.text.trim() ? e.text.trim().split('\n')[0] : e.type === 'icon' && e.name ? iconLabel(e.name) : label;
+          return (
+            <li key={e.id}>
+              <Icon size={15} aria-hidden="true" />
+              <span className="locked-name">{name}</span>
+              <IconButton label={`Unlock ${name}`} onClick={() => onLock([e.id], false)}>
+                <LockOpen size={15} />
+              </IconButton>
+            </li>
+          );
+        })}
+      </ul>
+    </Section>
+  );
+}
+
+export function Inspector({ doc, selected, selection = [], onUpdateMany = () => {}, onRemoveMany = () => {}, onDuplicateMany = () => {}, roll, rollPaper, fitting = [], allSizes = LABEL_PRESETS, onSetRollSize, onUpdate, onTurn = () => {}, onDocChange, onDuplicate, onGroup = () => {}, onUngroup = () => {}, onLock = () => {}, onSelectAll = () => {}, onRemove, onReorder, onReplaceImage, onReplaceIcon, onEditText, printIssue, continuous = false, stickerGap, paperWidth = THERMAL_HEAD_MM, onAddSheet = () => {}, resolve = (el) => el }: Props) {
   const data = <DataSection doc={doc} onAddSheet={onAddSheet} onDocChange={onDocChange} />;
   // Cable and flag labels wrap or fold along their length, so they stay portrait.
   const orientation = !doc.tailMm && !doc.fold && <Orientation landscape={!!doc.landscape} onTurn={onTurn} />;
+  const selectAll = doc.elements.some((e) => !e.locked) && (
+    <IconButton label="Select all" shortcut="⌘A" onClick={onSelectAll}>
+      <BoxSelect size={16} />
+    </IconButton>
+  );
   if (selection.length > 1) {
     return (
       <aside className="inspector" aria-label="Selection settings">
@@ -146,6 +198,17 @@ export function Inspector({ doc, selected, selection = [], onUpdateMany = () => 
           id="selection"
           actions={
             <>
+              <IconButton label="Group" shortcut="⌘G" onClick={() => onGroup(selection.map((e) => e.id))}>
+                <Group size={16} />
+              </IconButton>
+              {selection.some((e) => e.group) && (
+                <IconButton label="Ungroup" shortcut="⇧⌘G" onClick={() => onUngroup(selection.map((e) => e.id))}>
+                  <Ungroup size={16} />
+                </IconButton>
+              )}
+              <IconButton label="Lock" shortcut="⇧⌘L" onClick={() => onLock(selection.map((e) => e.id), true)}>
+                <Lock size={16} />
+              </IconButton>
               <IconButton label="Duplicate" shortcut="⌘D" onClick={() => onDuplicateMany(selection)}>
                 <Copy size={16} />
               </IconButton>
@@ -156,7 +219,10 @@ export function Inspector({ doc, selected, selection = [], onUpdateMany = () => 
           }
         >
           <AlignTools doc={doc} els={selection} onUpdateMany={onUpdateMany} />
-          <p className="muted small selection-hint">Shift-click or drag across elements to change the selection.</p>
+          <p className="muted small selection-hint">
+            <span className="hint-fine">Shift-click or drag across elements to change the selection.</span>
+            <span className="hint-coarse">Long-press an element to add it or take it out.</span>
+          </p>
         </Section>
       </aside>
     );
@@ -164,7 +230,7 @@ export function Inspector({ doc, selected, selection = [], onUpdateMany = () => 
   if (!selected && continuous) {
     return (
       <aside className="inspector" aria-label="Label settings">
-        <Section title="Label" defaultOpen>
+        <Section title="Label" defaultOpen actions={selectAll}>
           <p className="muted small">
             {stickerGap !== undefined ? `Stickers with a ${stickerGap} mm gap; set the length to the sticker height.` : `Continuous paper, up to ${paperWidth} mm wide.`}
           </p>
@@ -174,6 +240,7 @@ export function Inspector({ doc, selected, selection = [], onUpdateMany = () => 
           </div>
           {orientation}
         </Section>
+        <LockedSection doc={doc} onLock={onLock} />
         {data}
       </aside>
     );
@@ -183,7 +250,7 @@ export function Inspector({ doc, selected, selection = [], onUpdateMany = () => 
     const isPreset = [...(roll.size ? [roll.size] : []), ...allSizes].some((p) => sameSize(p, doc));
     return (
       <aside className="inspector" aria-label="Label settings">
-        <Section title="Label" defaultOpen>
+        <Section title="Label" defaultOpen actions={selectAll}>
           <LabelSizePicker
             value={doc}
             rollSize={roll.size}
@@ -265,6 +332,7 @@ export function Inspector({ doc, selected, selection = [], onUpdateMany = () => 
             )}
           </details>
         </Section>
+        <LockedSection doc={doc} onLock={onLock} />
         {data}
       </aside>
     );
@@ -299,6 +367,14 @@ export function Inspector({ doc, selected, selection = [], onUpdateMany = () => 
             </IconButton>
             <IconButton label="Send backward" onClick={() => onReorder(el.id, 'down')}>
               <ArrowDownToLine size={16} />
+            </IconButton>
+            {el.group && (
+              <IconButton label="Ungroup" shortcut="⇧⌘G" onClick={() => onUngroup([el.id])}>
+                <Ungroup size={16} />
+              </IconButton>
+            )}
+            <IconButton label="Lock" shortcut="⇧⌘L" onClick={() => onLock([el.id], true)}>
+              <Lock size={16} />
             </IconButton>
             <IconButton label="Duplicate" shortcut="⌘D" onClick={() => onDuplicate(el)}>
               <Copy size={16} />

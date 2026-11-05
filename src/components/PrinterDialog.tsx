@@ -6,7 +6,7 @@ import { sizeLabel, type LabelSize } from '../doc/model';
 import { type ConnectionKind, findPrinterType, MANUAL_PROFILES, PRINTER_TYPES, type PrinterStatus, printheadMm, type PrintOffset, supportIssue, type SupportIssue } from 'libniimai';
 import { NumberField } from './fields';
 import { PaperGuide } from './PaperGuide';
-import { DEFAULT_GAP_MM, MAX_GAP_MM, MAX_LENGTH_MM, MAX_PAPER_MM, MIN_LENGTH_MM, MIN_PAPER_MM } from '../printer/thermalPaper';
+import { correctedGap, DEFAULT_GAP_MM, MAX_GAP_MM, STICKER_TEST_COUNT, MAX_LENGTH_MM, MAX_PAPER_MM, MIN_LENGTH_MM, MIN_PAPER_MM } from '../printer/thermalPaper';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
 import { connectFailed, setupHref } from '../ui/setup';
 import { useUsbRoute } from '../printer/usbRoute';
@@ -37,6 +37,8 @@ interface Props {
   stickerGap?: number;
   /** Sets the sticker gap; null goes back to continuous paper. */
   onStickerGap?: (gap: number | null) => void;
+  /** Prints the alignment label on a few stickers in a row, to see whether prints creep. */
+  onStickerTest?: () => Promise<void>;
   /** The paper's width on printers that cannot sense it, and the head's. */
   paperWidth?: number;
   headWidth?: number;
@@ -177,6 +179,7 @@ function storedFeedStep(): number {
 function Paper({
   status,
   onFeed,
+  onStickerTest,
   stickerGap,
   onStickerGap,
   paperWidth,
@@ -184,7 +187,7 @@ function Paper({
   onPaperWidth,
   labelLength,
   onLabelLength,
-}: Pick<Props, 'status' | 'onFeed' | 'stickerGap' | 'onStickerGap' | 'paperWidth' | 'headWidth' | 'onPaperWidth' | 'labelLength' | 'onLabelLength'>) {
+}: Pick<Props, 'status' | 'onFeed' | 'onStickerTest' | 'stickerGap' | 'onStickerGap' | 'paperWidth' | 'headWidth' | 'onPaperWidth' | 'labelLength' | 'onLabelLength'>) {
   const feed = (mm: number) => void onFeed?.(mm).catch((err: Error) => toast.error(err.message));
   const [step, setStep] = useState(storedFeedStep);
   const changeStep = (mm: number) => {
@@ -262,7 +265,37 @@ function Paper({
           <NumberField label="Feed length" icon="Step" value={step} min={0.5} max={50} step={0.5} suffix="mm" onChange={changeStep} />
         </div>
       )}
+      {stickers && onStickerTest && onStickerGap && <StickerTest gap={stickerGap} printing={printing} onTest={onStickerTest} onGap={onStickerGap} />}
     </section>
+  );
+}
+
+/** Prints the ruler label on a few stickers, then fixes the gap from how far the last print crept. */
+function StickerTest({ gap, printing, onTest, onGap }: { gap: number; printing: boolean; onTest: () => Promise<void>; onGap: (gap: number) => void }) {
+  const [drift, setDrift] = useState(0);
+  const fix = () => {
+    const next = correctedGap(gap, drift);
+    onGap(next);
+    setDrift(0);
+    toast.success(`Gap set to ${next} mm`);
+  };
+  return (
+    <details className="custom-size pd-sticker-test">
+      <summary>Line up stickers</summary>
+      <div className="pd-test-row">
+        <button className="btn" onClick={() => void onTest().catch((err: Error) => toast.error(err.message))} disabled={printing}>
+          <Ruler size={16} /> Sticker test
+        </button>
+        <small className="muted">Prints {STICKER_TEST_COUNT} stickers. Enter how much lower the last outline sits than the first.</small>
+      </div>
+      <div className="pd-feed-row">
+        <NumberField label="Last sits lower by" icon="Lower" value={drift} min={-10} max={10} step={0.5} suffix="mm" onChange={setDrift} />
+        <button className="btn" onClick={fix} disabled={drift === 0}>
+          Fix gap
+        </button>
+      </div>
+      <small className="muted">Use a minus when it sits higher. A shift that is the same on every sticker belongs in Print position.</small>
+    </details>
   );
 }
 
@@ -352,6 +385,7 @@ function Connected(props: Props) {
         <Paper
           status={status}
           onFeed={props.onFeed}
+          onStickerTest={props.onStickerTest}
           stickerGap={props.stickerGap}
           onStickerGap={props.onStickerGap}
           paperWidth={props.paperWidth}

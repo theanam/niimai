@@ -407,8 +407,8 @@ export function Help() {
           Paper to Stickers and enter the gap and the size of one sticker, leaving out the backing. Its Paper guide shows where each number comes from and where the gap goes when you load the roll. Feed lines the paper up.
         </p>
         <p>
-          If prints sit off their stickers, or creep down or up the roll, open Line up stickers in the same window and print
-          the scale. It starts wherever the paper sits and prints only on the stickers, so every sticker edge cuts it off at
+          If prints sit off their stickers, or creep down or up the roll, open Line up stickers in the same window, give the
+          sticker length roughly, and print the scale. It runs just over two stickers, starts wherever the paper sits and prints only on the stickers, so every sticker edge cuts it off at
           a number. The window then asks for those numbers one at a time, with a picture of which edge to read. Fix size,
           gap and position sets the sticker size, the gap and where the print sits, then moves the paper so the next sticker
           starts at the print head. No ruler needed.

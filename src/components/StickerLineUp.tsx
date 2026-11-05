@@ -1,16 +1,20 @@
 import { ArrowLeft, ArrowRight, CircleHelp, Crosshair, Ruler } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { fromScale, type ScaleReadings, type StickerSetup } from '../printer/scale';
+import { fromScale, scaleLength, SIZE_SLACK_MM, type ScaleReadings, type StickerSetup } from '../printer/scale';
+import { MIN_LENGTH_MM } from '../printer/thermalPaper';
 import { NumberField } from './fields';
 import { EdgeZoom, ScaleDrawing } from './ScaleDrawing';
 
 interface Props {
   headWidth: number;
+  /** The sticker length and gap set now; the length starts the guess the scale is sized from. */
+  length: number;
+  gap: number;
   canRetract: boolean;
   printing: boolean;
-  /** Prints the scale from wherever the paper sits. Resolves to the length printed. */
-  onTest: () => Promise<number>;
+  /** Prints the scale, sized for stickers about this long, from wherever the paper sits. Resolves to the length printed. */
+  onTest: (aboutMm: number) => Promise<number>;
   onFix: (next: StickerSetup, feedMm: number) => void;
   onHelp: () => void;
 }
@@ -20,7 +24,7 @@ const STEPS: { key: keyof ScaleReadings; label: string; icon: string; question: 
   { key: 'top', label: 'Sticker top', icon: 'Top', question: "Pick a sticker the scale runs into from its top. What number is at that sticker's top edge?" },
   { key: 'bottom', label: 'Sticker bottom', icon: 'Bottom', question: 'Follow the scale down the same sticker. What number is at its bottom edge?' },
   { key: 'next', label: 'Next sticker top', icon: 'Next', question: 'The scale picks up again on the next sticker. What number is at its top edge?' },
-  { key: 'last', label: 'Last sticker top', icon: 'Last', question: 'Go to the last sticker the scale reaches. What number is at its top edge?', optional: true },
+  { key: 'last', label: 'Last sticker top', icon: 'Last', question: 'Does the scale reach another sticker after that? What number is at the top of the last one? Skip if not.', optional: true },
   { key: 'left', label: 'Left edge', icon: 'Left', question: 'Now across. On any sticker, a row of marks runs side to side. What number is at the sticker’s left edge?' },
   { key: 'right', label: 'Right edge', icon: 'Right', question: 'And on the same row, what number is at its right edge?' },
 ];
@@ -35,14 +39,16 @@ const num = (v: number) => (v < 0 ? `(−${-v})` : String(v));
  * where the print sits, and moves the paper so the next sticker starts at
  * the print head. No ruler needed.
  */
-export function StickerLineUp({ headWidth, canRetract, printing, onTest, onFix, onHelp }: Props) {
+export function StickerLineUp({ headWidth, length, gap, canRetract, printing, onTest, onFix, onHelp }: Props) {
+  /** About how long one sticker is: the shorter the guess, the less scale is printed. */
+  const [about, setAbout] = useState(length);
   /** The length of the scale printed here; the paper stopped at its end. */
   const [printed, setPrinted] = useState<number | null>(null);
   const [readings, setReadings] = useState<Partial<ScaleReadings>>({});
   const [step, setStep] = useState(0);
 
   const print = () =>
-    void onTest().then(
+    void onTest(about).then(
       (length) => {
         setPrinted(length);
         setReadings({});
@@ -69,6 +75,12 @@ export function StickerLineUp({ headWidth, canRetract, printing, onTest, onFix, 
     <details className="custom-size pd-sticker-test">
       <summary>Line up stickers</summary>
       <div className="pd-sticker-body">
+        {printed === null && (
+          <div className="pd-reading-group">
+            <span className="pd-reading-title">About how long is one sticker?</span>
+            <NumberField label="Sticker length, about" icon="L" value={about} min={MIN_LENGTH_MM} max={300} step={1} suffix="mm" onChange={setAbout} />
+          </div>
+        )}
         <div className="pd-test-row">
           <button className="btn" onClick={print} disabled={printing}>
             <Ruler size={16} /> {printed === null ? 'Print scale' : 'Print again'}
@@ -78,7 +90,10 @@ export function StickerLineUp({ headWidth, canRetract, printing, onTest, onFix, 
           </button>
         </div>
         {printed === null ? (
-          <small className="muted">Prints a long scale from wherever the paper sits. Then you read a few numbers off it, step by step. No ruler needed.</small>
+          <small className="muted">
+            Prints {scaleLength(about, gap)} mm of scale from wherever the paper sits, enough for stickers up to {about + SIZE_SLACK_MM} mm long. Then you read a few numbers off it, step
+            by step. No ruler needed.
+          </small>
         ) : !done ? (
           <div className="lu-step" role="group" aria-label={`Step ${step + 1} of ${STEPS.length}`}>
             <span className="lu-count">

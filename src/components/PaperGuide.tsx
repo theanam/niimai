@@ -184,7 +184,7 @@ export function PaperGuide({ open, onOpenChange, stickers, initialTab = 'measure
               <strong>Load the roll as it is.</strong> The scale starts wherever the paper sits.
             </li>
             <li>
-              <strong>Print the scale.</strong> It runs over three stickers or more, and shows only on the stickers.
+              <strong>Print the scale.</strong> Give the sticker length roughly first: the scale runs just over two stickers, so a close guess saves stickers. It shows only on the stickers.
             </li>
             <li>
               <strong>Answer one question at a time.</strong> Each shows which edge to read: a sticker's top and bottom, the next sticker's top, the last sticker's top, then its left and right edges.

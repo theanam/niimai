@@ -2,9 +2,24 @@ import { LINED_UP_MM } from './thermalPaper';
 import { fromScale, scaleDoc, scaleLength, type ScaleReadings } from './scale';
 
 describe('sticker scale', () => {
-  it('prints long enough to pass a third whole sticker from anywhere', () => {
-    expect(scaleLength(25, 2)).toBeGreaterThanOrEqual(4 * 27);
-    expect(scaleLength(10, 2)).toBe(100);
+  it('prints just enough for a whole sticker and the next top, from anywhere on the roll', () => {
+    // Stickers about 25 mm: room for two steps of a sticker up to 40 mm and a 5 mm gap.
+    expect(scaleLength(25, 2)).toBe(93);
+    expect(scaleLength(12, 2)).toBe(67);
+    expect(scaleLength(25, 8)).toBe(99);
+    // Whatever the start, the first whole sticker's top, its bottom and the next top are on the scale,
+    // for any sticker up to 15 mm longer than the guess.
+    for (const about of [10, 25, 50]) {
+      for (const extra of [-5, 0, 7, 15]) {
+        const length = about + extra;
+        const pitch = length + 4;
+        const printed = scaleLength(about, 2);
+        for (let start = 0; start < pitch; start += 0.5) {
+          const top = (pitch - start) % pitch;
+          expect(top + pitch).toBeLessThanOrEqual(printed - 1);
+        }
+      }
+    }
     const doc = scaleDoc(48, 120);
     expect(doc).toMatchObject({ widthMm: 48, heightMm: 120 });
     // Numbered every 5 mm down the middle.

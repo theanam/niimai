@@ -440,9 +440,9 @@ describe('editor', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: /Print scale/ }));
     await waitFor(() => expect(sent.length).toBeGreaterThan(0), { timeout: 10_000 });
     expect(sent.some((_, i) => sent[i] === 0x1b && (sent[i + 1] === 0x64 || sent[i + 1] === 0x33))).toBe(false);
-    // 40 × 30 mm stickers every 33 mm, centred on the 48 mm head: one from 10 to 40, the next at 43, the last at 142.
+    // 40 × 30 mm stickers every 33 mm, centred on the 48 mm head: one from 10 to 40, the next at 43, the last at 76.
     expect(await within(dialog).findByRole('group', { name: 'Step 1 of 6' }, { timeout: 10_000 })).toBeInTheDocument();
-    for (const [name, value] of [['Sticker top', '10'], ['Sticker bottom', '40'], ['Next sticker top', '43'], ['Last sticker top', '142'], ['Left edge', '4'], ['Right edge', '44']]) {
+    for (const [name, value] of [['Sticker top', '10'], ['Sticker bottom', '40'], ['Next sticker top', '43'], ['Last sticker top', '76'], ['Left edge', '4'], ['Right edge', '44']]) {
       const field = within(dialog).getByRole('spinbutton', { name });
       await userEvent.clear(field);
       await userEvent.type(field, value);
@@ -451,8 +451,8 @@ describe('editor', () => {
     expect(within(dialog).getByRole('status')).toHaveTextContent('40 × 30 mm stickers, 3 mm gap');
     sent.length = 0;
     await userEvent.click(within(dialog).getByRole('button', { name: 'Fix size, gap and position' }));
-    // The 149 mm scale stopped 7 mm past the top at 142, so the paper feeds 26 mm (208 dots) to the next top at 175.
-    await waitFor(() => expect(sent).toEqual([0x1b, 0x33, 208, 0x0a, 0x1b, 0x32]));
+    // Sized for stickers about 30 mm, the 103 mm scale stopped 27 mm past the top at 76, so the paper feeds 6 mm (48 dots) to the next top at 109.
+    await waitFor(() => expect(sent).toEqual([0x1b, 0x33, 48, 0x0a, 0x1b, 0x32]));
     expect(within(dialog).getByRole('spinbutton', { name: 'Label length' })).toHaveValue(30);
     expect(within(dialog).getByRole('spinbutton', { name: 'Paper width' })).toHaveValue(40);
     expect(within(dialog).getByRole('spinbutton', { name: 'Gap' })).toHaveValue(3);

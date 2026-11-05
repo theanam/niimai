@@ -249,6 +249,22 @@ describe('printer dialog', () => {
     expect(screen.getByRole('tab', { name: 'Line up' })).toHaveAttribute('aria-selected', 'true');
   });
 
+  it('sizes the scale from about how long a sticker is, to save stickers', async () => {
+    const thermal = { ...findManualProfile('b1')!, name: 'MP583', kind: 'thermal' as const };
+    const onStickerTest = vi.fn(async (_about: number) => 70);
+    renderApp(<PrinterDialog {...base} status={ready({ canFeed: true, profile: thermal })} stickerGap={2} onStickerGap={() => {}} onStickerTest={onStickerTest} onFeed={async () => {}} labelLength={30} onLabelLength={() => {}} paperWidth={48} onPaperWidth={() => {}} />);
+    await userEvent.click(screen.getByText('Line up stickers'));
+    // Starts from the length set, and says how much scale that prints.
+    const about = screen.getByRole('spinbutton', { name: 'Sticker length, about' });
+    expect(about).toHaveValue(30);
+    expect(screen.getByText(/Prints 103 mm of scale/)).toBeInTheDocument();
+    await userEvent.clear(about);
+    await userEvent.type(about, '12');
+    expect(screen.getByText(/Prints 67 mm of scale/)).toHaveTextContent('stickers up to 27 mm long');
+    await userEvent.click(screen.getByRole('button', { name: 'Print scale' }));
+    expect(onStickerTest).toHaveBeenCalledWith(12);
+  });
+
   it('walks through reading the scale, then sets the sticker size, gap and position', async () => {
     const thermal = { ...findManualProfile('b1')!, name: 'MP583', kind: 'thermal' as const };
     const [onPaperWidth, onLabelLength, onStickerGap, onOffset] = [vi.fn(), vi.fn(), vi.fn(), vi.fn()];

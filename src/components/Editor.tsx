@@ -567,8 +567,8 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
    * sits, with nothing fed after it: the paper stops at the scale's end.
    * Resolves to the printed length.
    */
-  const printStickerScale = async () => {
-    const length = scaleLength(labelLength, stickerGap ?? 0);
+  const printStickerScale = async (about: number) => {
+    const length = scaleLength(about, stickerGap ?? 0);
     const canvas = await rasterize(scaleDoc(headWidth, length), dpi, {});
     await printer.print(canvas, { density, copies: 1, offset: { x: 0, y: 0 }, labelType: labelTypeOf('gaps'), gapMm: 0 });
     return length;

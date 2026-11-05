@@ -15,12 +15,20 @@ const NUMBER_EVERY = 5;
 /** Rows of marks across the head, this far apart down the scale. */
 const ROW_EVERY = 10;
 
+/** How much longer than the length given a sticker may turn out to be. */
+export const SIZE_SLACK_MM = 15;
+/** Room for the gap between stickers, at the least. */
+const GAP_ROOM_MM = 5;
+
 /**
- * How long a scale to print: enough to run past the end of a third whole
- * sticker from anywhere on the roll, from the size set now, with room for a
- * set size that is well off.
+ * How long a scale to print for stickers about `about` mm long. The
+ * readings need one sticker's top and bottom and the next sticker's top.
+ * Printing can start just past a top, so the first whole top may be a full
+ * step in, and the next top is one more step on: two steps of the longest
+ * sticker the guess allows, and a little more to read the last edge.
  */
-export const scaleLength = (length: number, gap: number): number => Math.min(400, Math.max(100, Math.ceil(4.5 * (length + gap))));
+export const scaleLength = (about: number, gap: number): number =>
+  Math.min(400, Math.max(40, Math.ceil(2 * (about + SIZE_SLACK_MM + Math.max(gap, GAP_ROOM_MM)) + 3)));
 
 /** The scale as a label the head's full width and `lengthMm` long. Numbers count mm from where the print starts. */
 export function scaleDoc(widthMm: number, lengthMm: number): LabelDoc {

@@ -39,8 +39,8 @@ interface Props {
   stickerGap?: number;
   /** Sets the sticker gap; null goes back to continuous paper. */
   onStickerGap?: (gap: number | null) => void;
-  /** Prints the sticker scale from wherever the paper sits. Resolves to the length printed. */
-  onStickerTest?: () => Promise<number>;
+  /** Prints the sticker scale, sized for stickers about this many mm long, from wherever the paper sits. Resolves to the length printed. */
+  onStickerTest?: (aboutMm: number) => Promise<number>;
   /** The paper's width on printers that cannot sense it, and the head's. */
   paperWidth?: number;
   headWidth?: number;
@@ -269,6 +269,8 @@ function Paper({
       {stickers && onStickerTest && onStickerGap && onFeed && onPaperWidth && onLabelLength && paperWidth !== undefined && labelLength !== undefined && (
         <StickerLineUp
           headWidth={headWidth ?? paperWidth}
+          length={labelLength}
+          gap={stickerGap}
           canRetract={!!status.canRetract}
           printing={printing}
           onTest={onStickerTest}

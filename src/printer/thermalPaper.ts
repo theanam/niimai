@@ -17,16 +17,17 @@ export const MAX_PAPER_MM = 112;
 export const MIN_LENGTH_MM = 5;
 export const MAX_LENGTH_MM = 500;
 
-/** Stickers the line-up test prints in a row. */
-export const STICKER_TEST_COUNT = 3;
+/**
+ * Paper fed after each print on a sticker roll: the rest of the sticker,
+ * when the label is shorter than it, then the gap. Each print then starts
+ * on the next sticker whatever the label's length.
+ */
+export const stickerFeed = (gap: number, stickerLength: number, printedLength: number): number =>
+  Math.round((gap + Math.max(0, stickerLength - printedLength)) * 100) / 100;
 
 /**
- * The gap that stops prints creeping across a sticker roll. Each print feeds
- * one sticker and the set gap, so a gap set too wide moves every print a
- * little lower on its sticker than the one before. drift is how much lower
- * the last test print sits than the first (negative when higher).
+ * How far past a sticker's top the head may sit and still count as lined
+ * up. Moving forward to the next top would push out a whole blank sticker
+ * to correct less than a ruler reading.
  */
-export function correctedGap(gap: number, drift: number, prints = STICKER_TEST_COUNT): number {
-  const next = gap - drift / (prints - 1);
-  return Math.min(MAX_GAP_MM, Math.max(0, Math.round(next * 10) / 10));
-}
+export const LINED_UP_MM = 1.5;

@@ -3885,6 +3885,51 @@ button.pd-setup + .pd-setup {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   align-items: start;
 }
+/* Picked-out edge and the scale's faint, unprinted part in the drawings */
+.mg-mark line {
+  stroke: var(--primary);
+  stroke-width: 3;
+}
+.mg-mark circle {
+  fill: none;
+  stroke: var(--primary);
+  stroke-width: 2.5;
+}
+.mg-mark text {
+  fill: var(--primary);
+  font-size: 13px;
+  font-weight: 700;
+}
+.mg-ghost line {
+  stroke: var(--muted);
+  stroke-dasharray: 2 2;
+  opacity: 0.6;
+}
+.mg-ghost text {
+  fill: var(--muted);
+  opacity: 0.7;
+  font-size: 12px;
+}
+.mg-scale-number {
+  fill: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+}
+.mg-figures {
+  display: grid;
+  gap: 12px;
+}
+.mg-figures figcaption,
+.lu-zoom figcaption {
+  font-size: 12px;
+  color: var(--muted);
+  text-align: center;
+}
+/* The sticker scale: printed marks, so drawn in ink. */
+.mg-scale line {
+  stroke: var(--text);
+  stroke-width: 1;
+}
 .mg-load .mg-card svg {
   max-width: 340px;
 }
@@ -3981,4 +4026,94 @@ button.pd-setup + .pd-setup {
   flex: none;
   margin-top: 2px;
   color: var(--warn);
+}
+.pd-sticker-body {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+.pd-scale-result {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+.pd-scale-result.error {
+  font-weight: 400;
+  color: var(--danger);
+}
+.pd-line-up {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+}
+.pd-reading-group {
+  display: grid;
+  gap: 6px;
+}
+.pd-reading-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+/* Sticker line-up, one question at a time */
+.lu-step {
+  display: grid;
+  gap: 10px;
+}
+.lu-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.lu-question {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+.lu-figures {
+  display: grid;
+  gap: 10px;
+  justify-items: center;
+}
+.lu-figures > svg {
+  width: 100%;
+  height: 220px;
+}
+.lu-zoom {
+  margin: 0;
+  display: grid;
+  gap: 6px;
+}
+.lu-zoom svg {
+  width: 100%;
+  max-width: 280px;
+  height: auto;
+  margin: 0 auto;
+  display: block;
+}
+.lu-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: space-between;
+}
+.lu-finish {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+}
+.lu-finish .link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+}
+.lu-working {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--muted);
 }

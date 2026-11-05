@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
-import { offlinePlugin } from './src/offline/plugin';
+import { offlinePlugin } from './src/offline/plugin.ts';
 
 export default defineConfig({
   // Relative base so the build works from any GitHub Pages path.

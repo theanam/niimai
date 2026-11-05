@@ -36,6 +36,15 @@ export function strategy(url, mode, origin) {
   return null;
 }
 
+/**
+ * Whether a cached reply can answer a request. An opaque reply, kept from a
+ * stylesheet linked without CORS, draws on the page but cannot be read by a
+ * script, so it never answers a CORS fetch.
+ * @param {ResponseType} type the cached reply's type
+ * @param {RequestMode} mode the request's mode
+ */
+export const answers = (type, mode) => !(type === 'opaque' && mode !== 'no-cors');
+
 /** @param {Cache} cache */
 async function trim(cache) {
   const keys = await cache.keys();
@@ -49,10 +58,11 @@ async function trim(cache) {
 async function cached(request, name) {
   // Font stylesheets differ only by their query, so it counts here.
   const hit = await caches.match(request, { ignoreVary: true });
-  if (hit) return hit;
-  const res = await fetch(request);
-  // Opaque replies (stylesheets linked without CORS) still draw, so they are kept too.
-  if (res.ok || res.type === 'opaque') {
+  if (hit && answers(hit.type, request.mode)) return hit;
+  // A stylesheet linked without CORS is fetched with it, so the copy kept can also answer the app's own
+  // fetches when it embeds fonts for printing. Both Google Fonts hosts allow it.
+  const res = await fetch(request.mode === 'no-cors' ? new Request(request.url, { mode: 'cors', credentials: 'omit' }) : request).catch(() => fetch(request));
+  if (res.ok) {
     const cache = await caches.open(name);
     await cache.put(request, res.clone());
     if (name === FONTS) void trim(cache);

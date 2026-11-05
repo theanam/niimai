@@ -425,7 +425,7 @@ describe('editor', () => {
 
     sent.length = 0;
     // The printed page: the raster is stubbed, so hand the printer a blank one.
-    const ink = { getImageData: (_x: number, _y: number, w: number, h: number) => ({ data: new Uint8ClampedArray(w * h * 4).fill(255) }) };
+    const ink = { getImageData: (_x: number, _y: number, w: number, h: number) => ({ data: new Uint8ClampedArray(w * h * 4).fill(255) }), fillRect: () => {}, drawImage: () => {} };
     const canvas = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(ink as never);
     onTestFinished(() => canvas.mockRestore());
     await userEvent.click(within(dialog).getByRole('button', { name: /Print test/ }));
@@ -434,21 +434,41 @@ describe('editor', () => {
     await waitFor(() => expect(sent.slice(-6)).toEqual([0x1b, 0x33, 24, 0x0a, 0x1b, 0x32]), { timeout: 10_000 });
     expect(sent.some((_, i) => sent[i] === 0x1b && sent[i + 1] === 0x64)).toBe(false);
 
-    // The sticker test prints three stickers, each followed by its gap, then fixes the gap from the creep.
+    // The scale prints as one long strip across the head, with nothing fed after it.
     sent.length = 0;
     await userEvent.click(within(dialog).getByText('Line up stickers'));
-    await userEvent.click(within(dialog).getByRole('button', { name: /Sticker test/ }));
-    const gaps = () => sent.filter((_, i) => [0x1b, 0x33, 24, 0x0a, 0x1b, 0x32].every((b, j) => sent[i + j] === b)).length;
-    await waitFor(() => expect(gaps()).toBe(3), { timeout: 10_000 });
-    const drift = within(dialog).getByRole('spinbutton', { name: 'Last sits lower by' });
-    await userEvent.clear(drift);
-    await userEvent.type(drift, '1');
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Fix gap' }));
-    expect(within(dialog).getByRole('spinbutton', { name: 'Gap' })).toHaveValue(2.5);
+    await userEvent.click(within(dialog).getByRole('button', { name: /Print scale/ }));
+    await waitFor(() => expect(sent.length).toBeGreaterThan(0), { timeout: 10_000 });
+    expect(sent.some((_, i) => sent[i] === 0x1b && (sent[i + 1] === 0x64 || sent[i + 1] === 0x33))).toBe(false);
+    // 40 × 30 mm stickers every 33 mm, centred on the 48 mm head: one from 10 to 40, the next at 43, the last at 142.
+    expect(await within(dialog).findByRole('group', { name: 'Step 1 of 6' }, { timeout: 10_000 })).toBeInTheDocument();
+    for (const [name, value] of [['Sticker top', '10'], ['Sticker bottom', '40'], ['Next sticker top', '43'], ['Last sticker top', '142'], ['Left edge', '4'], ['Right edge', '44']]) {
+      const field = within(dialog).getByRole('spinbutton', { name });
+      await userEvent.clear(field);
+      await userEvent.type(field, value);
+      await userEvent.click(within(dialog).getByRole('button', { name: /Next/ }));
+    }
+    expect(within(dialog).getByRole('status')).toHaveTextContent('40 × 30 mm stickers, 3 mm gap');
+    sent.length = 0;
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Fix size, gap and position' }));
+    // The 149 mm scale stopped 7 mm past the top at 142, so the paper feeds 26 mm (208 dots) to the next top at 175.
+    await waitFor(() => expect(sent).toEqual([0x1b, 0x33, 208, 0x0a, 0x1b, 0x32]));
+    expect(within(dialog).getByRole('spinbutton', { name: 'Label length' })).toHaveValue(30);
+    expect(within(dialog).getByRole('spinbutton', { name: 'Paper width' })).toHaveValue(40);
+    expect(within(dialog).getByRole('spinbutton', { name: 'Gap' })).toHaveValue(3);
+    expect(within(dialog).getByRole('spinbutton', { name: 'Move right' })).toHaveValue(0);
     await userEvent.keyboard('{Escape}');
     const labelWidth = screen.getByRole('spinbutton', { name: 'Width' });
     expect(labelWidth).toHaveAttribute('max', '40');
-  });
+
+    // The 25 mm label is shorter than the 30 mm sticker: the rest of the sticker feeds before the gap, so the next print starts on a sticker.
+    sent.length = 0;
+    await userEvent.keyboard('{Control>}p{/Control}');
+    const print = await screen.findByRole('dialog', { name: 'Print' });
+    await userEvent.click(print.querySelector('.print-go')!);
+    // 5 mm left on the sticker and the 3 mm gap: 8 mm, 64 dots.
+    await waitFor(() => expect(sent.slice(-6)).toEqual([0x1b, 0x33, 64, 0x0a, 0x1b, 0x32]), { timeout: 10_000 });
+  }, 30_000);
 
   it('remembers the label length set in the editor for the printer, and starts new labels on its paper', async () => {
     const { printer, restore } = await useEscPosPrinter();

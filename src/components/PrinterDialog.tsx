@@ -5,8 +5,10 @@ import { toast } from 'sonner';
 import { sizeLabel, type LabelSize } from '../doc/model';
 import { type ConnectionKind, findPrinterType, MANUAL_PROFILES, PRINTER_TYPES, type PrinterStatus, printheadMm, type PrintOffset, supportIssue, type SupportIssue } from 'libniimai';
 import { NumberField } from './fields';
-import { PaperGuide } from './PaperGuide';
-import { correctedGap, DEFAULT_GAP_MM, MAX_GAP_MM, STICKER_TEST_COUNT, MAX_LENGTH_MM, MAX_PAPER_MM, MIN_LENGTH_MM, MIN_PAPER_MM } from '../printer/thermalPaper';
+import { PaperGuide, type Tab as GuideTab } from './PaperGuide';
+import { MAX_OFFSET_MM } from '../printer/scale';
+import { StickerLineUp } from './StickerLineUp';
+import { DEFAULT_GAP_MM, MAX_GAP_MM, MAX_LENGTH_MM, MAX_PAPER_MM, MIN_LENGTH_MM, MIN_PAPER_MM } from '../printer/thermalPaper';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
 import { connectFailed, setupHref } from '../ui/setup';
 import { useUsbRoute } from '../printer/usbRoute';
@@ -37,8 +39,8 @@ interface Props {
   stickerGap?: number;
   /** Sets the sticker gap; null goes back to continuous paper. */
   onStickerGap?: (gap: number | null) => void;
-  /** Prints the alignment label on a few stickers in a row, to see whether prints creep. */
-  onStickerTest?: () => Promise<void>;
+  /** Prints the sticker scale from wherever the paper sits. Resolves to the length printed. */
+  onStickerTest?: () => Promise<number>;
   /** The paper's width on printers that cannot sense it, and the head's. */
   paperWidth?: number;
   headWidth?: number;
@@ -139,6 +141,8 @@ function Connect({ onConnect, manualProfileId }: Pick<Props, 'onConnect' | 'manu
 
 function PrintPosition({ status, onAlignmentTest, offset, onOffset }: Pick<Props, 'status' | 'onAlignmentTest' | 'offset' | 'onOffset'>) {
   const moved = offset.x !== 0 || offset.y !== 0;
+  // Rolls on printers that cannot sense the paper can sit well off the head's middle.
+  const across = status.canFeed ? MAX_OFFSET_MM : 5;
   return (
     <section className="pd-section" aria-labelledby="pd-position">
       <h3 id="pd-position" className="pd-section-title">
@@ -151,7 +155,7 @@ function PrintPosition({ status, onAlignmentTest, offset, onOffset }: Pick<Props
         <small className="muted">If a ruler end is cut off, move the print away from it by the first number you can read.</small>
       </div>
       <div className="pd-offset">
-        <NumberField label="Move right" icon={<MoveHorizontal size={14} />} value={offset.x} min={-5} max={5} step={0.25} suffix="mm" onChange={(x) => onOffset({ ...offset, x })} />
+        <NumberField label="Move right" icon={<MoveHorizontal size={14} />} value={offset.x} min={-across} max={across} step={0.25} suffix="mm" onChange={(x) => onOffset({ ...offset, x })} />
         <NumberField label="Move down" icon={<MoveVertical size={14} />} value={offset.y} min={-5} max={5} step={0.25} suffix="mm" onChange={(y) => onOffset({ ...offset, y })} />
         <button className="icon-btn" aria-label="Reset position" title="Reset position" disabled={!moved} onClick={() => onOffset({ x: 0, y: 0 })}>
           <RotateCcw size={15} />
@@ -180,6 +184,7 @@ function Paper({
   status,
   onFeed,
   onStickerTest,
+  onOffset,
   stickerGap,
   onStickerGap,
   paperWidth,
@@ -187,7 +192,7 @@ function Paper({
   onPaperWidth,
   labelLength,
   onLabelLength,
-}: Pick<Props, 'status' | 'onFeed' | 'onStickerTest' | 'stickerGap' | 'onStickerGap' | 'paperWidth' | 'headWidth' | 'onPaperWidth' | 'labelLength' | 'onLabelLength'>) {
+}: Pick<Props, 'status' | 'onFeed' | 'onStickerTest' | 'onOffset' | 'stickerGap' | 'onStickerGap' | 'paperWidth' | 'headWidth' | 'onPaperWidth' | 'labelLength' | 'onLabelLength'>) {
   const feed = (mm: number) => void onFeed?.(mm).catch((err: Error) => toast.error(err.message));
   const [step, setStep] = useState(storedFeedStep);
   const changeStep = (mm: number) => {
@@ -198,7 +203,7 @@ function Paper({
       // Private windows can refuse storage; the length still applies until the window closes.
     }
   };
-  const [guiding, setGuiding] = useState(false);
+  const [guide, setGuide] = useState<GuideTab | null>(null);
   const printing = status.state === 'printing';
   const stickers = stickerGap !== undefined;
   const sized = !!onStickerGap || (!!onPaperWidth && paperWidth !== undefined) || (!!onLabelLength && labelLength !== undefined);
@@ -209,12 +214,12 @@ function Paper({
           <ScanLine size={15} /> Paper
         </h3>
         {sized && (
-          <button className="link-btn pd-guide" onClick={() => setGuiding(true)}>
+          <button className="link-btn pd-guide" onClick={() => setGuide('measure')}>
             <BookOpen size={14} /> Paper guide
           </button>
         )}
       </div>
-      <PaperGuide open={guiding} onOpenChange={setGuiding} stickers={stickers} />
+      <PaperGuide open={guide !== null} onOpenChange={(o) => !o && setGuide(null)} initialTab={guide ?? 'measure'} stickers={stickers} />
       {onStickerGap && (
         <div className="pd-paper-fields">
           <select
@@ -239,14 +244,10 @@ function Paper({
           )}
         </div>
       )}
-      {headWidth !== undefined && paperWidth !== undefined && paperWidth > headWidth && (
-        <p className="field-error" role="alert">
-          <TriangleAlert size={14} /> Wider than the {headWidth} mm print width. The edges will not print.
-        </p>
-      )}
       <small className="muted">
         {[
           headWidth !== undefined && paperWidth !== undefined && paperWidth < headWidth && `Prints centred on the ${headWidth} mm head.`,
+          headWidth !== undefined && paperWidth !== undefined && paperWidth > headWidth && `Prints the middle ${headWidth} mm.`,
           stickers ? 'Set W and L to the sticker size.' : onLabelLength && 'New labels start at this length.',
         ]
           .filter(Boolean)
@@ -265,37 +266,23 @@ function Paper({
           <NumberField label="Feed length" icon="Step" value={step} min={0.5} max={50} step={0.5} suffix="mm" onChange={changeStep} />
         </div>
       )}
-      {stickers && onStickerTest && onStickerGap && <StickerTest gap={stickerGap} printing={printing} onTest={onStickerTest} onGap={onStickerGap} />}
+      {stickers && onStickerTest && onStickerGap && onFeed && onPaperWidth && onLabelLength && paperWidth !== undefined && labelLength !== undefined && (
+        <StickerLineUp
+          headWidth={headWidth ?? paperWidth}
+          canRetract={!!status.canRetract}
+          printing={printing}
+          onTest={onStickerTest}
+          onFix={(next, mm) => {
+            onPaperWidth(next.width);
+            onLabelLength(next.length);
+            onStickerGap(next.gap);
+            onOffset({ x: next.offsetX, y: next.offsetY });
+            if (mm) feed(mm);
+          }}
+          onHelp={() => setGuide('lineup')}
+        />
+      )}
     </section>
-  );
-}
-
-/** Prints the ruler label on a few stickers, then fixes the gap from how far the last print crept. */
-function StickerTest({ gap, printing, onTest, onGap }: { gap: number; printing: boolean; onTest: () => Promise<void>; onGap: (gap: number) => void }) {
-  const [drift, setDrift] = useState(0);
-  const fix = () => {
-    const next = correctedGap(gap, drift);
-    onGap(next);
-    setDrift(0);
-    toast.success(`Gap set to ${next} mm`);
-  };
-  return (
-    <details className="custom-size pd-sticker-test">
-      <summary>Line up stickers</summary>
-      <div className="pd-test-row">
-        <button className="btn" onClick={() => void onTest().catch((err: Error) => toast.error(err.message))} disabled={printing}>
-          <Ruler size={16} /> Sticker test
-        </button>
-        <small className="muted">Prints {STICKER_TEST_COUNT} stickers. Enter how much lower the last outline sits than the first.</small>
-      </div>
-      <div className="pd-feed-row">
-        <NumberField label="Last sits lower by" icon="Lower" value={drift} min={-10} max={10} step={0.5} suffix="mm" onChange={setDrift} />
-        <button className="btn" onClick={fix} disabled={drift === 0}>
-          Fix gap
-        </button>
-      </div>
-      <small className="muted">Use a minus when it sits higher. A shift that is the same on every sticker belongs in Print position.</small>
-    </details>
   );
 }
 
@@ -386,6 +373,7 @@ function Connected(props: Props) {
           status={status}
           onFeed={props.onFeed}
           onStickerTest={props.onStickerTest}
+          onOffset={props.onOffset}
           stickerGap={props.stickerGap}
           onStickerGap={props.onStickerGap}
           paperWidth={props.paperWidth}

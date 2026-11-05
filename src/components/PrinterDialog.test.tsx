@@ -176,7 +176,7 @@ describe('printer dialog', () => {
     localStorage.removeItem('niimai:feedStep');
   });
 
-  it('sets a narrower paper width, and warns when it is wider than the print width', async () => {
+  it('sets a narrower paper width, and notes which part of wider paper prints', async () => {
     const onPaperWidth = vi.fn();
     const props = { ...base, status: ready({ canFeed: true }), headWidth: 48, onPaperWidth };
     const { rerender } = renderApp(<PrinterDialog {...props} paperWidth={48} />);
@@ -192,7 +192,9 @@ describe('printer dialog', () => {
     rerender(<PrinterDialog {...props} paperWidth={58} labelLength={30} onLabelLength={onPaperWidth} />);
     // Width and length sit side by side.
     expect(screen.getByRole('spinbutton', { name: 'Label length' })).toHaveValue(30);
-    expect(screen.getByRole('alert')).toHaveTextContent('Wider than the 48 mm print width');
+    // Wider paper is fine: a quiet note says which part prints.
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByText(/Prints the middle 48 mm/)).toBeInTheDocument();
   });
 
   it('switches a printer that cannot sense the paper between continuous paper and stickers', async () => {
@@ -222,6 +224,9 @@ describe('printer dialog', () => {
     await userEvent.click(screen.getByRole('tab', { name: 'Load' }));
     expect(screen.getByRole('tabpanel', { name: 'Load' })).toHaveTextContent('Put a gap on the print head');
     expect(screen.getByRole('tabpanel', { name: 'Load' })).toHaveTextContent('Peel printed stickers off');
+    await userEvent.click(screen.getByRole('tab', { name: 'Line up' }));
+    expect(screen.getByRole('tabpanel', { name: 'Line up' })).toHaveTextContent('Answer one question at a time.');
+    expect(screen.getByRole('tabpanel', { name: 'Line up' })).toHaveTextContent('the next sticker starts at the print head');
     await userEvent.keyboard('{Escape}');
     expect(screen.queryByRole('dialog', { name: 'Paper guide' })).toBeNull();
     // The printer window stays open.
@@ -232,6 +237,75 @@ describe('printer dialog', () => {
     await userEvent.click(screen.getByRole('tab', { name: 'Load' }));
     expect(screen.getByRole('tabpanel', { name: 'Load' })).toHaveTextContent('Pull a little paper out');
     expect(screen.getByRole('tabpanel', { name: 'Load' })).not.toHaveTextContent('Put a gap');
+    // Lining up is for sticker rolls.
+    expect(screen.queryByRole('tab', { name: 'Line up' })).toBeNull();
+  });
+
+  it('opens the line-up steps from the sticker test', async () => {
+    const thermal = { ...findManualProfile('b1')!, name: 'MP583', kind: 'thermal' as const };
+    renderApp(<PrinterDialog {...base} status={ready({ canFeed: true, profile: thermal })} stickerGap={2} onStickerGap={() => {}} onStickerTest={async () => 120} onFeed={async () => {}} labelLength={30} onLabelLength={() => {}} paperWidth={48} onPaperWidth={() => {}} />);
+    await userEvent.click(screen.getByText('Line up stickers'));
+    await userEvent.click(screen.getByRole('button', { name: 'How it works' }));
+    expect(screen.getByRole('tab', { name: 'Line up' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('walks through reading the scale, then sets the sticker size, gap and position', async () => {
+    const thermal = { ...findManualProfile('b1')!, name: 'MP583', kind: 'thermal' as const };
+    const [onPaperWidth, onLabelLength, onStickerGap, onOffset] = [vi.fn(), vi.fn(), vi.fn(), vi.fn()];
+    const onFeed = vi.fn(async (_mm: number) => {});
+    renderApp(
+      <PrinterDialog
+        {...base}
+        status={ready({ canFeed: true, profile: thermal })}
+        stickerGap={2}
+        onStickerGap={onStickerGap}
+        onStickerTest={async () => 120}
+        onFeed={onFeed}
+        labelLength={30}
+        onLabelLength={onLabelLength}
+        paperWidth={48}
+        headWidth={48}
+        onPaperWidth={onPaperWidth}
+        offset={{ x: 0, y: 1 }}
+        onOffset={onOffset}
+      />,
+    );
+    await userEvent.click(screen.getByText('Line up stickers'));
+    await userEvent.click(screen.getByRole('button', { name: 'Print scale' }));
+    const answer = async (name: string, value: string) => {
+      const field = screen.getByRole('spinbutton', { name });
+      expect(screen.getByRole('button', { name: /Next/ })).toBeDisabled();
+      await userEvent.clear(field);
+      await userEvent.type(field, value);
+      await userEvent.click(screen.getByRole('button', { name: /Next/ }));
+    };
+    // One question at a time; a negative top is fine.
+    expect(screen.getByRole('group', { name: 'Step 1 of 6' })).toHaveTextContent("What number is at that sticker's top edge?");
+    await answer('Sticker top', '-2');
+    await answer('Sticker bottom', '23');
+    await answer('Next sticker top', '20');
+    await answer('Last sticker top', '118');
+    await answer('Left edge', '1');
+    await answer('Right edge', '51');
+    // A misread number shows what is wrong, and going back fixes it.
+    expect(screen.getByRole('status')).toHaveTextContent("The next sticker's top must read more than this one's bottom.");
+    expect(screen.getByRole('button', { name: 'Fix size, gap and position' })).toBeDisabled();
+    await userEvent.click(screen.getByRole('button', { name: 'Check the numbers' }));
+    for (let i = 0; i < 2; i++) await userEvent.click(screen.getByRole('button', { name: /Next/ }));
+    await userEvent.clear(screen.getByRole('spinbutton', { name: 'Next sticker top' }));
+    await userEvent.type(screen.getByRole('spinbutton', { name: 'Next sticker top' }), '28');
+    for (let i = 0; i < 4; i++) await userEvent.click(screen.getByRole('button', { name: /Next/ }));
+    // A 50 × 25 mm sticker 2 mm right of the head's middle, stickers every 30 mm.
+    expect(screen.getByRole('status')).toHaveTextContent('50 × 25 mm stickers, 5 mm gap');
+    // The working shows, so each number can be checked against the strip.
+    expect(screen.getByRole('status')).toHaveTextContent('Gap 28 − 23 = 5 mm');
+    await userEvent.click(screen.getByRole('button', { name: 'Fix size, gap and position' }));
+    expect(onPaperWidth).toHaveBeenLastCalledWith(50);
+    expect(onLabelLength).toHaveBeenLastCalledWith(25);
+    expect(onStickerGap).toHaveBeenLastCalledWith(5);
+    expect(onOffset).toHaveBeenLastCalledWith({ x: 2, y: 0 });
+    // The 120 mm scale stopped 2 mm past the top at 118: on to the next at 148.
+    expect(onFeed).toHaveBeenLastCalledWith(28);
   });
 
   it('hides the paper guide on printers that sense the paper', () => {

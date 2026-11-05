@@ -6,7 +6,7 @@ import { useEditor } from '../doc/useEditor';
 import { baseName, LABEL_EXT, openImageFile, openLabelFile, openSheetFile, readAsDataUrl, safeFileName, saveTextAs, writeToHandle, type FileHandle } from '../files/fs-access';
 import { round1, uid } from '../lib/units';
 import { printer } from '../printer';
-import { type ConnectionKind, DEMO_NAME, effectivePaper, inkOutsideHead, labelTypeOf, type PrintOffset, printheadMm, rotateCanvas, THERMAL_DEFAULT_SIZE, THERMAL_HEAD_MM, THERMAL_SIZES } from 'libniimai';
+import { type ConnectionKind, DEMO_NAME, effectivePaper, inkOutsideHead, labelTypeOf, type PrintOffset, printheadMm, type PrintOptions, rotateCanvas, type Rotation, THERMAL_DEFAULT_SIZE, THERMAL_HEAD_MM, THERMAL_SIZES } from 'libniimai';
 import { allSizesFor, resolveRoll, sameSize, sizesForPrinter } from '../printer/roll';
 import { asSvgBlob, isImageFile, isSvgFile, looksLikeSvg, svgSize } from '../files/svg';
 import { browserPrint } from '../render/browserPrint';
@@ -31,7 +31,9 @@ import { PrintDialog } from './PrintDialog';
 import { printIssues } from '../render/printability';
 import { fitBorders, safeArea, turnedArea } from '../printer/safeArea';
 import { alignmentDoc } from '../printer/alignment';
-import { STICKER_TEST_COUNT, type LabelLengths, type PaperWidths, type StickerGaps } from '../printer/thermalPaper';
+import { placeOnHead } from '../printer/onHead';
+import { scaleDoc, scaleLength } from '../printer/scale';
+import { stickerFeed, type LabelLengths, type PaperWidths, type StickerGaps } from '../printer/thermalPaper';
 import { TEMPLATES } from '../templates';
 import { RollMismatchBanner } from './RollMismatchBanner';
 import { ContinuousDialog } from './ContinuousDialog';
@@ -474,22 +476,37 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
 
   /**
    * What the label prints on. Printers that cannot sense the paper print on
-   * continuous paper unless the printer is set to stickers, which feed exactly
-   * the gap after each one.
+   * continuous paper unless the printer is set to stickers, which feed the
+   * rest of the sticker and the gap after each one. printedMm is the
+   * printed length along the paper.
    */
-  const paperFor = (): { labelType: number; gapMm?: number } => {
+  const paperFor = (printedMm = paper.heightMm): { labelType: number; gapMm?: number } => {
     if (!status.canFeed) return { labelType: labelTypeOf(effectivePaper(doc.paper, status.label?.paper)) };
-    return stickerGap === undefined ? { labelType: labelTypeOf('continuous') } : { labelType: labelTypeOf('gaps'), gapMm: stickerGap };
+    return stickerGap === undefined ? { labelType: labelTypeOf('continuous') } : { labelType: labelTypeOf('gaps'), gapMm: stickerFeed(stickerGap, labelLength, printedMm) };
   };
+
+  /** The test labels' size: the paper set for printers that cannot sense it, else the roll. */
+  const testSize = (): LabelSize => (status.canFeed ? { widthMm: paperWidth, heightMm: labelLength } : (roll.size ?? paper));
+
+  /**
+   * A page and the options that place it. Printers that cannot sense the
+   * paper get the label turned and set on a canvas as wide as the head, so
+   * the sideways offset moves the whole label along the head.
+   */
+  const onHead = status.canFeed && status.profile ? status.profile.printheadPixels : null;
+  const placePage = (page: HTMLCanvasElement, turn: Rotation = 0): HTMLCanvasElement =>
+    onHead === null ? page : placeOnHead(turn ? rotateCanvas(page, turn) : page, onHead, (offset.x * dpi) / 25.4);
+  const placement = (turn: Rotation = 0): Pick<PrintOptions, 'offset' | 'rotate'> =>
+    onHead === null ? { offset, ...(turn ? { rotate: turn } : {}) } : { offset: { x: 0, y: offset.y } };
 
   const printToPrinter = async (copies: number, batch?: BatchRun) => {
     try {
       const { labelType, gapMm } = paperFor();
       const now = new Date();
-      const source = batch
-        ? { count: batch.count, page: (i: number) => rasterize(resolveDoc(doc, { index: batch.first + i, now }), dpi, images) }
-        : await rasterize(resolveDoc(doc, { index: shownIndex, now }), dpi, images);
-      await printer.print(source, { density, copies, offset, labelType, gapMm, ...(doc.landscape ? { rotate: LANDSCAPE_TURN } : {}) });
+      const turn: Rotation = doc.landscape ? LANDSCAPE_TURN : 0;
+      const page = async (i: number) => placePage(await rasterize(resolveDoc(doc, { index: i, now }), dpi, images), turn);
+      const source = batch ? { count: batch.count, page: (i: number) => page(batch.first + i) } : await page(shownIndex);
+      await printer.print(source, { density, copies, labelType, gapMm, ...placement(turn) });
       const total = copies * (batch?.count ?? 1);
       toast.success(total > 1 ? `Printed ${total} labels` : 'Printed');
       void recordPrint(doc, total).catch(() => {});
@@ -537,18 +554,24 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
   /** Prints the alignment test label on the loaded roll, with the current offset. */
   const printAlignmentTest = async () => {
     try {
-      const test = alignmentDoc(roll.size ?? paper);
-      const canvas = await rasterize(test, dpi, {});
-      await printer.print(canvas, { density, copies: 1, offset, ...paperFor() });
+      const test = alignmentDoc(testSize());
+      const page = placePage(await rasterize(test, dpi, {}));
+      await printer.print(page, { density, copies: 1, ...placement(), ...paperFor(test.heightMm) });
     } catch (err) {
       toast.error((err as Error).message);
     }
   };
 
-  /** Prints the alignment label on a few stickers in a row, to show whether prints creep along the roll. */
-  const printStickerTest = async () => {
-    const canvas = await rasterize(alignmentDoc(roll.size ?? paper), dpi, {});
-    await printer.print(canvas, { density, copies: STICKER_TEST_COUNT, offset, ...paperFor() });
+  /**
+   * Prints the sticker scale across the whole head, from wherever the paper
+   * sits, with nothing fed after it: the paper stops at the scale's end.
+   * Resolves to the printed length.
+   */
+  const printStickerScale = async () => {
+    const length = scaleLength(labelLength, stickerGap ?? 0);
+    const canvas = await rasterize(scaleDoc(headWidth, length), dpi, {});
+    await printer.print(canvas, { density, copies: 1, offset: { x: 0, y: 0 }, labelType: labelTypeOf('gaps'), gapMm: 0 });
+    return length;
   };
 
   const connect = async (kind: ConnectionKind) => {
@@ -931,7 +954,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
         manualProfileId={manualProfileId}
         onConnect={connect}
         onAlignmentTest={printAlignmentTest}
-        onStickerTest={printStickerTest}
+        onStickerTest={printStickerScale}
         offset={offset}
         onOffset={changeOffset}
         onFeed={(mm) => printer.feed(mm)}

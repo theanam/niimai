@@ -1,12 +1,15 @@
-import { Ruler, ScanLine } from 'lucide-react';
-import { useState } from 'react';
+import { Crosshair, Ruler, ScanLine } from 'lucide-react';
+import { useEffect, useState } from 'react';
 import { Dialog } from '../ui/Dialog';
+import { EdgeZoom, ScaleDrawing } from './ScaleDrawing';
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Sticker paper is picked; its guide is marked and the loading steps are for stickers. */
   stickers: boolean;
+  /** The tab shown each time the guide opens. */
+  initialTab?: Tab;
 }
 
 /** A measurement line with end ticks and its name, horizontal (y set) or vertical (x set). */
@@ -118,16 +121,22 @@ const Loading = ({ stickers }: { stickers: boolean }) => (
 const TABS = [
   { id: 'measure', label: 'Measure', icon: Ruler },
   { id: 'load', label: 'Load', icon: ScanLine },
+  { id: 'lineup', label: 'Line up', icon: Crosshair },
 ] as const;
-type Tab = (typeof TABS)[number]['id'];
+export type Tab = (typeof TABS)[number]['id'];
 
 /** Paper on printers that cannot sense it: how to measure continuous rolls and sticker rolls, and how to load them. */
-export function PaperGuide({ open, onOpenChange, stickers }: Props) {
-  const [tab, setTab] = useState<Tab>('measure');
+export function PaperGuide({ open, onOpenChange, stickers, initialTab = 'measure' }: Props) {
+  const [tab, setTab] = useState<Tab>(initialTab);
+  useEffect(() => {
+    if (open) setTab(initialTab);
+  }, [open, initialTab]);
+  // Lining up is for sticker rolls only.
+  const tabs = TABS.filter((t) => stickers || t.id !== 'lineup');
   return (
     <Dialog open={open} onOpenChange={onOpenChange} title="Paper guide" wide>
       <div className="tabs" role="tablist" aria-label="Paper guide">
-        {TABS.map(({ id, label, icon: Icon }) => (
+        {tabs.map(({ id, label, icon: Icon }) => (
           <button key={id} role="tab" aria-selected={tab === id} className={tab === id ? 'active' : ''} onClick={() => setTab(id)}>
             <Icon size={15} /> {label}
           </button>
@@ -158,6 +167,35 @@ export function PaperGuide({ open, onOpenChange, stickers }: Props) {
               </figcaption>
             </figure>
           </div>
+        </div>
+      ) : tab === 'lineup' && stickers ? (
+        <div className="mg-panel mg-load" role="tabpanel" aria-label="Line up">
+          <div className="mg-figures">
+            <figure className="mg-card">
+              <ScaleDrawing />
+            </figure>
+            <figure className="mg-card">
+              <EdgeZoom />
+              <figcaption>Where an edge cuts the scale off, count the marks from the nearest number: each mark is 1 mm.</figcaption>
+            </figure>
+          </div>
+          <ol className="mg-steps">
+            <li>
+              <strong>Load the roll as it is.</strong> The scale starts wherever the paper sits.
+            </li>
+            <li>
+              <strong>Print the scale.</strong> It runs over three stickers or more, and shows only on the stickers.
+            </li>
+            <li>
+              <strong>Answer one question at a time.</strong> Each shows which edge to read: a sticker's top and bottom, the next sticker's top, the last sticker's top, then its left and right edges.
+            </li>
+            <li>
+              <strong>Check the result:</strong> the sticker size and gap should look right.
+            </li>
+            <li>
+              <strong>Fix size, gap and position</strong> sets the sticker size, the gap and where the print sits, then moves the paper so the next sticker starts at the print head. Fix before printing anything else.
+            </li>
+          </ol>
         </div>
       ) : (
         <div className="mg-panel mg-load" role="tabpanel" aria-label="Load">

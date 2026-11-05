@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { MAX_FONT_ENTRIES, strategy } from './sw.js';
+import { answers, MAX_FONT_ENTRIES, strategy } from './sw.js';
 import { PUBLIC_SHELL, swSource } from './plugin';
 import { registerOffline, warmFonts } from './register';
 
@@ -22,6 +22,14 @@ describe('offline service worker', () => {
     expect(strategy(new URL('https://fonts.googleapis.com/css2?family=Inter&text=Inter'), 'no-cors', origin)).toBeNull();
     expect(strategy(new URL('https://github.com/theanam/niimai'), 'navigate', origin)).toBeNull();
     expect(MAX_FONT_ENTRIES).toBeGreaterThan(100);
+  });
+
+  it('never answers a script with a font stylesheet it cannot read', () => {
+    // Printing embeds fonts by fetching their stylesheets; an opaque copy from a <link> would fail that fetch.
+    expect(answers('opaque', 'cors')).toBe(false);
+    expect(answers('opaque', 'no-cors')).toBe(true);
+    expect(answers('cors', 'cors')).toBe(true);
+    expect(answers('basic', 'same-origin')).toBe(true);
   });
 
   it('builds a worker that caches every built file, with a version that follows them', () => {

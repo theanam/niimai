@@ -176,6 +176,10 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
   const docSize: LabelSize = { widthMm: doc.widthMm, heightMm: doc.heightMm, tailMm: doc.tailMm, fold: doc.fold };
   // Where the label meets the paper; a landscape label's artboard is turned from it.
   const paper = paperSize(doc);
+  /** On a sticker roll the printer cannot sense, the sticker size set for it: templates and new labels follow it. */
+  const stickerSize = stickerGap !== undefined ? { widthMm: paperWidth, heightMm: labelLength } : null;
+  /** Continuous paper loaded: its long-format templates come first. */
+  const continuousPaper = status.profile?.kind === 'thermal' && stickerGap === undefined;
   const toPaper = (size: LabelSize) => onPaper(asPatch(size), doc.landscape);
   useEffect(() => {
     if (status.state === 'disconnected') appliedRoll.current = null;
@@ -767,7 +771,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
             paperWidth={paperWidth}
             labelLength={labelLength}
             onLabelLength={changeLabelLength}
-            defaultSize={{ widthMm: paper.widthMm, heightMm: paper.heightMm }}
+            defaultSize={stickerSize ?? { widthMm: paper.widthMm, heightMm: paper.heightMm }}
             onConnect={connect}
             printerType={manualProfileId}
             onSetRollSize={() => setDialog('roll')}
@@ -914,10 +918,10 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
         open={dialog === 'library'}
         onOpenChange={(o) => setDialog(o ? 'library' : null)}
         currentId={doc.id}
-        currentSize={roll.size ?? paper}
+        currentSize={stickerSize ?? roll.size ?? paper}
         initialTab={libraryTab}
         templateSeed={templateSeed}
-        continuous={status.profile?.kind === 'thermal'}
+        continuous={continuousPaper}
         onOpen={(d) => loadDoc(d)}
         onOpenPrint={(record, again) => void openPrint(record, again)}
       />

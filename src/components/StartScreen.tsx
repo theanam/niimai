@@ -354,7 +354,7 @@ export function StartScreen(props: Props) {
             <BlankCard size={size} roll={props.roll} onBlank={props.onBlank} />
           </ErrorBoundary>
           <ErrorBoundary name="Templates">
-            <TemplatesCard size={size} onOpen={props.onOpen} onBrowse={props.onBrowseTemplates} continuous={props.status.profile?.kind === 'thermal'} />
+            <TemplatesCard size={size} onOpen={props.onOpen} onBrowse={props.onBrowseTemplates} continuous={props.status.profile?.kind === 'thermal' && props.stickerGap === undefined} />
           </ErrorBoundary>
         </div>
         <ErrorBoundary name="Recent labels">

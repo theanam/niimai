@@ -131,6 +131,19 @@ describe('start screen', () => {
     expect(onPrinterSettings).toHaveBeenCalled();
   });
 
+  it('offers templates for the sticker size on a sticker roll, and long formats first only on continuous paper', () => {
+    const thermal = { id: 'auto:MP583', name: 'MP583', kind: 'thermal', dpi: 203, printheadPixels: 384, printDirection: 'top', printTask: 'B1', densityMin: 1, densityMax: 1, densityDefault: 1 } as const;
+    renderStart(vi.fn(), { status: { state: 'ready', profile: thermal, canFeed: true }, stickerGap: 2, defaultSize: { widthMm: 40, heightMm: 30 } });
+    expect(screen.getByText(/laid out for 40 × 30 mm/)).toBeInTheDocument();
+    expect(screen.queryByText(/Lists, planners and notes/)).toBeNull();
+  });
+
+  it('offers long-format templates first on continuous paper', () => {
+    const thermal = { id: 'auto:MP583', name: 'MP583', kind: 'thermal', dpi: 203, printheadPixels: 384, printDirection: 'top', printTask: 'B1', densityMin: 1, densityMax: 1, densityDefault: 1 } as const;
+    renderStart(vi.fn(), { status: { state: 'ready', profile: thermal, canFeed: true } });
+    expect(screen.getByText(/Lists, planners and notes/)).toBeInTheDocument();
+  });
+
   it('deletes any recent label after confirming', async () => {
     globalThis.indexedDB = new IDBFactory();
     resetDbConnection();

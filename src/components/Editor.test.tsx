@@ -461,6 +461,13 @@ describe('editor', () => {
     const labelWidth = screen.getByRole('spinbutton', { name: 'Width' });
     expect(labelWidth).toHaveAttribute('max', '40');
 
+    // Templates follow the sticker size the line-up found, and long formats are not offered first on stickers.
+    await userEvent.click(screen.getByRole('button', { name: 'Templates' }));
+    const library = await screen.findByRole('dialog', { name: 'Library' });
+    expect(within(library).getByRole('radio', { name: '40 × 30' })).toHaveAttribute('aria-checked', 'true');
+    expect(within(library).queryByRole('button', { name: /Continuous paper/ })).toBeNull();
+    await userEvent.keyboard('{Escape}');
+
     // The 25 mm label is shorter than the 30 mm sticker: the rest of the sticker feeds before the gap, so the next print starts on a sticker.
     sent.length = 0;
     await userEvent.keyboard('{Control>}p{/Control}');

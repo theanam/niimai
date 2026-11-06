@@ -211,6 +211,19 @@ export class PrinterService {
     this.matches = matches;
   }
 
+  private handshake: boolean | ((deviceName: string | undefined) => boolean) = true;
+
+  /**
+   * Whether a Bluetooth printer with an unknown name gets the NIIMBOT
+   * handshake before its services decide: true (the default), false, or a
+   * function of its name. Receipt printers print the handshake as text, so an
+   * app that knows its printers can skip it. Printers named like a NIIMBOT
+   * always get it.
+   */
+  setNiimbotHandshake(policy: boolean | ((deviceName: string | undefined) => boolean)): void {
+    this.handshake = policy;
+  }
+
   setManualProfile(id: string | null): void {
     this.manualProfileId = id;
     if (this.client) this.set({ profile: this.currentProfile() });
@@ -251,6 +264,7 @@ export class PrinterService {
       client = await this.createClient(kind);
       client.unrecognisedAs?.(this.manualProfileId);
       client.rememberMatches?.(this.matches);
+      client.niimbotHandshake?.(this.handshake);
       const info = await client.connect();
       this.client = client;
       this.set({ deviceName: info.deviceName });

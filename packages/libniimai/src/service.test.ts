@@ -259,4 +259,15 @@ describe('printer service', () => {
     expect(client.rememberMatches).toHaveBeenCalledWith({ 'MTP-4B_6DEF': 'escpos' });
     expect(service.getStatus().matchedAs).toBe('escpos');
   });
+
+  it('hands the NIIMBOT handshake policy to the client before it connects, true unless set', async () => {
+    const client = Object.assign(new MockClient(), { niimbotHandshake: vi.fn() });
+    const service = new PrinterService(async () => client, vi.fn());
+    await service.connect('bluetooth');
+    expect(client.niimbotHandshake).toHaveBeenLastCalledWith(true);
+    const policy = (name: string | undefined) => !name?.startsWith('POS');
+    service.setNiimbotHandshake(policy);
+    await service.connect('bluetooth');
+    expect(client.niimbotHandshake).toHaveBeenLastCalledWith(policy);
+  });
 });

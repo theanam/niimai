@@ -56,6 +56,8 @@ export interface ClientLike {
   unrecognisedAs?(typeId: string | null): void;
   /** Bluetooth: printers matched by their services on earlier connections, by name; they skip the NIIMBOT handshake. */
   rememberMatches?(matches: Record<string, 'escpos' | 'cat'>): void;
+  /** Bluetooth: whether unknown printers get the NIIMBOT handshake before their services decide; see NiimbotHandshake. */
+  niimbotHandshake?(policy: boolean | ((deviceName: string | undefined) => boolean)): void;
   /** Bluetooth: what the printer just connected was matched as by its services, if it was. */
   matchedAs?: 'escpos' | 'cat';
 }

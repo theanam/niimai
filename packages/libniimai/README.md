@@ -10,10 +10,10 @@ libniimai powers [niimai](https://niimai.app), the label designer.
 |---|---|---|---|---|
 | **NIIMBOT** | Labels with gaps, black mark, continuous, transparent | 12 mm and up, by model | Bluetooth, USB | D11, D110, D101, B1, B18, B21, B3S and more |
 | **TSPL label printers** | Labels with gaps, black mark, continuous | Up to 80 mm | Bluetooth, USB | QR380A (sold as CC390), Gprinter GP-M322 |
-| **ESC/POS receipt printers** | 58 or 80 mm, continuous or stickers with gaps | 48 or 72 mm | Bluetooth, USB | MP583, MPT-II, Xprinter XP-58IIL, PT-210, RPP02, MPT-3, RPP300 and more |
+| **ESC/POS receipt printers** | 58 or 80 mm, continuous or stickers with gaps | 48 or 72 mm | Bluetooth, USB | MP583, MPT-II, Xprinter XP-58IIL, PT-210, RPP02, MPT-3, MTP-4B, RPP300 and more |
 | **Cat printers** | 58 mm continuous, stickers with gaps | 48 mm | Bluetooth | GB01, GB02, GB03, MX05, MX06, MX10 and more |
 
-The family is found from the device the user picks: by its Bluetooth name in `PRINTER_CATALOG`, then checked against the services it offers. A name that matches no family goes to NIIMBOT first, exactly as before. If it does not look like a NIIMBOT and misses the handshake twice, its services decide (`byServices`): the cat service makes it a cat printer, any other serial service outside NIIMBOT's a receipt printer, and a printer offering only NIIMBOT services keeps the NIIMBOT error. A type from `PRINTER_TYPES` set for unrecognised printers overrides all of this. Every family gets the same treatment:
+The family is found from the device the user picks: by its Bluetooth name in `PRINTER_CATALOG`, then checked against the services it offers. A name that matches no family goes to NIIMBOT first, exactly as before. If it does not look like a NIIMBOT and misses the handshake twice, its services decide (`byServices`): the cat service makes it a cat printer, any other serial service outside NIIMBOT's a receipt printer, and a printer offering only NIIMBOT services keeps the NIIMBOT error. The `niimbotHandshake` option skips the NIIMBOT step for the names you choose, so their services decide at once. A type from `PRINTER_TYPES` set for unrecognised printers overrides all of this. Every family gets the same treatment:
 
 - **Detection**: the right client and settings, picked for you.
 - **Page handling**: each page is cropped to the head, rotated where the printer needs it, and encoded in the printer's own format.
@@ -78,6 +78,13 @@ button.onclick = async () => {
 
 Draw black on white. Thermal printers print each dot black or white, so dither photos and greys first. The same code prints on all four families; `density` is clamped to the printer's range.
 
+Bluetooth printers with names libniimai does not know get the NIIMBOT handshake first, which receipt printers print as a line of text. If you know your printers, skip it for them:
+
+```ts
+// Printers named POS-… are receipt printers here: match them by their services at once.
+const printer = createPrinter({ niimbotHandshake: (name) => !name?.startsWith('POS-') });
+```
+
 ## API
 
 ### `createPrinter(options?)`
@@ -87,6 +94,7 @@ Returns a `PrinterService`, which owns one printer connection.
 | Option | What it does |
 | --- | --- |
 | `createClient` | Makes the client for each connection. Defaults to `createClient`. |
+| `niimbotHandshake` | Whether a Bluetooth printer with an unknown name gets the NIIMBOT handshake before its services decide: `true` (the default), `false`, or a function of the Bluetooth name. Receipt printers print the handshake bytes as text, so skip it for printers you know are not NIIMBOTs. Printers named like a NIIMBOT always get it; an unknown NIIMBOT that skips it and offers only NIIMBOT services cannot connect. |
 
 | Member | What it does |
 | --- | --- |
@@ -97,6 +105,7 @@ Returns a `PrinterService`, which owns one printer connection.
 | `subscribe(fn)` | Calls `fn` on every status change. Returns a function that unsubscribes. |
 | `feed(mm)` | Moves the paper by `mm` to line it up, back into the printer when negative. For printers that cannot sense the paper, where `status.canFeed` is true. |
 | `rememberMatches(map)` | Printers matched by their services before, by Bluetooth name (`{ 'MTP-4B_6DEF': 'escpos' }`, built from `status.deviceName` and `status.matchedAs`). They connect straight to that client, without the NIIMBOT handshake a receipt printer would print as text. |
+| `setNiimbotHandshake(policy)` | Sets the `niimbotHandshake` policy for the next connection. |
 | `setPrintWidth(mm)` | Sets the print width on a printer whose head width is not known (`status.headUnknown`): a stock module name, or a printer matched by its services. Other printers keep their own. |
 | `setManualProfile(id)` | Picks a printer type for a printer that is not recognised: a NIIMBOT model from `MANUAL_PROFILES`, or a receipt, label or cat printer from `PRINTER_TYPES`. With one of those, the Bluetooth chooser lists every device. |
 

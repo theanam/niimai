@@ -213,13 +213,13 @@ describe('bluetooth printer', () => {
     expect(printer.feedPaper).toBeUndefined();
   });
 
-  it('drives an MTP-4B, which offers the NIIMBOT service beside the printer service, as a receipt printer once NIIMBOT fails twice', async () => {
+  it('drives an unknown receipt printer that offers the NIIMBOT service beside the printer service, as a receipt printer once NIIMBOT fails twice', async () => {
     niimbotMisses(2);
-    requestPrinter.mockResolvedValue(device('MTP-4B_6DEF', MTP_SERVICES));
+    requestPrinter.mockResolvedValue(device('Generic-4B_6DEF', MTP_SERVICES));
     const printer = new BluetoothPrinter(lib);
-    await expect(printer.connect()).resolves.toEqual({ deviceName: 'MTP-4B_6DEF' });
+    await expect(printer.connect()).resolves.toEqual({ deviceName: 'Generic-4B_6DEF' });
     expect(niimbotConnect).toHaveBeenCalledTimes(2);
-    expect(printer.getModelMetadata()).toMatchObject({ model: 'MTP-4B_6DEF', kind: 'thermal', printheadPixels: 384 });
+    expect(printer.getModelMetadata()).toMatchObject({ model: 'Generic-4B_6DEF', kind: 'thermal', printheadPixels: 384 });
     // Matched by its services, its head's width is a guess the paper can correct.
     expect(printer.headUnknown).toBe(true);
     printer.setHeadDots!(576);
@@ -264,7 +264,7 @@ describe('bluetooth printer', () => {
 
   it('writes through any writable characteristic when the standard one is missing', async () => {
     niimbotMisses(2);
-    const d = device('MTP-4B_6DEF', [ESCPOS_SERVICE]);
+    const d = device('Generic-4B_6DEF', [ESCPOS_SERVICE]);
     const server = await d.gatt.connect();
     const getService = server.getPrimaryService as unknown as import("vitest").Mock<(uuid: string) => Promise<{ getCharacteristic: (uuid: string) => Promise<unknown>; getCharacteristics: () => Promise<{ uuid: string }[]> }>>;
     const chars = await (await getService(ESCPOS_SERVICE)).getCharacteristics();
@@ -277,7 +277,7 @@ describe('bluetooth printer', () => {
     }));
     d.gatt.connect = async () => server;
     requestPrinter.mockResolvedValue(d);
-    await expect(new BluetoothPrinter(lib).connect()).resolves.toEqual({ deviceName: 'MTP-4B_6DEF' });
+    await expect(new BluetoothPrinter(lib).connect()).resolves.toEqual({ deviceName: 'Generic-4B_6DEF' });
   });
 
   /** Every byte written to the device's characteristic. */
@@ -290,7 +290,7 @@ describe('bluetooth printer', () => {
   it('prints the NIIMBOT tries out of the buffer right after matching a receipt printer, and reports the match', async () => {
     vi.spyOn(console, 'info').mockImplementation(() => {});
     niimbotMisses(2);
-    const d = device('MTP-4B_6DEF', MTP_SERVICES);
+    const d = device('Generic-4B_6DEF', MTP_SERVICES);
     requestPrinter.mockResolvedValue(d);
     const printer = new BluetoothPrinter(lib);
     await printer.connect();
@@ -299,14 +299,14 @@ describe('bluetooth printer', () => {
   });
 
   it('connects a printer matched before straight to its client, sending no NIIMBOT handshake', async () => {
-    const d = device('MTP-4B_6DEF', MTP_SERVICES);
+    const d = device('Generic-4B_6DEF', MTP_SERVICES);
     requestPrinter.mockResolvedValue(d);
     const printer = new BluetoothPrinter(lib);
-    printer.rememberMatches({ 'MTP-4B_6DEF': 'escpos' });
-    await expect(printer.connect()).resolves.toEqual({ deviceName: 'MTP-4B_6DEF' });
+    printer.rememberMatches({ 'Generic-4B_6DEF': 'escpos' });
+    await expect(printer.connect()).resolves.toEqual({ deviceName: 'Generic-4B_6DEF' });
     expect(createBleClient).not.toHaveBeenCalled();
     expect(printer.matchedAs).toBe('escpos');
-    expect(printer.getModelMetadata()).toMatchObject({ model: 'MTP-4B_6DEF', kind: 'thermal' });
+    expect(printer.getModelMetadata()).toMatchObject({ model: 'Generic-4B_6DEF', kind: 'thermal' });
     expect(await written(d)).toEqual([]);
   });
 
@@ -319,11 +319,76 @@ describe('bluetooth printer', () => {
       vi.clearAllMocks();
       requestPrinter.mockResolvedValue(device(name, services));
       const printer = new BluetoothPrinter(lib);
-      printer.rememberMatches({ 'D110-E331024479': 'escpos', MP583: 'cat', 'MTP-4B_6DEF': 'escpos' });
+      printer.rememberMatches({ 'D110-E331024479': 'escpos', MP583: 'cat', 'Generic-4B_6DEF': 'escpos' });
       await printer.connect();
       expect(printer.matchedAs).toBeUndefined();
       if (name === 'MP583') expect(printer.getModelMetadata()).toMatchObject({ model: 'MP583' });
       else expect(createBleClient).toHaveBeenCalled();
     }
+  });
+
+  it('knows the MTP-4B by name: it goes straight to the receipt client, so no NIIMBOT handshake prints as text', async () => {
+    const d = device('MTP-4B_6DEF', MTP_SERVICES);
+    requestPrinter.mockResolvedValue(d);
+    const printer = new BluetoothPrinter(lib);
+    await expect(printer.connect()).resolves.toEqual({ deviceName: 'MTP-4B_6DEF' });
+    expect(createBleClient).not.toHaveBeenCalled();
+    expect(printer.matchedAs).toBeUndefined();
+    expect(printer.headUnknown).toBe(false);
+    expect(printer.getModelMetadata()).toMatchObject({ model: 'MTP-4B_6DEF', kind: 'thermal', printheadPixels: 576 });
+    expect(await written(d)).toEqual([]);
+  });
+
+  it('skips the NIIMBOT handshake for unknown names when told to, matching by services with nothing to flush', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+    const d = device('Generic-4B_6DEF', MTP_SERVICES);
+    requestPrinter.mockResolvedValue(d);
+    const printer = new BluetoothPrinter(lib);
+    printer.niimbotHandshake(false);
+    await expect(printer.connect()).resolves.toEqual({ deviceName: 'Generic-4B_6DEF' });
+    expect(createBleClient).not.toHaveBeenCalled();
+    expect(printer.matchedAs).toBe('escpos');
+    expect(await written(d)).toEqual([]);
+  });
+
+  it('asks a handshake function about each unknown name, and only those', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+    const policy = vi.fn((name: string | undefined) => name !== 'Generic-4B_6DEF');
+    for (const [name, handshake] of [
+      ['Generic-4B_6DEF', false],
+      ['Mystery-1', true],
+    ] as const) {
+      vi.clearAllMocks();
+      requestPrinter.mockResolvedValue(device(name, MTP_SERVICES));
+      const printer = new BluetoothPrinter(lib);
+      printer.niimbotHandshake(policy);
+      await printer.connect();
+      expect(policy).toHaveBeenCalledWith(name);
+      expect(createBleClient).toHaveBeenCalledTimes(handshake ? 1 : 0);
+    }
+  });
+
+  it('always gives NIIMBOT names the handshake, and leaves known printers alone, whatever the policy', async () => {
+    requestPrinter.mockResolvedValue(device('D110-E331024479', MTP_SERVICES));
+    const niimbot = new BluetoothPrinter(lib);
+    niimbot.niimbotHandshake(false);
+    await niimbot.connect();
+    expect(createBleClient).toHaveBeenCalledTimes(1);
+    vi.clearAllMocks();
+    requestPrinter.mockResolvedValue(device('MP583', [ESCPOS_SERVICE]));
+    const known = new BluetoothPrinter(lib);
+    known.niimbotHandshake(false);
+    await known.connect();
+    expect(createBleClient).not.toHaveBeenCalled();
+    expect(known.getModelMetadata()).toMatchObject({ model: 'MP583' });
+  });
+
+  it('says when a printer skipping the handshake offers nothing to print through', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+    requestPrinter.mockResolvedValue(device('Mystery-1', []));
+    const printer = new BluetoothPrinter(lib);
+    printer.niimbotHandshake(false);
+    await expect(printer.connect()).rejects.toThrow('offers no print service niimai knows');
+    expect(createBleClient).not.toHaveBeenCalled();
   });
 });

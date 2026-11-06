@@ -30,6 +30,7 @@ export const ESCPOS_MODELS: ThermalModel[] = [
   { prefix: 'MTP-2', confidence: 'medium' },
   { prefix: 'MPT-3', confidence: 'medium', note: '80 mm', headDots: 576 },
   { prefix: 'MTP-3', confidence: 'medium', note: '80 mm', headDots: 576 },
+  { prefix: 'MTP-4B', confidence: 'tested', note: 'Paper up to 75 mm', headDots: 576, generic: true },
   { prefix: 'PT-210', confidence: 'high', brand: 'Goojprt PT-210' },
   { prefix: 'PT210', confidence: 'medium', brand: 'Goojprt PT-210' },
   { prefix: 'GOJRPT', confidence: 'medium', brand: 'Goojprt' },

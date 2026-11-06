@@ -52,6 +52,7 @@ the head can be set in the printer window; labels then print centred.
 | Bluetooth name | Confidence | Notes |
 |---|---|---|
 | MP583 | Tested | Sold as YAEN MPT-II |
+| MTP-4B | Tested | Paper up to 75 mm, 72 mm print width |
 | Printer… | Tested | Stock module name: Xprinter XP-58IIL (tested), HOIN, Gprinter |
 | MPT-II, MTP-II | High | Stock module names on many 58 mm printers |
 | PT-210, PT210, GOJRPT, Gojprt | High | Goojprt PT-210 |

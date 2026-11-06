@@ -49,6 +49,14 @@ describe('createPrinter', () => {
     expect(printer.getStatus().profile?.kind).toBeUndefined();
   });
 
+  it('takes a NIIMBOT handshake policy for Bluetooth printers', async () => {
+    const { createPrinter, MockClient } = libniimai;
+    const custom = Object.assign(new MockClient(), { niimbotHandshake: vi.fn() });
+    const printer = createPrinter({ createClient: async () => custom, niimbotHandshake: false });
+    await printer.connect('bluetooth');
+    expect(custom.niimbotHandshake).toHaveBeenCalledWith(false);
+  });
+
   it('makes each connection with a custom client factory', async () => {
     const { createPrinter, MockClient } = libniimai;
     const custom = new MockClient();

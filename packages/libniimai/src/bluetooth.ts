@@ -65,6 +65,16 @@ export function byServices(services: string[]): CatalogEntry | null {
   return services.some((s) => CANDIDATE_SERVICES.includes(s) && !NIIMBOT_SERVICES.includes(s)) ? RECEIPT : null;
 }
 
+/**
+ * Whether an unknown printer gets the NIIMBOT handshake before its services
+ * decide: true (the default) for every name, false for none, or a function of
+ * the Bluetooth name. Printers named like a NIIMBOT always get it, since they
+ * cannot connect without it. Skipping it keeps receipt printers from printing
+ * its bytes as text, but an unknown NIIMBOT offering only NIIMBOT services
+ * then fails to connect.
+ */
+export type NiimbotHandshake = boolean | ((deviceName: string | undefined) => boolean);
+
 /** A family a printer was matched as by its services. */
 export type MatchedFamily = 'escpos' | 'cat';
 /** Printers matched by their services, by Bluetooth name. */
@@ -129,6 +139,13 @@ export class BluetoothPrinter extends RoutedClient {
     this.remembered = matches;
   }
 
+  /** See NiimbotHandshake. */
+  private handshake: NiimbotHandshake = true;
+
+  niimbotHandshake(policy: NiimbotHandshake) {
+    this.handshake = policy;
+  }
+
   async connect() {
     this.matchedAs = undefined;
     // With a type picked for unrecognised printers, the chooser lists every device, whatever its name.
@@ -161,6 +178,9 @@ export class BluetoothPrinter extends RoutedClient {
         return client.connect();
       }
     }
+    // Unknown names the app keeps from the handshake go straight to their services.
+    const skip = !entry && !looksNiimbot(lib, device.name) && !(typeof this.handshake === 'function' ? this.handshake(device.name) : this.handshake);
+    if (skip && device.gatt) return this.byItsServices(device, await device.gatt.connect().catch(() => null), null);
     this.inner = createBleClient(lib, device) as unknown as ClientLike;
     try {
       return await this.inner.connect();
@@ -184,7 +204,11 @@ export class BluetoothPrinter extends RoutedClient {
     } catch {
       // Still no NIIMBOT answer: what it offers says what else it is.
     }
-    const server = await reconnect(device);
+    return this.byItsServices(device, await reconnect(device), first);
+  }
+
+  /** Connects the client the printer's services point to; `first` is the NIIMBOT error, if it had the handshake. */
+  private async byItsServices(device: BluetoothDevice, server: BluetoothRemoteGATTServer | null, first: unknown) {
     const services = server ? (await server.getPrimaryServices().catch(() => [])).map((s) => s.uuid) : [];
     console.info('[niimai] services', device.name, services);
     const guess = byServices(services);
@@ -194,10 +218,10 @@ export class BluetoothPrinter extends RoutedClient {
       const info = await client.connect();
       this.matchedAs = guess!.family === 'cat' ? 'cat' : 'escpos';
       // The NIIMBOT tries sat in its buffer as text: print them out now, apart from the first label.
-      if (this.matchedAs === 'escpos') await (client as unknown as { send(b: Uint8Array): Promise<void> }).send(FLUSH).catch(() => {});
+      if (this.matchedAs === 'escpos' && first !== null) await (client as unknown as { send(b: Uint8Array): Promise<void> }).send(FLUSH).catch(() => {});
       return info;
     }
-    console.warn('[niimai] connect failed', device.name, first);
+    if (first !== null) console.warn('[niimai] connect failed', device.name, first);
     if (!services.length) throw new Error(`${device.name ?? 'This printer'} offers no print service niimai knows. See Help → Printer not recognised.`);
     throw new Error(`Could not connect to ${device.name ?? 'this printer'}. Pick its type under Advanced and connect again.`);
   }

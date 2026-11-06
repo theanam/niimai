@@ -5,7 +5,7 @@
 /// <reference types="web-bluetooth" preserve="true" />
 /// <reference types="w3c-web-serial" preserve="true" />
 /// <reference types="w3c-web-usb" preserve="true" />
-import { BluetoothPrinter } from './bluetooth';
+import { BluetoothPrinter, type NiimbotHandshake } from './bluetooth';
 import type { ClientLike, ConnectionKind } from './client';
 import { MockClient } from './mock';
 import { PrinterService, type ClientFactory } from './service';
@@ -34,13 +34,21 @@ export interface CreatePrinterOptions {
    * to change one kind of connection and keep the others.
    */
   createClient?: ClientFactory;
+  /**
+   * Whether Bluetooth printers with unknown names get the NIIMBOT handshake
+   * before their services decide: true (the default), false, or a function of
+   * the Bluetooth name. See NiimbotHandshake.
+   */
+  niimbotHandshake?: NiimbotHandshake;
 }
 
 /** A ready printer service: connect, watch its status, print canvases. */
 export function createPrinter(options: CreatePrinterOptions = {}): PrinterService {
-  return new PrinterService(options.createClient ?? createClient, async (canvas, direction) =>
+  const service = new PrinterService(options.createClient ?? createClient, async (canvas, direction) =>
     (await niimbot()).ImageEncoder.encodeCanvas(canvas, 0, direction),
   );
+  if (options.niimbotHandshake !== undefined) service.setNiimbotHandshake(options.niimbotHandshake);
+  return service;
 }
 
 export { PrinterService, DEMO_NAME, friendlyError, fitToPrinthead, rotateCanvas, shiftCanvas } from './service';
@@ -58,7 +66,7 @@ export type { PaperType } from './paper';
 export { findPrinterType, identifyPrinter, identifyUsbPrinter, PRINTER_CATALOG, PRINTER_TYPES } from './catalog';
 export type { CatalogEntry, PrinterFamily, PrinterType } from './catalog';
 
-export { BluetoothPrinter, byServices, type MatchedFamily, type MatchedPrinters } from './bluetooth';
+export { BluetoothPrinter, byServices, type MatchedFamily, type MatchedPrinters, type NiimbotHandshake } from './bluetooth';
 export { familiesFromDeviceId, parseDeviceId, rememberedUsbPrinters, UsbPrinter, usbTransport, USB_PRINTER_CLASS } from './usb';
 export { describeBleError } from './ble';
 export { DEMO_META, MockClient } from './mock';

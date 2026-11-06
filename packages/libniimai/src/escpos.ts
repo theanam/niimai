@@ -3,7 +3,7 @@
  * (YAEN MPT-II). They take standard raster images (GS v 0) over the 18F0
  * printer service. See thermal.ts for what they share with other extras.
  */
-import { modelFor, packRows, shownName, THERMAL_HEAD_DOTS, ThermalPrinterClient, type Pace, type ThermalModel, type ThermalTransport } from './thermal';
+import { modelFor, packRows, shownName, sleep, THERMAL_HEAD_DOTS, ThermalPrinterClient, type Pace, type ThermalModel, type ThermalTransport } from './thermal';
 
 export const ESCPOS_SERVICE = '000018f0-0000-1000-8000-00805f9b34fb';
 export const ESCPOS_WRITE = '00002af1-0000-1000-8000-00805f9b34fb';
@@ -110,7 +110,7 @@ export class EscPosPrinterClient extends ThermalPrinterClient {
   constructor(
     transport: ThermalTransport,
     readonly model: ThermalModel | null,
-    pace: Pace = { chunkMs: 30, pauseMs: 100 },
+    pace: Pace = { chunkMs: 30, pauseMs: 100, resetMs: 300 },
   ) {
     super(transport, pace, 100);
     this.modelName = shownName(model, transport, 'Thermal printer');
@@ -129,6 +129,19 @@ export class EscPosPrinterClient extends ThermalPrinterClient {
 
   protected job(rows: Uint8Array[], _density: number, copies: number, _labelType: number, gapDots?: number) {
     return escposJob(rows, copies, gapDots);
+  }
+
+  /**
+   * A job starts with ESC @. Some printers drop what arrives while they
+   * reset, losing the top of the label (the MTP-4B lost its first band), so
+   * the reset goes on its own and the rest follows a moment later. The bytes
+   * are the same either way.
+   */
+  override async send(bytes: Uint8Array, onSent?: (share: number) => void): Promise<void> {
+    if (!this.pace.resetMs || bytes.length <= 2 || bytes[0] !== 0x1b || bytes[1] !== 0x40) return super.send(bytes, onSent);
+    await super.send(bytes.subarray(0, 2));
+    await sleep(this.pace.resetMs);
+    return super.send(bytes.subarray(2), onSent);
   }
 
   /** These printers cannot sense the paper, so the user lines it up by hand. */

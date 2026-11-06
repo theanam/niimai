@@ -91,6 +91,37 @@ describe('ESC/POS printers', () => {
     expect(link.writes.every((w) => w.length <= 100)).toBe(true);
   });
 
+  it('sends the reset that starts a job on its own and waits before the image, with the same bytes', async () => {
+    const link = fakeTransport();
+    const client = new EscPosPrinterClient(link.t, escposModelFor('MP583'), { chunkMs: 0, pauseMs: 1, resetMs: 20 });
+    const job = escposJob([new Uint8Array(48).fill(0xff)], 1);
+    const start = Date.now();
+    const times: number[] = [];
+    const write = link.t.write;
+    link.t.write = async (c) => {
+      times.push(Date.now() - start);
+      return write(c);
+    };
+    await client.send(job);
+    expect(Array.from(link.writes[0])).toEqual([0x1b, 0x40]);
+    expect(times[1] - times[0]).toBeGreaterThanOrEqual(15);
+    expect(link.writes.flatMap((w) => Array.from(w))).toEqual(Array.from(job));
+  });
+
+  it('pauses only after a reset: feeds and other bytes go straight through', async () => {
+    const link = fakeTransport();
+    const client = new EscPosPrinterClient(link.t, null, { chunkMs: 0, pauseMs: 1, resetMs: 1000 });
+    const start = Date.now();
+    await client.feedPaper(40);
+    await client.send(Uint8Array.of(0x1c, 0x2e, 0x0a, 0x0a, 0x1b, 0x40));
+    expect(Date.now() - start).toBeLessThan(500);
+  });
+
+  it('waits after the reset by default on Bluetooth', () => {
+    const client = new EscPosPrinterClient(fakeTransport().t, null);
+    expect((client as unknown as { pace: { resetMs?: number } }).pace.resetMs).toBeGreaterThan(0);
+  });
+
   it('moves the paper forward with line feeds at a set spacing, up to 255 dots each, then restores the spacing', () => {
     expect(Array.from(escposFeed(4))).toEqual([0x1b, 0x33, 4, 0x0a, 0x1b, 0x32]);
     expect(Array.from(escposFeed(300))).toEqual([0x1b, 0x33, 255, 0x0a, 0x1b, 0x33, 45, 0x0a, 0x1b, 0x32]);

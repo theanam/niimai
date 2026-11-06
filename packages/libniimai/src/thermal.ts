@@ -81,9 +81,11 @@ export interface Pace {
   chunkMs: number;
   /** How often to look again while the printer asks to wait. */
   pauseMs: number;
+  /** Pause after a reset command that starts a job: some printers drop what arrives while they reset. */
+  resetMs?: number;
 }
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /**
  * A thermal printer behind the same interface as a NIIMBOT client, so the

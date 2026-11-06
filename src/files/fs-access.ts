@@ -25,6 +25,7 @@ export type { FileHandle };
 
 export const LABEL_EXT = '.niimai';
 const LABEL_TYPES: Accept[] = [{ description: 'niimai label', accept: { 'application/json': [LABEL_EXT, '.json'] } }];
+const JSON_TYPES: Accept[] = [{ description: 'Settings', accept: { 'application/json': ['.json'] } }];
 const IMAGE_TYPES: Accept[] = [
   { description: 'Images', accept: { 'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.bmp', '.svg'] } },
 ];
@@ -78,6 +79,7 @@ async function open(types: Accept[], accept: string): Promise<OpenedFile | null>
 export const openLabelFile = (): Promise<OpenedFile | null> => open(LABEL_TYPES, `${LABEL_EXT},.json,application/json`);
 export const openSheetFile = (): Promise<OpenedFile | null> => open(SHEET_TYPES, '.csv,.tsv,.xlsx,text/csv');
 export const openImageFile = (): Promise<OpenedFile | null> => open(IMAGE_TYPES, 'image/*');
+export const openJsonFile = (): Promise<OpenedFile | null> => open(JSON_TYPES, '.json,application/json');
 
 /** Writes to an existing handle. False when permission is gone, so the caller can fall back to Save As. */
 export async function writeToHandle(handle: FileHandle, text: string): Promise<boolean> {
@@ -94,12 +96,12 @@ export async function writeToHandle(handle: FileHandle, text: string): Promise<b
   }
 }
 
-export async function saveTextAs(suggestedName: string, text: string): Promise<SaveOutcome> {
+export async function saveTextAs(suggestedName: string, text: string, kind: 'label' | 'json' = 'label'): Promise<SaveOutcome> {
   const w = win();
   if (w.showSaveFilePicker) {
     let handle: FileHandle;
     try {
-      handle = await w.showSaveFilePicker({ suggestedName, types: LABEL_TYPES });
+      handle = await w.showSaveFilePicker({ suggestedName, types: kind === 'json' ? JSON_TYPES : LABEL_TYPES });
     } catch (err) {
       if (isAbort(err)) return { status: 'cancelled' };
       return { status: 'failed', reason: (err as Error).message };

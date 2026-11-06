@@ -415,6 +415,83 @@ describe('editor', () => {
     expect(printer.getStatus().profile?.printheadPixels).toBe(576);
   });
 
+  it('saves the paper as a named paper, flags changes, and loads it back with its size, gap and position', async () => {
+    const { printer } = await import('../printer');
+    const { EscPosPrinterClient } = await import('libniimai');
+    const { getSetting } = await import('../storage/db');
+    const link = { name: 'MTP-4B_6DEF', write: async () => {}, onNotify: () => {}, onDisconnect: () => {}, disconnect: async () => {} };
+    const target = printer as unknown as { createClient: () => Promise<unknown> };
+    const original = target.createClient;
+    target.createClient = async () => new EscPosPrinterClient(link, { prefix: 'MTP-4B', confidence: 'tested', generic: true, headDots: 576 }, { chunkMs: 0, pauseMs: 1 });
+    onTestFinished(() => void (target.createClient = original));
+
+    renderApp(<Editor initialDoc={{ ...starterDoc(), widthMm: 48, heightMm: 25 }} initialProfileId={null} initialDensity={2} />);
+    await act(() => printer.connect('bluetooth'));
+    // The label stays as it is on the wider head.
+    await userEvent.click(await screen.findByRole('button', { name: 'Keep 48 × 25' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Printer ready' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.selectOptions(within(dialog).getByRole('combobox', { name: 'Paper type' }), 'stickers');
+    const width = within(dialog).getByRole('spinbutton', { name: 'Paper width' });
+    await userEvent.clear(width);
+    await userEvent.type(width, '50');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save as new paper' }));
+    const naming = await screen.findByRole('dialog', { name: 'Save as new paper' });
+    await userEvent.clear(within(naming).getByRole('textbox', { name: 'Paper name' }));
+    await userEvent.type(within(naming).getByRole('textbox', { name: 'Paper name' }), 'Kraft{Enter}');
+    const select = within(dialog).getByRole('combobox', { name: 'Saved paper' });
+    await waitFor(() => expect(within(select).getByRole('option', { name: 'Kraft' })).toBeInTheDocument());
+    await waitFor(async () => expect((await getSetting('paperPresets'))?.[0]).toMatchObject({ name: 'Kraft', widthMm: 50, gapMm: 2 }));
+    expect(await getSetting('paperChoices')).toEqual({ 'MTP-4B_6DEF': (await getSetting('paperPresets'))![0].id });
+
+    // Back to continuous paper: the saved paper shows as changed until it is loaded again.
+    await userEvent.selectOptions(within(dialog).getByRole('combobox', { name: 'Paper type' }), 'continuous');
+    expect(within(dialog).getByRole('status')).toHaveTextContent('Changed since loaded');
+    await userEvent.selectOptions(select, '');
+    await userEvent.selectOptions(select, 'Kraft');
+    expect(within(dialog).getByRole('combobox', { name: 'Paper type' })).toHaveValue('stickers');
+    expect(within(dialog).getByRole('spinbutton', { name: 'Gap' })).toHaveValue(2);
+    expect(within(dialog).getByRole('spinbutton', { name: 'Paper width' })).toHaveValue(50);
+    expect(within(dialog).queryByRole('status')).toBeNull();
+  });
+
+  it('saves every printer setting and saved paper to a file, and loads one back on top of what is there', async () => {
+    const { getSetting, setSetting } = await import('../storage/db');
+    const mine = [{ id: 'mine', name: 'Mine', widthMm: 58, lengthMm: 40 }];
+    await setSetting('matchedPrinters', { 'Generic-1': 'escpos' });
+    let written = '';
+    const win = window as unknown as Record<string, unknown>;
+    win.showSaveFilePicker = async () => ({ name: 'niimai-printers.json', createWritable: async () => ({ write: async (t: string) => void (written = t), close: async () => {} }) });
+    const file = new File(
+      [
+        JSON.stringify({
+          kind: 'niimai-printers',
+          version: 1,
+          stickerGaps: { 'MTP-4B_6DEF': 3 },
+          paperPresets: [{ id: 'kraft', name: 'Kraft', widthMm: 50, lengthMm: 30, gapMm: 3 }],
+          paperChoices: { 'MTP-4B_6DEF': 'kraft' },
+        }),
+      ],
+      'niimai-printers.json',
+    );
+    win.showOpenFilePicker = async () => [{ name: file.name, getFile: async () => file }];
+    onTestFinished(() => void (delete win.showSaveFilePicker, delete win.showOpenFilePicker));
+
+    renderApp(<Editor initialDoc={starterDoc()} initialProfileId={null} initialDensity={2} initialPaperPresets={mine} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Connect printer' }));
+    const dialog = await screen.findByRole('dialog');
+    await userEvent.click(within(dialog).getByText('Advanced'));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save to file' }));
+    await waitFor(() => expect(written).not.toBe(''));
+    expect(JSON.parse(written)).toMatchObject({ kind: 'niimai-printers', paperPresets: [{ name: 'Mine' }], matchedPrinters: { 'Generic-1': 'escpos' } });
+
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Load file' }));
+    await waitFor(async () => expect((await getSetting('paperPresets'))?.map((p) => p.name)).toEqual(['Mine', 'Kraft']));
+    expect(await getSetting('stickerGaps')).toEqual({ 'MTP-4B_6DEF': 3 });
+    expect(await getSetting('paperChoices')).toEqual({ 'MTP-4B_6DEF': 'kraft' });
+    expect(await getSetting('matchedPrinters')).toEqual({ 'Generic-1': 'escpos' });
+  });
+
   it('keeps a printer matched by its services, so it skips the NIIMBOT handshake next time', async () => {
     const { printer } = await import('../printer');
     const { EscPosPrinterClient } = await import('libniimai');

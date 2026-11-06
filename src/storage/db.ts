@@ -2,6 +2,7 @@ import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type { LabelDoc, LabelSize } from '../doc/model';
 import type { PrintOffset } from 'libniimai';
 import type { PrintRecord } from './recentPrints';
+import type { PaperChoices, PaperPreset } from '../printer/paperPresets';
 
 interface Schema extends DBSchema {
   labels: { key: string; value: LabelDoc; indexes: { updatedAt: number } };
@@ -25,6 +26,10 @@ export interface Settings {
   labelLengths?: Record<string, number>;
   /** Bluetooth printers matched by their services, by name, so they skip the NIIMBOT handshake next time. */
   matchedPrinters?: Record<string, 'escpos' | 'cat'>;
+  /** Papers the user saved for printers that cannot sense them. */
+  paperPresets?: PaperPreset[];
+  /** The paper last chosen on each printer, by printer model. */
+  paperChoices?: PaperChoices;
   /** The last labels printed, newest first. */
   recentPrints?: PrintRecord[];
 }

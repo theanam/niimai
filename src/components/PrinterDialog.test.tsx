@@ -1,4 +1,4 @@
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { findManualProfile, type PrinterStatus } from 'libniimai';
 import { renderApp } from '../test/render';
@@ -347,5 +347,106 @@ describe('printer dialog', () => {
     expect(onManualProfile).toHaveBeenLastCalledWith('escpos-80');
     rerender(<PrinterDialog {...base} status={{ state: 'disconnected', profile: null }} manualProfileId="escpos-80" onManualProfile={onManualProfile} />);
     expect(screen.getByText(/lists every nearby device/)).toBeInTheDocument();
+  });
+
+  describe('saved papers', () => {
+    const now = { widthMm: 50, lengthMm: 30, gapMm: 2, offset: { x: 0, y: 0 } };
+    const kraft = { id: 'a', name: 'Kraft 50 × 30', widthMm: 50, lengthMm: 30, gapMm: 2 };
+    const roll = { id: 'b', name: 'Receipt roll', widthMm: 75, lengthMm: 80 };
+    const paperProps = (extra = {}) => ({
+      ...base,
+      status: ready({ canFeed: true }),
+      paperWidth: 50,
+      headWidth: 72,
+      onPaperWidth: () => {},
+      stickerGap: 2,
+      onStickerGap: () => {},
+      papers: [kraft, roll],
+      paperPreset: null,
+      paperNow: now,
+      onChoosePaper: vi.fn(),
+      onSavePaper: vi.fn(),
+      onSavePaperAs: vi.fn(),
+      onRenamePaper: vi.fn(),
+      onDeletePaper: vi.fn(),
+      ...extra,
+    });
+
+    it('lists saved papers by name and loads the one picked', async () => {
+      const props = paperProps();
+      renderApp(<PrinterDialog {...props} />);
+      const select = screen.getByRole('combobox', { name: 'Saved paper' });
+      expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual(['Unsaved paper', 'Kraft 50 × 30', 'Receipt roll']);
+      await userEvent.selectOptions(select, 'Receipt roll');
+      expect(props.onChoosePaper).toHaveBeenLastCalledWith('b');
+    });
+
+    it('shows the loaded paper, and its name on the paper meter', () => {
+      const thermal = ready({ canFeed: true, profile: { ...findManualProfile('b21')!, kind: 'thermal' } });
+      renderApp(<PrinterDialog {...paperProps({ paperPreset: kraft, status: thermal })} />);
+      expect(screen.getByRole('combobox', { name: 'Saved paper' })).toHaveValue('a');
+      expect(screen.getByText('50 × 30 mm stickers, 2 mm gap')).toBeInTheDocument();
+      expect(screen.getByText('Kraft 50 × 30', { selector: 'strong' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Save' })).toBeNull();
+    });
+
+    it('offers to save changes over the paper or as a new one, once its settings change', async () => {
+      const props = paperProps({ paperPreset: kraft, paperModified: true, paperNow: { ...now, gapMm: 3 } });
+      renderApp(<PrinterDialog {...props} />);
+      expect(screen.getByRole('option', { name: 'Kraft 50 × 30 (changed)' })).toBeInTheDocument();
+      expect(screen.getByRole('status')).toHaveTextContent('Changed since loaded');
+      await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+      expect(props.onSavePaper).toHaveBeenCalled();
+      await userEvent.click(screen.getByRole('button', { name: 'Save as new' }));
+      const naming = await screen.findByRole('dialog', { name: 'Save as new paper' });
+      const name = within(naming).getByRole('textbox', { name: 'Paper name' });
+      await waitFor(() => expect(name).toHaveFocus());
+      expect(name).toHaveValue('Stickers 50 × 30');
+      await userEvent.clear(name);
+      await userEvent.type(name, 'Kraft 50 × 30');
+      expect(within(naming).getByText('A paper has this name already.')).toBeInTheDocument();
+      expect(within(naming).getByRole('button', { name: 'Save' })).toBeDisabled();
+      await userEvent.clear(name);
+      await userEvent.type(name, 'Kraft, wider gap{Enter}');
+      expect(props.onSavePaperAs).toHaveBeenLastCalledWith('Kraft, wider gap');
+      await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Save as new paper' })).toBeNull());
+    });
+
+    it('saves an unsaved paper under a name', async () => {
+      const props = paperProps({ papers: [] });
+      renderApp(<PrinterDialog {...props} />);
+      expect(screen.getByRole('option', { name: 'No saved papers' })).toBeInTheDocument();
+      expect(screen.getByText(/Save this paper/)).toBeInTheDocument();
+      await userEvent.click(screen.getByRole('button', { name: 'Save as new paper' }));
+      await userEvent.click(within(await screen.findByRole('dialog', { name: 'Save as new paper' })).getByRole('button', { name: 'Save' }));
+      expect(props.onSavePaperAs).toHaveBeenLastCalledWith('Stickers 50 × 30');
+    });
+
+    it('renames and deletes the loaded paper, asking before it deletes', async () => {
+      const props = paperProps({ paperPreset: kraft });
+      renderApp(<PrinterDialog {...props} />);
+      await userEvent.click(screen.getByRole('button', { name: 'Rename paper' }));
+      const naming = await screen.findByRole('dialog', { name: 'Rename paper' });
+      const name = within(naming).getByRole('textbox', { name: 'Paper name' });
+      expect(name).toHaveValue('Kraft 50 × 30');
+      await userEvent.clear(name);
+      await userEvent.type(name, 'Brown kraft{Enter}');
+      expect(props.onRenamePaper).toHaveBeenLastCalledWith('a', 'Brown kraft');
+      await userEvent.click(screen.getByRole('button', { name: 'Delete paper' }));
+      await userEvent.click(within(await screen.findByRole('dialog', { name: 'Delete Kraft 50 × 30?' })).getByRole('button', { name: 'Delete' }));
+      expect(props.onDeletePaper).toHaveBeenLastCalledWith('a');
+    });
+  });
+
+  it('saves and loads printer settings as a file from Advanced, connected or not', async () => {
+    const onExportSettings = vi.fn();
+    const onImportSettings = vi.fn();
+    const { rerender } = renderApp(<PrinterDialog {...base} status={{ state: 'disconnected', profile: null }} onExportSettings={onExportSettings} onImportSettings={onImportSettings} />);
+    await userEvent.click(screen.getByText('Advanced'));
+    await userEvent.click(screen.getByRole('button', { name: 'Save to file' }));
+    expect(onExportSettings).toHaveBeenCalled();
+    rerender(<PrinterDialog {...base} status={ready()} onExportSettings={onExportSettings} onImportSettings={onImportSettings} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Load file' }));
+    expect(onImportSettings).toHaveBeenCalled();
   });
 });

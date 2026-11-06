@@ -3,7 +3,7 @@ import { type DragEvent, useCallback, useEffect, useMemo, useRef, useState, useS
 import { toast } from 'sonner';
 import { createDoc, createElement, onPaper, paperSize, parseDoc, serializeDoc, turnPatch, usedFonts, type ElementType, type LabelDoc, type LabelElement, type LabelSize } from '../doc/model';
 import { useEditor } from '../doc/useEditor';
-import { baseName, LABEL_EXT, openImageFile, openLabelFile, openSheetFile, readAsDataUrl, safeFileName, saveTextAs, writeToHandle, type FileHandle } from '../files/fs-access';
+import { baseName, LABEL_EXT, openImageFile, openJsonFile, openLabelFile, openSheetFile, readAsDataUrl, safeFileName, saveTextAs, writeToHandle, type FileHandle } from '../files/fs-access';
 import { round1, uid } from '../lib/units';
 import { printer } from '../printer';
 import { type ConnectionKind, DEMO_NAME, effectivePaper, inkOutsideHead, labelTypeOf, type PrintOffset, printheadMm, type PrintOptions, rotateCanvas, type Rotation, THERMAL_DEFAULT_SIZE, THERMAL_HEAD_MM, THERMAL_SIZES } from 'libniimai';
@@ -34,6 +34,8 @@ import { alignmentDoc } from '../printer/alignment';
 import { placeOnHead } from '../printer/onHead';
 import { scaleDoc, scaleLength } from '../printer/scale';
 import { printWidthFor, stickerFeed, type LabelLengths, type PaperWidths, type StickerGaps } from '../printer/thermalPaper';
+import { presetFrom, presetValues, samePaper, type PaperChoices, type PaperPreset, type PaperValues } from '../printer/paperPresets';
+import { CONFIG_FILE, CONFIG_KEYS, configSummary, mergeConfig, parseConfig, serializeConfig, type PrinterSettings } from '../printer/printerConfig';
 import { TEMPLATES } from '../templates';
 import { RollMismatchBanner } from './RollMismatchBanner';
 import { ContinuousDialog } from './ContinuousDialog';
@@ -76,11 +78,13 @@ interface Props {
   initialStickerGaps?: StickerGaps;
   initialPaperWidths?: PaperWidths;
   initialLabelLengths?: LabelLengths;
+  initialPaperPresets?: PaperPreset[];
+  initialPaperChoices?: PaperChoices;
   /** The app opens on the start screen; tests can start in the editor. */
   initialView?: 'start' | 'edit';
 }
 
-export function Editor({ initialDoc, initialProfileId, initialDensity, initialRollSizes = {}, initialOffsets = {}, initialStickerGaps = {}, initialPaperWidths = {}, initialLabelLengths = {}, initialView = 'edit' }: Props) {
+export function Editor({ initialDoc, initialProfileId, initialDensity, initialRollSizes = {}, initialOffsets = {}, initialStickerGaps = {}, initialPaperWidths = {}, initialLabelLengths = {}, initialPaperPresets = [], initialPaperChoices = {}, initialView = 'edit' }: Props) {
   const [view, setView] = useState(initialView);
   const [libraryTab, setLibraryTab] = useState<LibraryTab>('mine');
   const [templateSeed, setTemplateSeed] = useState<TemplateSeed>({});
@@ -159,6 +163,13 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
   const [labelLengths, setLabelLengths] = useState(initialLabelLengths);
   /** The length new labels start at on a continuous-paper printer: set in the printer window or on the start screen. */
   const labelLength = (status.canFeed && printerKey && labelLengths[printerKey]) || THERMAL_DEFAULT_SIZE.heightMm;
+  const [paperPresets, setPaperPresets] = useState(initialPaperPresets);
+  const [paperChoices, setPaperChoices] = useState(initialPaperChoices);
+  /** The saved paper this printer has loaded, if one was chosen and still exists. */
+  const paperPreset = (status.canFeed && printerKey && paperPresets.find((p) => p.id === paperChoices[printerKey])) || null;
+  const paperNow: PaperValues = { widthMm: paperWidth, lengthMm: labelLength, ...(stickerGap !== undefined ? { gapMm: stickerGap } : {}), offset };
+  /** The printer's paper settings differ from the saved paper's. */
+  const paperModified = !!paperPreset && !samePaper(paperNow, presetValues(paperPreset));
 
   useEffect(() => printer.setManualProfile(initialProfileId), [initialProfileId]);
 
@@ -633,6 +644,105 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
     void setSetting('printOffsets', all).catch(() => {});
   };
 
+  const storePapers = (papers: PaperPreset[], choices: PaperChoices) => {
+    setPaperPresets(papers);
+    setPaperChoices(choices);
+    void setSetting('paperPresets', papers).catch(() => {});
+    void setSetting('paperChoices', choices).catch(() => {});
+  };
+
+  /** Loads a saved paper on the printer: its size, gap and print position. Null keeps the settings and forgets the choice. */
+  const choosePaper = (id: string | null) => {
+    if (!printerKey) return;
+    const { [printerKey]: _, ...rest } = paperChoices;
+    const preset = paperPresets.find((p) => p.id === id);
+    storePapers(paperPresets, preset ? { ...rest, [printerKey]: preset.id } : rest);
+    if (!preset) return;
+    const v = presetValues(preset);
+    changeStickerGap(v.gapMm ?? null);
+    changePaperWidth(v.widthMm);
+    changeLabelLength(v.lengthMm);
+    changeOffset(v.offset);
+  };
+
+  /** Writes the printer's paper settings over the loaded paper. */
+  const savePaper = () => {
+    if (!paperPreset) return;
+    storePapers(
+      paperPresets.map((p) => (p.id === paperPreset.id ? presetFrom(p.name, paperNow, p.id) : p)),
+      paperChoices,
+    );
+    toast.success(`Saved ${paperPreset.name}`);
+  };
+
+  /** Keeps the printer's paper settings as a new paper and loads it. */
+  const savePaperAs = (name: string) => {
+    if (!printerKey) return;
+    const preset = presetFrom(name, paperNow);
+    storePapers([...paperPresets, preset], { ...paperChoices, [printerKey]: preset.id });
+    toast.success(`Saved ${preset.name}`);
+  };
+
+  const deletePaper = (id: string) => {
+    const choices = Object.fromEntries(Object.entries(paperChoices).filter(([, v]) => v !== id));
+    storePapers(
+      paperPresets.filter((p) => p.id !== id),
+      choices,
+    );
+  };
+
+  const renamePaper = (id: string, name: string) =>
+    storePapers(
+      paperPresets.map((p) => (p.id === id ? { ...p, name: name.trim() } : p)),
+      paperChoices,
+    );
+
+  /** Every printer setting, as kept in a printer settings file. */
+  const printerSettings = async (): Promise<PrinterSettings> => ({
+    manualProfileId,
+    ...(savedDensity !== undefined ? { density: savedDensity } : {}),
+    rollSizes,
+    printOffsets: offsets,
+    stickerGaps,
+    paperWidths,
+    labelLengths,
+    matchedPrinters: (await getSetting('matchedPrinters').catch(() => undefined)) ?? {},
+    paperPresets,
+    paperChoices,
+  });
+
+  const exportPrinterSettings = async () => {
+    const outcome = await saveTextAs(CONFIG_FILE, serializeConfig(await printerSettings()), 'json');
+    if (outcome.status === 'failed') toast.error(outcome.reason);
+    else if (outcome.status !== 'cancelled') toast.success('Printer settings saved');
+  };
+
+  const importPrinterSettings = async () => {
+    try {
+      const picked = await openJsonFile();
+      if (!picked) return;
+      const loaded = parseConfig(await picked.file.text());
+      const next = mergeConfig(await printerSettings(), loaded);
+      setRollSizes(next.rollSizes);
+      setOffsets(next.printOffsets);
+      setStickerGaps(next.stickerGaps);
+      setPaperWidths(next.paperWidths);
+      setLabelLengths(next.labelLengths);
+      setPaperPresets(next.paperPresets);
+      setPaperChoices(next.paperChoices);
+      if (next.density !== undefined) setDensity(next.density);
+      if (next.manualProfileId !== manualProfileId) {
+        setManualProfileId(next.manualProfileId ?? null);
+        printer.setManualProfile(next.manualProfileId ?? null);
+      }
+      printer.rememberMatches(next.matchedPrinters);
+      await Promise.all(CONFIG_KEYS.map((k) => (next[k] === undefined ? null : setSetting(k, next[k] as never)))).catch(() => {});
+      toast.success(`Loaded ${configSummary(loaded)}`);
+    } catch (err) {
+      toast.error((err as Error).message);
+    }
+  };
+
   const chooseProfile = (id: string | null) => {
     setManualProfileId(id);
     printer.setManualProfile(id);
@@ -987,6 +1097,17 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
         onPaperWidth={changePaperWidth}
         labelLength={labelLength}
         onLabelLength={changeLabelLength}
+        papers={paperPresets}
+        paperPreset={paperPreset}
+        paperModified={paperModified}
+        paperNow={paperNow}
+        onChoosePaper={choosePaper}
+        onSavePaper={savePaper}
+        onSavePaperAs={savePaperAs}
+        onRenamePaper={renamePaper}
+        onDeletePaper={deletePaper}
+        onExportSettings={() => void exportPrinterSettings()}
+        onImportSettings={() => void importPrinterSettings()}
         onDisconnect={() => printer.disconnect()}
         onManualProfile={chooseProfile}
       />
@@ -1007,6 +1128,8 @@ export function EditorLoader() {
       let stickerGaps: StickerGaps = {};
       let paperWidths: PaperWidths = {};
       let labelLengths: LabelLengths = {};
+      let paperPresets: PaperPreset[] = [];
+      let paperChoices: PaperChoices = {};
       try {
         const lastId = await getSetting('lastLabelId');
         if (lastId) doc = await getLabel(lastId);
@@ -1017,11 +1140,13 @@ export function EditorLoader() {
         stickerGaps = (await getSetting('stickerGaps')) ?? {};
         paperWidths = (await getSetting('paperWidths')) ?? {};
         labelLengths = (await getSetting('labelLengths')) ?? {};
+        paperPresets = (await getSetting('paperPresets')) ?? [];
+        paperChoices = (await getSetting('paperChoices')) ?? {};
         printer.rememberMatches((await getSetting('matchedPrinters')) ?? {});
       } catch {
         // Private windows can block IndexedDB; the editor still works without it.
       }
-      setBoot({ initialDoc: doc ?? starterDoc(), initialProfileId: profileId, initialDensity: density, initialRollSizes: rollSizes, initialOffsets: offsets, initialStickerGaps: stickerGaps, initialPaperWidths: paperWidths, initialLabelLengths: labelLengths });
+      setBoot({ initialDoc: doc ?? starterDoc(), initialProfileId: profileId, initialDensity: density, initialRollSizes: rollSizes, initialOffsets: offsets, initialStickerGaps: stickerGaps, initialPaperWidths: paperWidths, initialLabelLengths: labelLengths, initialPaperPresets: paperPresets, initialPaperChoices: paperChoices });
     })();
   }, []);
   if (!boot) return <div className="app-loading" aria-busy="true" />;

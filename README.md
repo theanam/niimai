@@ -24,7 +24,8 @@
 - **Every Google Font**, grouped by category and previewed in the picker.
 - **1,500 icons** from Phosphor in regular, bold and fill weights, chosen for crisp thermal printing.
 - **What you see is what prints.** A 1-bit preview shows every dot, photos are dithered for thermal paper, the edges your printhead cannot reach are shaded, and details finer than a printer dot are flagged.
-- **Works with other Bluetooth thermal printers too.** TSPL label printers up to 80 mm wide print on labels with gaps. Small 58 mm ESC/POS and cat printers print on continuous paper or sticker rolls, with the label length set right in the editor and templates made for long formats, from to-do lists to daily plans.
+- **Works with other Bluetooth thermal printers too.** TSPL label printers up to 80 mm wide print on labels with gaps. Small 58 mm ESC/POS and cat printers print on continuous paper or sticker rolls, with the label length set right in the editor and templates made for long formats, from to-do lists to daily plans. Save each paper you use, sticker rolls and all, and load it again in one step.
+- **Keep your printer settings.** Save every printer's settings and your saved papers to a file, and load them on another device or browser.
 - **Recognises 60+ NIIMBOT rolls** from the barcode on their RFID tag, setting the label size and paper type and showing how many labels are left ([list](docs/known-rolls.md)).
 - **Browser printing** of the label as a vector document at its exact size.
 - **Local-first.** Labels are kept on your device, and can be saved to and opened from `.niimai` files. Recent prints wait in the library to print again.

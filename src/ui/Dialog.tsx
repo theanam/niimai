@@ -14,9 +14,11 @@ interface DialogProps {
   className?: string;
   /** Focus the dialog itself on open, so no control shows a focus ring straight away. */
   focusContent?: boolean;
+  /** Focus the element matching this selector on open, such as the field to type in. */
+  focusSelector?: string;
 }
 
-export function Dialog({ open, onOpenChange, title, description, children, footer, wide, className, focusContent }: DialogProps) {
+export function Dialog({ open, onOpenChange, title, description, children, footer, wide, className, focusContent, focusSelector }: DialogProps) {
   return (
     <RD.Root open={open} onOpenChange={onOpenChange}>
       <RD.Portal>
@@ -24,10 +26,13 @@ export function Dialog({ open, onOpenChange, title, description, children, foote
         <RD.Content
           className={`dialog${wide ? ' dialog-wide' : ''}${className ? ` ${className}` : ''}`}
           onOpenAutoFocus={
-            focusContent
+            focusContent || focusSelector
               ? (e) => {
                   e.preventDefault();
-                  (e.currentTarget as HTMLElement).focus();
+                  const root = e.currentTarget as HTMLElement;
+                  const target = focusSelector ? root.querySelector<HTMLElement>(focusSelector) : null;
+                  (target ?? root).focus();
+                  if (target instanceof HTMLInputElement) target.select();
                 }
               : undefined
           }

@@ -1,6 +1,6 @@
 import * as RD from '@radix-ui/react-dialog';
-import { ArrowDownToLine, ArrowUpFromLine, BatteryMedium, Bluetooth, BookOpen, ChevronRight, CircleHelp, Crosshair, Ruler, FlaskConical, Loader2, MoveHorizontal, MoveVertical, Plug, Printer, RotateCcw, ScanLine, TriangleAlert, Unplug, X } from 'lucide-react';
-import { useState, type ReactNode } from 'react';
+import { ArrowDownToLine, ArrowUpFromLine, BatteryMedium, Bluetooth, BookOpen, ChevronRight, CircleHelp, CopyPlus, Crosshair, Download, Ruler, FlaskConical, Loader2, MoveHorizontal, MoveVertical, Pencil, Plug, Printer, RotateCcw, Save, ScanLine, Trash2, TriangleAlert, Unplug, Upload, X } from 'lucide-react';
+import { useState, type FormEvent, type ReactNode } from 'react';
 import { toast } from 'sonner';
 import { sizeLabel, type LabelSize } from '../doc/model';
 import { type ConnectionKind, findPrinterType, MANUAL_PROFILES, PRINTER_TYPES, type PrinterStatus, printheadMm, type PrintOffset, supportIssue, type SupportIssue } from 'libniimai';
@@ -10,6 +10,8 @@ import { MAX_OFFSET_MM } from '../printer/scale';
 import { StickerLineUp } from './StickerLineUp';
 import { DEFAULT_GAP_MM, MAX_GAP_MM, MAX_LENGTH_MM, MAX_PAPER_MM, MIN_LENGTH_MM, MIN_PAPER_MM } from '../printer/thermalPaper';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
+import { Dialog, useConfirm } from '../ui/Dialog';
+import { paperSummary, suggestName, type PaperPreset, type PaperValues } from '../printer/paperPresets';
 import { connectFailed, setupHref } from '../ui/setup';
 import { useUsbRoute } from '../printer/usbRoute';
 
@@ -48,6 +50,20 @@ interface Props {
   /** The length new labels start at on those printers. */
   labelLength?: number;
   onLabelLength?: (mm: number) => void;
+  /** Saved papers, the one loaded on this printer, and whether its settings changed since. */
+  papers?: PaperPreset[];
+  paperPreset?: PaperPreset | null;
+  paperModified?: boolean;
+  /** The printer's paper settings now, for naming a new paper. */
+  paperNow?: PaperValues;
+  onChoosePaper?: (id: string | null) => void;
+  onSavePaper?: () => void;
+  onSavePaperAs?: (name: string) => void;
+  onRenamePaper?: (id: string, name: string) => void;
+  onDeletePaper?: (id: string) => void;
+  /** Saves or loads every printer setting and saved paper as a file. */
+  onExportSettings?: () => void;
+  onImportSettings?: () => void;
   onDisconnect: () => Promise<void>;
   onManualProfile: (id: string | null) => void;
 }
@@ -179,6 +195,115 @@ function storedFeedStep(): number {
   }
 }
 
+/** Asks for a paper's name in the app's own dialog. */
+function PaperName({ open, title, initial, taken, onOpenChange, onSave }: { open: boolean; title: string; initial: string; taken: string[]; onOpenChange: (o: boolean) => void; onSave: (name: string) => void }) {
+  const [name, setName] = useState(initial);
+  const [shown, setShown] = useState(open);
+  // A fresh name each time it opens.
+  if (open !== shown) {
+    setShown(open);
+    if (open) setName(initial);
+  }
+  const trimmed = name.trim();
+  const clash = trimmed.toLowerCase() !== initial.toLowerCase() && taken.some((t) => t.toLowerCase() === trimmed.toLowerCase());
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!trimmed || clash) return;
+    onSave(trimmed);
+    onOpenChange(false);
+  };
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title={title}
+      focusSelector="#paper-name input"
+      footer={
+        <>
+          <button className="btn" onClick={() => onOpenChange(false)}>
+            Cancel
+          </button>
+          <button className="btn btn-primary" type="submit" form="paper-name" disabled={!trimmed || clash}>
+            <Save size={16} /> Save
+          </button>
+        </>
+      }
+    >
+      <form id="paper-name" onSubmit={submit} className="pd-field">
+        <span>Name</span>
+        <input className="text-input" aria-label="Paper name" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} />
+        {clash && <small className="field-error">A paper has this name already.</small>}
+      </form>
+    </Dialog>
+  );
+}
+
+type PaperProps = Pick<Props, 'papers' | 'paperPreset' | 'paperModified' | 'paperNow' | 'onChoosePaper' | 'onSavePaper' | 'onSavePaperAs' | 'onRenamePaper' | 'onDeletePaper'>;
+
+/** Saved papers, the way slicers keep filament profiles: load one, then save changes over it or as a new one. */
+function SavedPapers({ papers = [], paperPreset, paperModified, paperNow, onChoosePaper, onSavePaper, onSavePaperAs, onRenamePaper, onDeletePaper }: PaperProps) {
+  const confirm = useConfirm();
+  const [naming, setNaming] = useState<'new' | 'rename' | null>(null);
+  if (!onChoosePaper || !onSavePaperAs || !paperNow) return null;
+  const sorted = [...papers].sort((a, b) => a.name.localeCompare(b.name));
+  const remove = async () => {
+    if (!paperPreset || !onDeletePaper) return;
+    if (await confirm({ title: `Delete ${paperPreset.name}?`, description: 'The printer keeps its current paper settings.', confirmLabel: 'Delete', danger: true })) onDeletePaper(paperPreset.id);
+  };
+  const note = paperPreset ? paperSummary(paperPreset) : papers.length ? null : 'Save this paper to load it again in one step.';
+  return (
+    <div className="pd-papers">
+      <div className="pd-papers-row">
+        <select className="select" aria-label="Saved paper" value={paperPreset?.id ?? ''} onChange={(e) => onChoosePaper(e.target.value || null)}>
+          <option value="">{papers.length ? 'Unsaved paper' : 'No saved papers'}</option>
+          {sorted.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.name}
+              {p.id === paperPreset?.id && paperModified ? ' (changed)' : ''}
+            </option>
+          ))}
+        </select>
+        <button className="icon-btn" aria-label="Save as new paper" title="Save as new paper" onClick={() => setNaming('new')}>
+          <CopyPlus size={16} />
+        </button>
+        {paperPreset && onRenamePaper && (
+          <button className="icon-btn" aria-label="Rename paper" title="Rename paper" onClick={() => setNaming('rename')}>
+            <Pencil size={15} />
+          </button>
+        )}
+        {paperPreset && onDeletePaper && (
+          <button className="icon-btn" aria-label="Delete paper" title="Delete paper" onClick={() => void remove()}>
+            <Trash2 size={15} />
+          </button>
+        )}
+      </div>
+      {paperPreset && paperModified ? (
+        <div className="pd-papers-changed" role="status">
+          <span>Changed since loaded</span>
+          {onSavePaper && (
+            <button className="btn btn-sm" onClick={onSavePaper}>
+              <Save size={14} /> Save
+            </button>
+          )}
+          <button className="btn btn-sm" onClick={() => setNaming('new')}>
+            <CopyPlus size={14} /> Save as new
+          </button>
+        </div>
+      ) : (
+        note && <small className="muted">{note}</small>
+      )}
+      <PaperName
+        open={naming !== null}
+        title={naming === 'rename' ? 'Rename paper' : 'Save as new paper'}
+        initial={naming === 'rename' && paperPreset ? paperPreset.name : suggestName(paperNow, papers)}
+        taken={papers.filter((p) => naming !== 'rename' || p.id !== paperPreset?.id).map((p) => p.name)}
+        onOpenChange={(o) => !o && setNaming(null)}
+        onSave={(name) => (naming === 'rename' && paperPreset ? onRenamePaper?.(paperPreset.id, name) : onSavePaperAs(name))}
+      />
+    </div>
+  );
+}
+
 /** Paper on printers that cannot sense it: continuous or stickers, and moving it by hand to line it up. */
 function Paper({
   status,
@@ -192,7 +317,8 @@ function Paper({
   onPaperWidth,
   labelLength,
   onLabelLength,
-}: Pick<Props, 'status' | 'onFeed' | 'onStickerTest' | 'onOffset' | 'stickerGap' | 'onStickerGap' | 'paperWidth' | 'headWidth' | 'onPaperWidth' | 'labelLength' | 'onLabelLength'>) {
+  ...papers
+}: Pick<Props, 'status' | 'onFeed' | 'onStickerTest' | 'onOffset' | 'stickerGap' | 'onStickerGap' | 'paperWidth' | 'headWidth' | 'onPaperWidth' | 'labelLength' | 'onLabelLength'> & PaperProps) {
   const feed = (mm: number) => void onFeed?.(mm).catch((err: Error) => toast.error(err.message));
   const [step, setStep] = useState(storedFeedStep);
   const changeStep = (mm: number) => {
@@ -229,6 +355,7 @@ function Paper({
         )}
       </div>
       <PaperGuide open={guide !== null} onOpenChange={(o) => !o && setGuide(null)} initialTab={guide ?? 'measure'} stickers={stickers} />
+      {papers.onChoosePaper && <SavedPapers {...papers} />}
       {onStickerGap && (
         <div className="pd-paper-fields">
           <select
@@ -335,7 +462,7 @@ function Connected(props: Props) {
           <Meter
             icon={<ScanLine size={15} />}
             label="Paper"
-            value={props.stickerGap !== undefined ? 'Stickers' : 'Continuous'}
+            value={props.paperPreset?.name ?? (props.stickerGap !== undefined ? 'Stickers' : 'Continuous')}
             detail={props.stickerGap !== undefined ? `${props.stickerGap} mm gap` : `${Math.round(printheadMm(status.profile))} mm print width`}
           />
         ) : (
@@ -384,6 +511,15 @@ function Connected(props: Props) {
           onPaperWidth={props.onPaperWidth}
           labelLength={props.labelLength}
           onLabelLength={props.onLabelLength}
+          papers={props.papers}
+          paperPreset={props.paperPreset}
+          paperModified={props.paperModified}
+          paperNow={props.paperNow}
+          onChoosePaper={props.onChoosePaper}
+          onSavePaper={props.onSavePaper}
+          onSavePaperAs={props.onSavePaperAs}
+          onRenamePaper={props.onRenamePaper}
+          onDeletePaper={props.onDeletePaper}
         />
       )}
 
@@ -436,6 +572,23 @@ export function PrinterDialog(props: Props) {
               </label>
               {findPrinterType(manualProfileId) && !connected && <small className="muted">{findPrinterType(manualProfileId)!.family === 'cat' ? 'Bluetooth now lists every nearby device. Pick your printer there.' : 'Bluetooth now lists every nearby device, and USB lists printers. Pick yours there.'}</small>}
               {unrecognised && !status.profile && <p className="field-error">Pick the closest type to start printing.</p>}
+              {(props.onExportSettings || props.onImportSettings) && (
+                <div className="pd-field pd-settings">
+                  <span>Printer settings and saved papers</span>
+                  <div className="pd-settings-row">
+                    {props.onExportSettings && (
+                      <button className="btn" onClick={props.onExportSettings}>
+                        <Download size={16} /> Save to file
+                      </button>
+                    )}
+                    {props.onImportSettings && (
+                      <button className="btn" onClick={props.onImportSettings}>
+                        <Upload size={16} /> Load file
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             </details>
           </ErrorBoundary>
         </RD.Content>

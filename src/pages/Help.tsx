@@ -415,6 +415,11 @@ export function Help() {
           gap and position sets the sticker size, the gap and where the print sits, then moves the paper so the next sticker
           starts at the print head. No ruler needed.
         </p>
+        <p>
+          Save a paper once it prints right: Save as new paper, next to Saved paper, keeps its name, size, gap and print
+          position. Loading it later sets all of them at once. Change any of them and the paper shows as changed, with
+          Save to keep the change in it or Save as new to keep both.
+        </p>
         <p>TSPL label printers up to 80 mm wide work like a NIIMBOT: pick the roll size and paper type, and the printer finds each label's edge.</p>
         <table className="shortcuts help-models">
           <tbody>
@@ -446,6 +451,11 @@ export function Help() {
           labels with pictures make long links, so send those as a file.
         </p>
         <p>The Printed tab in the library keeps the last labels you printed, as they printed. Print again opens the print window for one.</p>
+        <p>
+          Printer settings live in this browser. To keep them, or move them to another device or browser, open the printer
+          window, then Advanced, and Save to file. The file holds every printer's paper, gap, print position and the saved
+          papers. Load file adds them to what is there; settings in the file replace the same ones here.
+        </p>
         <p>
           Once niimai has loaded, it keeps working offline, with the fonts and icons you have used. Install it from the
           browser's menu to open it like an app.

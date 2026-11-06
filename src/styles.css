@@ -16,6 +16,8 @@
   --shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 8px 24px rgb(0 0 0 / 0.08);
   --radius: 10px;
   --font: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* The dropdown arrow, drawn like the app's chevron icons, in the text colour. */
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231c1a17' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
   color-scheme: light;
 }
 
@@ -30,6 +32,7 @@
     --muted: #9d978e;
     --stage: #0f0e0d;
     --shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 8px 24px rgb(0 0 0 / 0.4);
+    --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23f1eee9' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
     color-scheme: dark;
   }
 }
@@ -1068,9 +1071,22 @@ kbd {
   padding: 7px 9px;
   resize: vertical;
 }
+/* The browser's own arrow sits against the border; ours keeps the same inset as the text. */
 .select {
   height: 34px;
-  padding: 0 8px;
+  padding: 0 30px 0 9px;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: var(--select-arrow);
+  background-position: right 10px center;
+  background-size: 16px 16px;
+  background-repeat: no-repeat;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+.select:disabled {
+  cursor: default;
+  opacity: 0.6;
 }
 .text-input:focus,
 .select:focus {
@@ -4116,4 +4132,39 @@ button.pd-setup + .pd-setup {
   font-size: 12px;
   font-weight: 400;
   color: var(--muted);
+}
+
+/* Saved papers in the printer window */
+.pd-papers {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.pd-papers-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.pd-papers-row .select {
+  flex: 1;
+  min-width: 0;
+}
+.pd-papers-changed {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--warn);
+}
+.pd-papers-changed span {
+  flex: 1;
+  min-width: 0;
+}
+.pd-settings {
+  margin-top: 12px;
+}
+.pd-settings-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
 }

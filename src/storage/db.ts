@@ -23,6 +23,8 @@ export interface Settings {
   paperWidths?: Record<string, number>;
   /** The length new labels start at, by printer model, for continuous-paper printers. */
   labelLengths?: Record<string, number>;
+  /** Bluetooth printers matched by their services, by name, so they skip the NIIMBOT handshake next time. */
+  matchedPrinters?: Record<string, 'escpos' | 'cat'>;
   /** The last labels printed, newest first. */
   recentPrints?: PrintRecord[];
 }

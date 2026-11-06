@@ -102,8 +102,15 @@ describe('library', () => {
     expect(screen.getByRole('button', { name: /^Continuous paper/ })).toHaveClass('active');
     const cards = templateCards();
     expect(cards.length).toBeGreaterThanOrEqual(10);
-    await userEvent.click(screen.getByRole('button', { name: /Use To-do list, 48 × 80 mm/ }));
-    expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ name: 'To-do list', widthMm: 48, heightMm: 80 }));
+    await userEvent.click(screen.getByRole('button', { name: /Use To-do list, 48 × 85 mm/ }));
+    expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ name: 'To-do list', widthMm: 48, heightMm: 85 }));
+  });
+
+  it('lays continuous-paper templates out for the paper loaded', async () => {
+    const { onOpen } = setup({ initialTab: 'templates', continuous: true, paperWidth: 72, currentSize: { widthMm: 72, heightMm: 30 } });
+    await screen.findByRole('list', { name: 'Templates' });
+    await userEvent.click(screen.getByRole('button', { name: /Use To-do list, 72 × 85 mm/ }));
+    expect(onOpen).toHaveBeenCalledWith(expect.objectContaining({ name: 'To-do list', widthMm: 72, heightMm: 85 }));
   });
 
   it('keeps continuous-paper templates out of sight for label printers', async () => {

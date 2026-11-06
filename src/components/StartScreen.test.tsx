@@ -144,6 +144,12 @@ describe('start screen', () => {
     expect(screen.getByText(/Lists, planners and notes/)).toBeInTheDocument();
   });
 
+  it('lays long-format templates out for wider continuous paper', () => {
+    const thermal = { id: 'auto:MTP', name: 'MTP-4B_6DEF', kind: 'thermal', dpi: 203, printheadPixels: 576, printDirection: 'top', printTask: 'B1', densityMin: 1, densityMax: 1, densityDefault: 1 } as const;
+    renderStart(vi.fn(), { status: { state: 'ready', profile: thermal, canFeed: true }, paperWidth: 75 });
+    expect(screen.getByRole('button', { name: /To-do list/ }).getAttribute('aria-label') ?? screen.getByRole('button', { name: /To-do list/ }).textContent).toMatch(/75 × 85/);
+  });
+
   it('deletes any recent label after confirming', async () => {
     globalThis.indexedDB = new IDBFactory();
     resetDbConnection();

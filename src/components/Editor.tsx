@@ -33,7 +33,7 @@ import { fitBorders, safeArea, turnedArea } from '../printer/safeArea';
 import { alignmentDoc } from '../printer/alignment';
 import { placeOnHead } from '../printer/onHead';
 import { scaleDoc, scaleLength } from '../printer/scale';
-import { stickerFeed, type LabelLengths, type PaperWidths, type StickerGaps } from '../printer/thermalPaper';
+import { printWidthFor, stickerFeed, type LabelLengths, type PaperWidths, type StickerGaps } from '../printer/thermalPaper';
 import { TEMPLATES } from '../templates';
 import { RollMismatchBanner } from './RollMismatchBanner';
 import { ContinuousDialog } from './ContinuousDialog';
@@ -139,6 +139,23 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
   const headWidth = status.profile?.kind === 'thermal' ? Math.floor(printheadMm(status.profile)) : THERMAL_HEAD_MM;
   /** The paper loaded on it: as wide as the head, unless set narrower (or wider) for this printer. */
   const paperWidth = (status.canFeed && printerKey && paperWidths[printerKey]) || headWidth;
+  // A printer matched by its services is kept by name, so it connects without the NIIMBOT handshake next time.
+  useEffect(() => {
+    const name = status.deviceName;
+    const family = status.matchedAs;
+    if (!name || !family) return;
+    void (async () => {
+      const all = { ...((await getSetting('matchedPrinters')) ?? {}) };
+      if (all[name] === family) return;
+      all[name] = family;
+      printer.rememberMatches(all);
+      await setSetting('matchedPrinters', all);
+    })().catch(() => {});
+  }, [status.deviceName, status.matchedAs]);
+  // A printer whose head width is a guess prints as wide as the paper class loaded: 80 mm paper gets the 72 mm head.
+  useEffect(() => {
+    if (status.headUnknown) printer.setPrintWidth(printWidthFor(paperWidth));
+  }, [status.headUnknown, paperWidth]);
   const [labelLengths, setLabelLengths] = useState(initialLabelLengths);
   /** The length new labels start at on a continuous-paper printer: set in the printer window or on the start screen. */
   const labelLength = (status.canFeed && printerKey && labelLengths[printerKey]) || THERMAL_DEFAULT_SIZE.heightMm;
@@ -593,11 +610,11 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
     void setSetting('stickerGaps', all).catch(() => {});
   };
 
-  /** Sets the printer's paper width; the head's own width clears it. */
+  /** Sets the printer's paper width; the head's own width clears it, unless the head's width comes from the paper. */
   const changePaperWidth = (width: number) => {
     if (!printerKey) return;
     const { [printerKey]: _, ...rest } = paperWidths;
-    const all = width === headWidth ? rest : { ...rest, [printerKey]: width };
+    const all = width === headWidth && !status.headUnknown ? rest : { ...rest, [printerKey]: width };
     setPaperWidths(all);
     void setSetting('paperWidths', all).catch(() => {});
   };
@@ -922,6 +939,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
         initialTab={libraryTab}
         templateSeed={templateSeed}
         continuous={continuousPaper}
+        paperWidth={paperWidth}
         onOpen={(d) => loadDoc(d)}
         onOpenPrint={(record, again) => void openPrint(record, again)}
       />
@@ -999,6 +1017,7 @@ export function EditorLoader() {
         stickerGaps = (await getSetting('stickerGaps')) ?? {};
         paperWidths = (await getSetting('paperWidths')) ?? {};
         labelLengths = (await getSetting('labelLengths')) ?? {};
+        printer.rememberMatches((await getSetting('matchedPrinters')) ?? {});
       } catch {
         // Private windows can block IndexedDB; the editor still works without it.
       }

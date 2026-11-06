@@ -44,12 +44,20 @@ export interface ClientLike {
   feedPaper?(dots: number): Promise<void>;
   /** feedPaper can also move the paper back. */
   feedsBack?: boolean;
+  /** The head's width is not known (a stock module name, or a printer matched by its services): `setHeadDots` sets it. */
+  headUnknown?: boolean;
+  /** Sets how many dots the head prints across, on printers whose head width is not known. */
+  setHeadDots?(dots: number): void;
   /**
    * Bluetooth: the kind of printer to treat one with an unknown name as, set
    * before connecting: an id from PRINTER_TYPES, or a NIIMBOT profile id the
    * client ignores.
    */
   unrecognisedAs?(typeId: string | null): void;
+  /** Bluetooth: printers matched by their services on earlier connections, by name; they skip the NIIMBOT handshake. */
+  rememberMatches?(matches: Record<string, 'escpos' | 'cat'>): void;
+  /** Bluetooth: what the printer just connected was matched as by its services, if it was. */
+  matchedAs?: 'escpos' | 'cat';
 }
 
 /** `serial`: a printer on a USB cable that shows up as a serial port, as NIIMBOT printers do. `usb`: one that shows up as a standard USB printer. */

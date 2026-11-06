@@ -9,7 +9,7 @@ import { deleteLabel, listLabels } from '../storage/db';
 import { useConfirm } from '../ui/Dialog';
 import { IconButton } from '../ui/IconButton';
 import { filterTemplates, labelFromTemplate, TEMPLATE_FONTS, TEMPLATES, templatePreview, templatesForSize } from '../templates';
-import { CONTINUOUS_TEMPLATES } from '../templates/continuous';
+import { continuousTemplates } from '../templates/continuous';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
 import { connectFailed, SupportNote } from '../ui/setup';
 import { NumberField } from './fields';
@@ -213,7 +213,7 @@ function BlankCard({ size, roll, onBlank }: { size: LabelSize; roll: RollState; 
 
 const TEMPLATE_COUNT = TEMPLATES.length.toLocaleString();
 
-function TemplatesCard({ size, onOpen, onBrowse, continuous = false }: { size: LabelSize; onOpen: (d: LabelDoc) => void; onBrowse: (seed?: TemplateSeed) => void; continuous?: boolean }) {
+function TemplatesCard({ size, onOpen, onBrowse, continuous }: { size: LabelSize; onOpen: (d: LabelDoc) => void; onBrowse: (seed?: TemplateSeed) => void; /** Continuous paper's width, when that is loaded. */ continuous?: number }) {
   const [ready, setReady] = useState(false);
   const [query, setQuery] = useState('');
   useEffect(() => {
@@ -223,13 +223,13 @@ function TemplatesCard({ size, onOpen, onBrowse, continuous = false }: { size: L
       live = false;
     };
   }, []);
-  const forSize = useMemo(() => [...(continuous ? CONTINUOUS_TEMPLATES : []), ...templatesForSize(size)], [size, continuous]);
+  const forSize = useMemo(() => [...(continuous ? continuousTemplates(continuous) : []), ...templatesForSize(size)], [size, continuous]);
   const picks = useMemo(() => {
     const q = query.trim();
     // Searching shows the best matches; otherwise a spread across categories, icon versions first.
     if (q) return filterTemplates(forSize, { query: q }).slice(0, 6);
     // Continuous paper shows its own templates first.
-    if (continuous) return CONTINUOUS_TEMPLATES.slice(0, 6);
+    if (continuous) return continuousTemplates(continuous).slice(0, 6);
     const seen = new Set<string>();
     return forSize.filter((t) => t.variant === 'icon' && !seen.has(t.category) && seen.add(t.category)).slice(0, 6);
   }, [forSize, query]);
@@ -354,7 +354,7 @@ export function StartScreen(props: Props) {
             <BlankCard size={size} roll={props.roll} onBlank={props.onBlank} />
           </ErrorBoundary>
           <ErrorBoundary name="Templates">
-            <TemplatesCard size={size} onOpen={props.onOpen} onBrowse={props.onBrowseTemplates} continuous={props.status.profile?.kind === 'thermal' && props.stickerGap === undefined} />
+            <TemplatesCard size={size} onOpen={props.onOpen} onBrowse={props.onBrowseTemplates} continuous={props.status.profile?.kind === 'thermal' && props.stickerGap === undefined ? (props.paperWidth ?? THERMAL_DEFAULT_SIZE.widthMm) : undefined} />
           </ErrorBoundary>
         </div>
         <ErrorBoundary name="Recent labels">

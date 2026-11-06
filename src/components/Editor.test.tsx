@@ -388,6 +388,57 @@ describe('editor', () => {
     expect(screen.getByRole('spinbutton', { name: 'Length' })).toHaveValue(62);
   });
 
+  it('prints as wide as the paper on a printer whose head width is a guess', async () => {
+    const { printer } = await import('../printer');
+    const { EscPosPrinterClient } = await import('libniimai');
+    const link = { name: 'MTP-4B_6DEF', write: async () => {}, onNotify: () => {}, onDisconnect: () => {}, disconnect: async () => {} };
+    const target = printer as unknown as { createClient: () => Promise<unknown> };
+    const original = target.createClient;
+    target.createClient = async () => new EscPosPrinterClient(link, { prefix: '', confidence: 'medium', generic: true }, { chunkMs: 0, pauseMs: 1 });
+    onTestFinished(() => void (target.createClient = original));
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+
+    renderApp(<Editor initialDoc={{ ...starterDoc(), widthMm: 48, heightMm: 25 }} initialProfileId={null} initialDensity={2} />);
+    await act(() => printer.connect('bluetooth'));
+    await userEvent.click(screen.getByRole('button', { name: 'Printer ready' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('48 mm print width')).toBeInTheDocument();
+    const width = within(dialog).getByRole('spinbutton', { name: 'Paper width' });
+    await userEvent.clear(width);
+    await userEvent.type(width, '75');
+    await waitFor(() => expect(within(dialog).getByText('72 mm print width')).toBeInTheDocument());
+    expect(printer.getStatus().profile?.printheadPixels).toBe(576);
+    // The width stays set when it matches the head, so it survives the next connection.
+    await userEvent.clear(width);
+    await userEvent.type(width, '72');
+    expect(width).toHaveValue(72);
+    expect(printer.getStatus().profile?.printheadPixels).toBe(576);
+  });
+
+  it('keeps a printer matched by its services, so it skips the NIIMBOT handshake next time', async () => {
+    const { printer } = await import('../printer');
+    const { EscPosPrinterClient } = await import('libniimai');
+    const { getSetting } = await import('../storage/db');
+    const link = { name: 'MTP-4B_6DEF', write: async () => {}, onNotify: () => {}, onDisconnect: () => {}, disconnect: async () => {} };
+    const target = printer as unknown as { createClient: () => Promise<unknown> };
+    const original = target.createClient;
+    const remembered: unknown[] = [];
+    target.createClient = async () =>
+      Object.assign(new EscPosPrinterClient(link, { prefix: '', confidence: 'medium', generic: true }, { chunkMs: 0, pauseMs: 1 }), {
+        matchedAs: 'escpos' as const,
+        rememberMatches: (m: unknown) => remembered.push(m),
+      });
+    onTestFinished(() => void (target.createClient = original));
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+
+    renderApp(<Editor initialDoc={{ ...starterDoc(), widthMm: 48, heightMm: 25 }} initialProfileId={null} initialDensity={2} />);
+    await act(() => printer.connect('bluetooth'));
+    await waitFor(async () => expect(await getSetting('matchedPrinters')).toEqual({ 'MTP-4B_6DEF': 'escpos' }));
+    await act(() => printer.disconnect());
+    await act(() => printer.connect('bluetooth'));
+    expect(remembered.at(-1)).toEqual({ 'MTP-4B_6DEF': 'escpos' });
+  });
+
   it('sets a sticker roll in the printer window, feeds the paper, and prints each sticker followed by its gap', async () => {
     const { printer } = await import('../printer');
     const { EscPosPrinterClient, escposModelFor } = await import('libniimai');
@@ -438,6 +489,7 @@ describe('editor', () => {
     sent.length = 0;
     await userEvent.click(within(dialog).getByText('Line up stickers'));
     await userEvent.click(within(dialog).getByRole('button', { name: /Print scale/ }));
+    await userEvent.click(within(await screen.findByRole('dialog', { name: 'Print the sticker scale?' })).getByRole('button', { name: 'Print scale' }));
     await waitFor(() => expect(sent.length).toBeGreaterThan(0), { timeout: 10_000 });
     expect(sent.some((_, i) => sent[i] === 0x1b && (sent[i + 1] === 0x64 || sent[i + 1] === 0x33))).toBe(false);
     // 40 × 30 mm stickers every 33 mm, centred on the 48 mm head: one from 10 to 40, the next at 43, the last at 76.

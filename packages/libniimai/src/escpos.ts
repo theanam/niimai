@@ -103,7 +103,9 @@ export function escposFeed(dots: number): Uint8Array {
 export class EscPosPrinterClient extends ThermalPrinterClient {
   protected readonly densityLevels = 1;
   protected readonly modelName: string;
-  protected readonly headDots: number;
+  protected headDots: number;
+  /** A stock module name or a printer matched by its services: the head's width is a guess until set. */
+  readonly headUnknown: boolean;
 
   constructor(
     transport: ThermalTransport,
@@ -113,6 +115,12 @@ export class EscPosPrinterClient extends ThermalPrinterClient {
     super(transport, pace, 100);
     this.modelName = shownName(model, transport, 'Thermal printer');
     this.headDots = model?.headDots ?? THERMAL_HEAD_DOTS;
+    this.headUnknown = !!model?.generic && model.headDots === undefined;
+  }
+
+  /** Sets the head's width, in whole bytes of dots, on a printer whose width is not known; a known head keeps its own. */
+  setHeadDots(dots: number) {
+    if (this.headUnknown) this.headDots = Math.max(8, Math.round(dots / 8) * 8);
   }
 
   protected encodeRows(data: ArrayLike<number>, width: number, height: number) {

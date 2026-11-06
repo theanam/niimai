@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { fromScale, scaleLength, SIZE_SLACK_MM, type ScaleReadings, type StickerSetup } from '../printer/scale';
 import { MIN_LENGTH_MM } from '../printer/thermalPaper';
+import { useConfirm } from '../ui/Dialog';
 import { NumberField } from './fields';
 import { EdgeZoom, ScaleDrawing } from './ScaleDrawing';
 
@@ -47,8 +48,17 @@ export function StickerLineUp({ headWidth, length, gap, canRetract, printing, on
   const [readings, setReadings] = useState<Partial<ScaleReadings>>({});
   const [step, setStep] = useState(0);
 
-  const print = () =>
-    void onTest(about).then(
+  const confirm = useConfirm();
+  const print = async () => {
+    // The scale uses up stickers, and a strip torn off before Fix can drag the roll out of line.
+    const stickers = Math.ceil(scaleLength(about, gap) / (about + Math.max(gap, 1)));
+    const ok = await confirm({
+      title: 'Print the sticker scale?',
+      description: `It uses about ${stickers} stickers. Leave the printed strip on the roll until Fix has run: tearing it off can pull the roll out of line.`,
+      confirmLabel: 'Print scale',
+    });
+    if (!ok) return;
+    await onTest(about).then(
       (length) => {
         setPrinted(length);
         setReadings({});
@@ -56,6 +66,7 @@ export function StickerLineUp({ headWidth, length, gap, canRetract, printing, on
       },
       (err: Error) => toast.error(err.message),
     );
+  };
 
   const done = step >= STEPS.length;
   const all = { top: 0, bottom: 0, next: 0, last: 0, left: 0, right: 0, ...readings };
@@ -82,7 +93,7 @@ export function StickerLineUp({ headWidth, length, gap, canRetract, printing, on
           </div>
         )}
         <div className="pd-test-row">
-          <button className="btn" onClick={print} disabled={printing}>
+          <button className="btn" onClick={() => void print()} disabled={printing}>
             <Ruler size={16} /> {printed === null ? 'Print scale' : 'Print again'}
           </button>
           <button className="link-btn pd-guide" onClick={onHelp}>

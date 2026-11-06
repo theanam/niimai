@@ -1,6 +1,6 @@
 import { printIssues } from '../render/printability';
 import { labelFromTemplate, templatePreview } from '.';
-import { CONTINUOUS_CATEGORY, CONTINUOUS_TEMPLATES } from './continuous';
+import { BOTTOM_SPACE_MM, CONTINUOUS_CATEGORY, CONTINUOUS_TEMPLATES, continuousTemplates } from './continuous';
 
 describe('continuous paper templates', () => {
   it('offers a set of lists, planners and notes, 48 mm wide', () => {
@@ -38,5 +38,31 @@ describe('continuous paper templates', () => {
 
   it('can be found by everyday words', () => {
     expect(CONTINUOUS_TEMPLATES.find((t) => t.haystack.includes('groceries'))?.name).toBe('Shopping list');
+  });
+
+  it('lays every template out across wider paper, keeping it on the paper', () => {
+    for (const width of [58, 72, 80]) {
+      for (const t of continuousTemplates(width)) {
+        expect(t.size.widthMm, t.id).toBe(width);
+        const doc = templatePreview(t);
+        const right = Math.max(...doc.elements.map((e) => e.x + e.w));
+        // Rules and grids reach the far margin, so nothing is stuck at 48 mm.
+        expect(right, t.id).toBeGreaterThan(width - 4);
+        expect(right, t.id).toBeLessThanOrEqual(width + 0.01);
+        expect(printIssues(doc, 203), t.id).toEqual({});
+      }
+    }
+    expect(labelFromTemplate(continuousTemplates(72)[0])).toMatchObject({ widthMm: 72 });
+  });
+
+  it('leaves the same blank space under every template, at any width', () => {
+    for (const width of [48, 75]) {
+      for (const t of continuousTemplates(width)) {
+        const bottom = Math.max(...templatePreview(t).elements.map((e) => e.y + e.h));
+        const space = t.size.heightMm - bottom;
+        expect(space, t.id).toBeGreaterThanOrEqual(BOTTOM_SPACE_MM);
+        expect(space, t.id).toBeLessThan(BOTTOM_SPACE_MM + 1);
+      }
+    }
   });
 });

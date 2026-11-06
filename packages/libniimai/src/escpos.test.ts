@@ -121,4 +121,37 @@ describe('ESC/POS printers', () => {
     expect(service.getStatus().canFeed).toBeUndefined();
     await expect(service.feed(0.5)).rejects.toThrow('finds the paper itself');
   });
+
+  it('lets a printer with an unknown head take its print width from the paper, and only such a printer', async () => {
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+    const guessed = { prefix: '', confidence: 'medium' as const, generic: true };
+    const service = new PrinterService(async () => new EscPosPrinterClient(fakeTransport().t, guessed, { chunkMs: 0, pauseMs: 1 }), vi.fn());
+    await service.connect('bluetooth');
+    expect(service.getStatus()).toMatchObject({ headUnknown: true, profile: { printheadPixels: 384 } });
+    service.setPrintWidth(72);
+    expect(service.getStatus().profile?.printheadPixels).toBe(576);
+    service.setPrintWidth(48);
+    expect(service.getStatus().profile?.printheadPixels).toBe(384);
+
+    // A known model, and a picked 80 mm type, keep their own heads.
+    for (const model of [escposModelFor('MP583'), { prefix: '', confidence: 'medium' as const, generic: true, headDots: 576 }]) {
+      const known = new PrinterService(async () => new EscPosPrinterClient(fakeTransport().t, model, { chunkMs: 0, pauseMs: 1 }), vi.fn());
+      await known.connect('bluetooth');
+      const before = known.getStatus().profile?.printheadPixels;
+      expect(known.getStatus().headUnknown).toBeUndefined();
+      known.setPrintWidth(104);
+      expect(known.getStatus().profile?.printheadPixels).toBe(before);
+    }
+  });
+
+  it('prints rows as wide as the head set from the paper', () => {
+    const client = new EscPosPrinterClient(fakeTransport().t, { prefix: '', confidence: 'medium', generic: true });
+    client.setHeadDots(576);
+    const ctx = { getImageData: (_x: number, _y: number, w: number, h: number) => ({ data: new Uint8ClampedArray(w * h * 4).fill(0) }) };
+    const spy = vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(ctx as never);
+    const rows = client.encodePage(Object.assign(document.createElement('canvas'), { width: 576, height: 2 }));
+    spy.mockRestore();
+    expect(rows[0]).toHaveLength(72);
+    expect(rows[0].every((b) => b === 0xff)).toBe(true);
+  });
 });

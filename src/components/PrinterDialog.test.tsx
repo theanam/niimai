@@ -1,4 +1,4 @@
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { findManualProfile, type PrinterStatus } from 'libniimai';
 import { renderApp } from '../test/render';
@@ -192,9 +192,10 @@ describe('printer dialog', () => {
     rerender(<PrinterDialog {...props} paperWidth={58} labelLength={30} onLabelLength={onPaperWidth} />);
     // Width and length sit side by side.
     expect(screen.getByRole('spinbutton', { name: 'Label length' })).toHaveValue(30);
-    // Wider paper is fine: a quiet note says which part prints.
+    // Wider paper is fine and needs no note: many printers take wider paper than their head prints.
     expect(screen.queryByRole('alert')).toBeNull();
-    expect(screen.getByText(/Prints the middle 48 mm/)).toBeInTheDocument();
+    expect(screen.queryByText(/Prints the middle/)).toBeNull();
+    expect(screen.queryByText(/prints edge to edge/)).toBeNull();
   });
 
   it('switches a printer that cannot sense the paper between continuous paper and stickers', async () => {
@@ -261,7 +262,15 @@ describe('printer dialog', () => {
     await userEvent.clear(about);
     await userEvent.type(about, '12');
     expect(screen.getByText(/Prints 67 mm of scale/)).toHaveTextContent('stickers up to 27 mm long');
+    // It asks first: the scale uses stickers, and tearing the strip off can undo the line-up.
     await userEvent.click(screen.getByRole('button', { name: 'Print scale' }));
+    const ask = screen.getByRole('dialog', { name: 'Print the sticker scale?' });
+    expect(ask).toHaveTextContent('It uses about 5 stickers.');
+    expect(ask).toHaveTextContent('tearing it off can pull the roll out of line');
+    await userEvent.click(within(ask).getByRole('button', { name: 'Cancel' }));
+    expect(onStickerTest).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByRole('button', { name: 'Print scale' }));
+    await userEvent.click(within(screen.getByRole('dialog', { name: 'Print the sticker scale?' })).getByRole('button', { name: 'Print scale' }));
     expect(onStickerTest).toHaveBeenCalledWith(12);
   });
 
@@ -288,6 +297,7 @@ describe('printer dialog', () => {
     );
     await userEvent.click(screen.getByText('Line up stickers'));
     await userEvent.click(screen.getByRole('button', { name: 'Print scale' }));
+    await userEvent.click(within(screen.getByRole('dialog', { name: 'Print the sticker scale?' })).getByRole('button', { name: 'Print scale' }));
     const answer = async (name: string, value: string) => {
       const field = screen.getByRole('spinbutton', { name });
       expect(screen.getByRole('button', { name: /Next/ })).toBeDisabled();

@@ -13,7 +13,7 @@ libniimai powers [niimai](https://niimai.app), the label designer.
 | **ESC/POS receipt printers** | 58 or 80 mm, continuous or stickers with gaps | 48 or 72 mm | Bluetooth, USB | MP583, MPT-II, Xprinter XP-58IIL, PT-210, RPP02, MPT-3, RPP300 and more |
 | **Cat printers** | 58 mm continuous, stickers with gaps | 48 mm | Bluetooth | GB01, GB02, GB03, MX05, MX06, MX10 and more |
 
-The family is found from the device the user picks: by its Bluetooth name in `PRINTER_CATALOG`, then checked against the services it offers. A name that matches no family is treated as a NIIMBOT, unless a type from `PRINTER_TYPES` is set for unrecognised printers. Every family gets the same treatment:
+The family is found from the device the user picks: by its Bluetooth name in `PRINTER_CATALOG`, then checked against the services it offers. A name that matches no family goes to NIIMBOT first, exactly as before. If it does not look like a NIIMBOT and misses the handshake twice, its services decide (`byServices`): the cat service makes it a cat printer, any other serial service outside NIIMBOT's a receipt printer, and a printer offering only NIIMBOT services keeps the NIIMBOT error. A type from `PRINTER_TYPES` set for unrecognised printers overrides all of this. Every family gets the same treatment:
 
 - **Detection**: the right client and settings, picked for you.
 - **Page handling**: each page is cropped to the head, rotated where the printer needs it, and encoded in the printer's own format.
@@ -96,6 +96,8 @@ Returns a `PrinterService`, which owns one printer connection.
 | `getStatus()` | The current `PrinterStatus`. |
 | `subscribe(fn)` | Calls `fn` on every status change. Returns a function that unsubscribes. |
 | `feed(mm)` | Moves the paper by `mm` to line it up, back into the printer when negative. For printers that cannot sense the paper, where `status.canFeed` is true. |
+| `rememberMatches(map)` | Printers matched by their services before, by Bluetooth name (`{ 'MTP-4B_6DEF': 'escpos' }`, built from `status.deviceName` and `status.matchedAs`). They connect straight to that client, without the NIIMBOT handshake a receipt printer would print as text. |
+| `setPrintWidth(mm)` | Sets the print width on a printer whose head width is not known (`status.headUnknown`): a stock module name, or a printer matched by its services. Other printers keep their own. |
 | `setManualProfile(id)` | Picks a printer type for a printer that is not recognised: a NIIMBOT model from `MANUAL_PROFILES`, or a receipt, label or cat printer from `PRINTER_TYPES`. With one of those, the Bluetooth chooser lists every device. |
 
 **Print options**
@@ -120,6 +122,8 @@ Returns a `PrinterService`, which owns one printer connection.
 | `battery` | Battery level, where the printer reports one. |
 | `progress` | `{ page, total, sending }`; `sending` is 0–100 for the page going over the link. |
 | `canFeed` | True when `feed(mm)` can move the paper: ESC/POS and cat printers. |
+| `matchedAs` | `'escpos'` or `'cat'` when the printer was matched by its services; keep it for `rememberMatches`. |
+| `headUnknown` | True when the head's width is a guess (384 dots until set) and `setPrintWidth(mm)` can set it. |
 
 ### Your own clients
 

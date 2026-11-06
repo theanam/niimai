@@ -21,7 +21,7 @@ import {
   templatesForSize,
   type Template,
 } from '../templates';
-import { CONTINUOUS_CATEGORY, CONTINUOUS_TEMPLATES } from '../templates/continuous';
+import { CONTINUOUS_CATEGORY, continuousTemplates } from '../templates/continuous';
 import { Dialog, useConfirm } from '../ui/Dialog';
 import { useIncremental } from '../ui/useIncremental';
 import { IconButton } from '../ui/IconButton';
@@ -43,6 +43,8 @@ interface Props {
   templateSeed?: TemplateSeed;
   /** A continuous-paper printer is connected: its templates are offered too. */
   continuous?: boolean;
+  /** The continuous paper's width, which its templates are laid out for. */
+  paperWidth?: number;
 }
 
 export interface TemplateSeed {
@@ -208,7 +210,7 @@ function Printed({ onOpen }: { onOpen: (record: PrintRecord, again: boolean) => 
   );
 }
 
-function Templates({ currentSize, onOpen, seed, continuous = false }: { currentSize: LabelSize; onOpen: (d: LabelDoc) => void; seed?: TemplateSeed; continuous?: boolean }) {
+function Templates({ currentSize, onOpen, seed, continuous = false, paperWidth }: { currentSize: LabelSize; onOpen: (d: LabelDoc) => void; seed?: TemplateSeed; continuous?: boolean; paperWidth?: number }) {
   const [allSizes, setAllSizes] = useState(false);
   const [size, setSize] = useState<LabelSize | null>(null);
   // With continuous paper loaded, its own templates come first.
@@ -226,7 +228,10 @@ function Templates({ currentSize, onOpen, seed, continuous = false }: { currentS
     };
   }, []);
 
-  const base = useMemo(() => [...(continuous ? CONTINUOUS_TEMPLATES : []), ...(allSizes ? TEMPLATES : templatesForSize(currentSize))], [allSizes, currentSize, continuous]);
+  const base = useMemo(
+    () => [...(continuous ? continuousTemplates(paperWidth) : []), ...(allSizes ? TEMPLATES : templatesForSize(currentSize))],
+    [allSizes, currentSize, continuous, paperWidth],
+  );
   const matching = useMemo(() => filterTemplates(base, { query, size: allSizes ? size : null }), [base, query, size, allSizes]);
   const shown = useMemo(() => (category ? matching.filter((t) => t.category === category) : matching), [matching, category]);
   const counts = useMemo(() => {
@@ -311,7 +316,7 @@ function Templates({ currentSize, onOpen, seed, continuous = false }: { currentS
   );
 }
 
-export function LibraryDialog({ open, onOpenChange, currentId, currentSize, onOpen, onOpenPrint = () => {}, initialTab = 'mine', templateSeed, continuous = false }: Props) {
+export function LibraryDialog({ open, onOpenChange, currentId, currentSize, onOpen, onOpenPrint = () => {}, initialTab = 'mine', templateSeed, continuous = false, paperWidth }: Props) {
   const [tab, setTab] = useState<Tab>(initialTab);
   useEffect(() => {
     if (open) setTab(initialTab);
@@ -347,7 +352,7 @@ export function LibraryDialog({ open, onOpenChange, currentId, currentSize, onOp
             }}
           />
         ) : (
-          <Templates currentSize={currentSize} onOpen={openDoc} seed={templateSeed} continuous={continuous} />
+          <Templates currentSize={currentSize} onOpen={openDoc} seed={templateSeed} continuous={continuous} paperWidth={paperWidth} />
         )}
       </div>
     </Dialog>

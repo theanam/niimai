@@ -265,7 +265,9 @@ export function Help() {
           D11 family suits most small handheld models.
         </p>
         <p>
-          Receipt and label printers often keep a stock Bluetooth name, such as Printer001. If one does not connect, choose
+          A printer with a name niimai does not know tries NIIMBOT first, then is matched by the Bluetooth services it
+          offers; most connect as receipt printers. Receipt and label printers often keep a stock Bluetooth name, such as Printer001. If one does
+          not connect or prints garbled, choose
           Receipt printer or Label printer under Advanced, then connect again; Bluetooth then lists every nearby device.
         </p>
         <p>
@@ -398,7 +400,7 @@ export function Help() {
           <Cat size={18} /> Other Bluetooth thermal printers
         </h2>
         <p>
-          niimai is made for NIIMBOT, and also prints on ESC/POS receipt printers, cat printers and TSPL label printers.
+          niimai prints on NIIMBOT printers, ESC/POS receipt printers, cat printers and TSPL label printers.
           Connect them with Bluetooth like any other printer.
         </p>
         <p>

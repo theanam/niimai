@@ -206,6 +206,15 @@ function Paper({
   const [guide, setGuide] = useState<GuideTab | null>(null);
   const printing = status.state === 'printing';
   const stickers = stickerGap !== undefined;
+  // Paper wider than the head is left unremarked: many printers take wider paper than their head prints.
+  const wider = paperWidth !== undefined && headWidth !== undefined && paperWidth > headWidth;
+  const paperNote =
+    [
+      headWidth !== undefined && paperWidth !== undefined && paperWidth < headWidth && `Prints centred on the ${headWidth} mm head.`,
+      stickers ? 'Set W and L to the sticker size.' : onLabelLength && 'New labels start at this length.',
+    ]
+      .filter(Boolean)
+      .join(' ') || (wider ? '' : `Paper up to ${headWidth ?? 48} mm wide prints edge to edge.`);
   const sized = !!onStickerGap || (!!onPaperWidth && paperWidth !== undefined) || (!!onLabelLength && labelLength !== undefined);
   return (
     <section className="pd-section" aria-labelledby="pd-paper">
@@ -244,15 +253,7 @@ function Paper({
           )}
         </div>
       )}
-      <small className="muted">
-        {[
-          headWidth !== undefined && paperWidth !== undefined && paperWidth < headWidth && `Prints centred on the ${headWidth} mm head.`,
-          headWidth !== undefined && paperWidth !== undefined && paperWidth > headWidth && `Prints the middle ${headWidth} mm.`,
-          stickers ? 'Set W and L to the sticker size.' : onLabelLength && 'New labels start at this length.',
-        ]
-          .filter(Boolean)
-          .join(' ') || `Paper up to ${headWidth ?? 48} mm wide prints edge to edge.`}
-      </small>
+      {paperNote && <small className="muted">{paperNote}</small>}
       {onFeed && (
         <div className="pd-feed-row">
           {status.canRetract && (

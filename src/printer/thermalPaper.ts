@@ -31,3 +31,10 @@ export const stickerFeed = (gap: number, stickerLength: number, printedLength: n
  * to correct less than a ruler reading.
  */
 export const LINED_UP_MM = 1.5;
+
+/**
+ * The print width that suits paper `paperMm` wide, for printers whose head
+ * width is not known: the standard heads for 58 mm, 80 mm and 4-inch paper.
+ * Narrower paper keeps the 48 mm head and prints centred on it.
+ */
+export const printWidthFor = (paperMm: number): number => (paperMm >= 100 ? 104 : paperMm >= 70 ? 72 : 48);

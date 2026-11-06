@@ -24,6 +24,10 @@ export interface PrinterStatus {
   canFeed?: boolean;
   /** `feed()` can also move the paper back. */
   canRetract?: boolean;
+  /** The head's width is a guess: `setPrintWidth()` sets it, from the paper loaded. */
+  headUnknown?: boolean;
+  /** The printer was matched by its services, as this family: keep it with `rememberMatches()` so it skips the NIIMBOT handshake next time. */
+  matchedAs?: 'escpos' | 'cat';
 }
 
 /** Nudges the printed image, in mm: positive x moves right, positive y moves down. */
@@ -195,6 +199,18 @@ export class PrinterService {
     this.listeners.forEach((fn) => fn(this.status));
   }
 
+  private matches: Record<string, 'escpos' | 'cat'> = {};
+
+  /**
+   * Printers matched by their services on earlier connections, by Bluetooth
+   * name (from `status.matchedAs` and `status.deviceName`). They connect
+   * straight to that client, skipping the NIIMBOT handshake, whose bytes a
+   * receipt printer would print as text.
+   */
+  rememberMatches(matches: Record<string, 'escpos' | 'cat'>): void {
+    this.matches = matches;
+  }
+
   setManualProfile(id: string | null): void {
     this.manualProfileId = id;
     if (this.client) this.set({ profile: this.currentProfile() });
@@ -234,6 +250,7 @@ export class PrinterService {
     try {
       client = await this.createClient(kind);
       client.unrecognisedAs?.(this.manualProfileId);
+      client.rememberMatches?.(this.matches);
       const info = await client.connect();
       this.client = client;
       this.set({ deviceName: info.deviceName });
@@ -269,6 +286,8 @@ export class PrinterService {
       label: this.readRfid(),
       ...(client.feedPaper ? { canFeed: true } : {}),
       ...(client.feedPaper && client.feedsBack ? { canRetract: true } : {}),
+      ...(client.headUnknown && client.setHeadDots ? { headUnknown: true } : {}),
+      ...(client.matchedAs ? { matchedAs: client.matchedAs } : {}),
     });
     client.startHeartbeat();
   }
@@ -301,6 +320,19 @@ export class PrinterService {
     this.set({ progress: { page: 0, total: copies } });
     while (!(await client.protocol.printEnd())) await sleep(PRINT_END_POLL_MS);
     this.set({ progress: { page: copies, total: copies } });
+  }
+
+  /**
+   * Sets the print width, in mm, on a printer whose head width is not known
+   * (`status.headUnknown`); the profile follows. Other printers keep theirs.
+   */
+  setPrintWidth(mm: number): void {
+    const client = this.client;
+    const profile = this.status.profile;
+    if (!client?.setHeadDots || !this.status.headUnknown || !profile) return;
+    client.setHeadDots(mmToPx(mm, profile.dpi));
+    const next = this.currentProfile();
+    if (next?.printheadPixels !== profile.printheadPixels) this.set({ profile: next });
   }
 
   /**

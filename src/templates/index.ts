@@ -94,10 +94,12 @@ const previews = new Map<string, LabelDoc>();
 
 /** The template as a label, for thumbnails. Cached; never edit the result. */
 export function templatePreview(t: Template): LabelDoc {
-  let doc = previews.get(t.id);
+  // One template can come at several sizes (continuous paper follows its width), so the size is part of the key.
+  const key = `${t.id}@${t.size.widthMm}x${t.size.heightMm}`;
+  let doc = previews.get(key);
   if (!doc) {
     doc = { ...createDoc(t.size, t.name), id: t.id, elements: elementsOf(t) };
-    previews.set(t.id, doc);
+    previews.set(key, doc);
   }
   return doc;
 }

@@ -58,7 +58,7 @@ export type { PaperType } from './paper';
 export { findPrinterType, identifyPrinter, identifyUsbPrinter, PRINTER_CATALOG, PRINTER_TYPES } from './catalog';
 export type { CatalogEntry, PrinterFamily, PrinterType } from './catalog';
 
-export { BluetoothPrinter } from './bluetooth';
+export { BluetoothPrinter, byServices, type MatchedFamily, type MatchedPrinters } from './bluetooth';
 export { familiesFromDeviceId, parseDeviceId, rememberedUsbPrinters, UsbPrinter, usbTransport, USB_PRINTER_CLASS } from './usb';
 export { describeBleError } from './ble';
 export { DEMO_META, MockClient } from './mock';

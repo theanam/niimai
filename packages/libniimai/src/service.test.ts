@@ -67,6 +67,12 @@ describe('printer service', () => {
     expect(service.getStatus()).not.toHaveProperty('canFeed');
     expect(service.getStatus()).not.toHaveProperty('canRetract');
     await expect(service.feed(1)).rejects.toThrow('finds the paper itself');
+    expect(service.getStatus()).not.toHaveProperty('matchedAs');
+    // Its head is known: a print width set from the paper changes nothing.
+    expect(service.getStatus()).not.toHaveProperty('headUnknown');
+    const head = service.getStatus().profile;
+    service.setPrintWidth(72);
+    expect(service.getStatus().profile).toBe(head);
   });
 
   it('leaves a NIIMBOT untouched by a receipt printer type picked for unrecognised printers', async () => {
@@ -243,5 +249,14 @@ describe('printer service', () => {
     expect(encode).toHaveBeenCalledTimes(3);
     expect(newTask).toHaveBeenCalledWith('D11_V1', expect.objectContaining({ totalPages: 6 }));
     expect(client.printed.map((p) => p.quantity)).toEqual([2, 2, 2]);
+  });
+
+  it('hands remembered matches to the client before it connects, and reports a new match', async () => {
+    const client = Object.assign(new MockClient(), { rememberMatches: vi.fn(), matchedAs: 'escpos' as const });
+    const service = new PrinterService(async () => client, vi.fn());
+    service.rememberMatches({ 'MTP-4B_6DEF': 'escpos' });
+    await service.connect('bluetooth');
+    expect(client.rememberMatches).toHaveBeenCalledWith({ 'MTP-4B_6DEF': 'escpos' });
+    expect(service.getStatus().matchedAs).toBe('escpos');
   });
 });

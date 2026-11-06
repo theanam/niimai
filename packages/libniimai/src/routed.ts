@@ -79,6 +79,14 @@ export abstract class RoutedClient implements ClientLike {
     return this.inner?.feedPaper?.bind(this.inner);
   }
 
+  get headUnknown() {
+    return this.inner?.headUnknown;
+  }
+
+  get setHeadDots() {
+    return this.inner?.setHeadDots?.bind(this.inner);
+  }
+
   get feedsBack() {
     return this.inner?.feedsBack;
   }

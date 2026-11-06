@@ -19,7 +19,7 @@ export const TOUR_STEPS: TourStep[] = [
   {
     id: 'welcome',
     title: 'Welcome to niimai',
-    body: 'Design labels and print them on your NIIMBOT printer, all inside the browser.',
+    body: 'Design labels and print them on your thermal printer, all inside the browser.',
     highlights: ['Free and open source', 'Works on desktop and Android phones, even offline', 'Your labels stay on your device'],
     Visual: WelcomeVisual,
   },

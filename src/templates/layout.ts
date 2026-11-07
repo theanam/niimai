@@ -1,6 +1,7 @@
 import { createElement, type Align, type LabelElement, type LabelSize, type TextElement } from '../doc/model';
 import { clamp, round1 } from '../lib/units';
 import { printIssue } from '../render/printability';
+import { fill } from '../doc/variables';
 
 export type TemplateStyle = 'plain' | 'border' | 'round' | 'divider' | 'warning';
 
@@ -46,7 +47,12 @@ const text = (box: Box, value: string, font: string, bold: boolean, align: Align
   bold,
   align,
   autoFit: true,
+  // Dates written as {{Date}} fill in when the label is opened and printed.
+  ...(value.includes('{{') ? { dynamic: true } : {}),
 });
+
+/** The element as it prints today, so fields are measured as the text they become. */
+const filled = (el: LabelElement): LabelElement => (el.type === 'text' && el.dynamic ? { ...el, text: fill(el.text, {}, { index: 0, now: new Date() }) } : el);
 
 const size = { widthMm: 1, heightMm: 1 };
 
@@ -66,7 +72,7 @@ export function layoutTemplate(c: TemplateContent, size: LabelSize): LabelElemen
   let content = c;
   for (;;) {
     const out = layoutOnce(content, size);
-    const bad = out.filter((el) => printIssue(el, TEMPLATE_DPI));
+    const bad = out.filter((el) => printIssue(filled(el), TEMPLATE_DPI));
     if (!bad.length) return out;
     if (content.code && bad.some((el) => el.type === 'qr' || el.type === 'barcode')) content = { ...content, code: undefined };
     else if (content.lines?.length) content = { ...content, lines: content.lines.slice(0, -1) };

@@ -5,6 +5,7 @@ import { CATEGORIES, filterTemplates, labelFromTemplate, TEMPLATE_FONTS, TEMPLAT
 import { KINDS } from './kinds';
 import { SMALL_LABEL_MM } from './layout';
 import { printIssues } from '../render/printability';
+import { formatDate, resolveDoc } from '../doc/variables';
 import KIND_ICONS from './kind-icons.json';
 import ICON_SHAPES from './icon-shapes.json';
 
@@ -90,18 +91,35 @@ describe('template catalog', () => {
     expect(labelFromTemplate(list[0]).tailMm).toBe(35);
   });
 
-  it('leaves borders off small labels and keeps them on larger ones', () => {
-    const outlines = (t: (typeof TEMPLATES)[number]) => templatePreview(t).elements.filter((e) => e.type === 'rect' && !e.fill).length;
-    const kitchen = TEMPLATES.filter((t) => t.category === 'kitchen' && t.variant === 'text');
-    const small = kitchen.filter((t) => Math.min(t.size.widthMm, t.size.heightMm) < SMALL_LABEL_MM);
-    const large = kitchen.filter((t) => Math.min(t.size.widthMm, t.size.heightMm) >= SMALL_LABEL_MM);
-    expect(small.length).toBeGreaterThan(0);
-    expect(small.every((t) => outlines(t) === 0)).toBe(true);
-    expect(large.some((t) => outlines(t) > 0)).toBe(true);
+  const outlines = (t: (typeof TEMPLATES)[number]) => templatePreview(t).elements.filter((e) => e.type === 'rect' && !e.fill).length;
+
+  it('frames only warning labels, and only where there is room, since printers rarely centre a label exactly', () => {
+    const framed = TEMPLATES.filter((t) => outlines(t) > 0);
+    expect(framed.length).toBeGreaterThan(0);
+    expect(framed.every((t) => (t.kind.style ?? CATEGORIES.find((c) => c.id === t.category)!.style) === 'warning')).toBe(true);
+    expect(framed.every((t) => Math.min(t.size.widthMm, t.size.heightMm) >= SMALL_LABEL_MM)).toBe(true);
+    // Under a tenth of the catalog carries a frame.
+    expect(framed.length).toBeLessThan(TEMPLATES.length * 0.1);
+    const kitchen = TEMPLATES.filter((t) => t.category === 'kitchen');
+    expect(kitchen.every((t) => outlines(t) === 0)).toBe(true);
+  });
+
+  it('writes dates as fields, so a label opened today shows today', () => {
+    const leftovers = TEMPLATES.find((t) => t.kind.id === 'kitchen-leftovers' && t.size.widthMm === 50 && t.size.heightMm === 30 && t.variant === 'text')!;
+    const lines = templatePreview(leftovers).elements.filter((e) => e.type === 'text' && e.dynamic);
+    expect(lines.map((e) => (e as { text: string }).text)).toEqual(['Made {{Date}}', 'Eat by {{Date+3}}']);
+    const label = labelFromTemplate(leftovers);
+    const now = new Date(2026, 10, 8);
+    const shown = resolveDoc(label, { index: 0, now }).elements.map((e) => (e as { text?: string }).text);
+    expect(shown).toContain(`Made ${formatDate(now)}`);
+    expect(shown).toContain(`Eat by ${formatDate(new Date(2026, 10, 11))}`);
+    // No template still carries a fixed day and month.
+    expect(KINDS.flatMap((k) => [k.title, ...(k.lines ?? [])]).filter((t) => /\b\d{1,2}\/\d{2}\b/.test(t))).toEqual([]);
   });
 
   it('trims what would print badly, so almost every template prints cleanly', () => {
-    const flagged = TEMPLATES.filter((t) => Object.keys(printIssues(templatePreview(t), 203)).length);
+    const now = new Date();
+    const flagged = TEMPLATES.filter((t) => Object.keys(printIssues(resolveDoc(templatePreview(t), { index: 0, now }), 203)).length);
     expect(flagged.length).toBeLessThan(TEMPLATES.length * 0.005);
   });
 

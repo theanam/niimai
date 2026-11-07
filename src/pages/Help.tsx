@@ -351,6 +351,11 @@ export function Help() {
           out for your current label size; choose All sizes to browse the full catalogue.
         </p>
         <p>
+          Dates on templates are Date fields, so they show the day you open the label and print it; click one to change
+          its format or add days. Templates leave out borders, since label printers rarely centre a label exactly; only
+          warning labels keep theirs.
+        </p>
+        <p>
           The icon button in the toolbar opens 1,500 icons. Bold and Fill print best on small labels; Regular suits larger ones.
         </p>
         <p>

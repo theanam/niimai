@@ -1,6 +1,6 @@
 import * as Popover from '@radix-ui/react-popover';
 import { ChevronDown, Search } from 'lucide-react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CATEGORIES, filterFonts, loadCatalog, previewUrl, type FontCategory, type FontEntry } from '../fonts/catalog';
 
 const ROW = 36;
@@ -46,6 +46,21 @@ export function FontPicker({ value, onChange }: Props) {
     setScroll(0);
   }, [query, cat]);
 
+  // Each opening draws a fresh list scrolled to the top, so the drawn rows must follow it there.
+  // Start it at the chosen font, once the list is drawn and once the fonts arrive.
+  const showChosen = useRef(() => {});
+  showChosen.current = () => {
+    const el = listRef.current;
+    if (!el) return;
+    el.scrollTop = Math.max(0, list.findIndex((f) => f.name === value) - 3) * ROW;
+    setScroll(el.scrollTop);
+  };
+  const attachList = useCallback((el: HTMLDivElement | null) => {
+    listRef.current = el;
+    if (el) showChosen.current();
+  }, []);
+  useEffect(() => showChosen.current(), [fonts.length]);
+
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger asChild>
@@ -69,7 +84,7 @@ export function FontPicker({ value, onChange }: Props) {
           </div>
           <div
             className="font-list"
-            ref={listRef}
+            ref={attachList}
             role="listbox"
             aria-label="Fonts"
             style={{ height: ROW * VISIBLE }}

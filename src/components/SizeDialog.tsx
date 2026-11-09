@@ -1,4 +1,4 @@
-import { ScanLine } from 'lucide-react';
+import { Bookmark, ScanLine } from 'lucide-react';
 import { useState } from 'react';
 import { LABEL_PRESETS, type LabelSize, sizeLabel } from '../doc/model';
 import { Dialog } from '../ui/Dialog';
@@ -16,10 +16,13 @@ interface Props {
   presets?: LabelSize[];
   description?: string;
   onPick: (size: LabelSize) => void;
+  /** Papers the user saved, offered before the common sizes. */
+  saved?: { id: string; name: string; size: LabelSize }[];
+  onPickSaved?: (id: string) => void;
 }
 
 /** Picks a label size from presets or exact dimensions. Used for new labels and for naming a roll's size. */
-export function SizeDialog({ open, onOpenChange, title, actionLabel, rollSize, initial, presets = LABEL_PRESETS, description, onPick }: Props) {
+export function SizeDialog({ open, onOpenChange, title, actionLabel, rollSize, initial, presets = LABEL_PRESETS, description, onPick, saved = [], onPickSaved }: Props) {
   const [size, setSize] = useState<LabelSize>(rollSize ?? initial ?? { widthMm: 40, heightMm: 12 });
   const pick = (s: LabelSize) => {
     onPick(s);
@@ -37,6 +40,26 @@ export function SizeDialog({ open, onOpenChange, title, actionLabel, rollSize, i
         </button>
       }
     >
+      {saved.length > 0 && onPickSaved && (
+        <div className="saved-papers" role="group" aria-label="Saved papers">
+          {saved.map((p) => (
+            <button
+              key={p.id}
+              className="saved-paper"
+              onClick={() => {
+                onPickSaved(p.id);
+                onOpenChange(false);
+              }}
+            >
+              <Bookmark size={15} />
+              <span>
+                <strong>{p.name}</strong>
+                <small className="muted">{sizeLabel(p.size)} mm</small>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
       <div className="preset-grid">
         {rollSize && (
           <button className="preset preset-roll" onClick={() => pick(rollSize)}>

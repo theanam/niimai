@@ -1,4 +1,4 @@
-import { paperSummary, parsePreset, presetFrom, presetValues, samePaper, suggestName } from './paperPresets';
+import { paperSummary, parsePreset, presetFrom, presetValues, samePaper, stickerPapers, suggestName } from './paperPresets';
 
 const stickers = { widthMm: 50, lengthMm: 30, gapMm: 2, offset: { x: 0, y: 0 } };
 
@@ -28,6 +28,13 @@ describe('paper presets', () => {
   it('describes a paper in a few words', () => {
     expect(paperSummary(stickers)).toBe('50 × 30 mm stickers, 2 mm gap');
     expect(paperSummary({ widthMm: 75, lengthMm: 80 })).toBe('75 mm continuous');
+  });
+
+  it('leaves the gap out for printers that find it, and offers them sticker papers only', () => {
+    expect(paperSummary(stickers, true)).toBe('50 × 30 mm stickers');
+    const roll = presetFrom('Roll', { widthMm: 58, lengthMm: 30, offset: { x: 0, y: 0 } });
+    const kraft = presetFrom('Kraft', stickers);
+    expect(stickerPapers([roll, kraft])).toEqual([kraft]);
   });
 
   it('suggests a name from the size that no other paper has', () => {

@@ -425,7 +425,11 @@ export function Help() {
           position. Loading it later sets all of them at once. Change any of them and the paper shows as changed, with
           Save to keep the change in it or Save as new to keep both.
         </p>
-        <p>TSPL label printers up to 80 mm wide work like a NIIMBOT: pick the roll size and paper type, and the printer finds each label's edge.</p>
+        <p>
+          TSPL label printers up to 80 mm wide find each label's edge themselves, but not its size. Tap the sticker size on the
+          start screen to set it: a common size or any size you type. Save it as a paper to load it again next time, the same
+          way as above.
+        </p>
         <table className="shortcuts help-models">
           <tbody>
             {MODEL_FAMILIES.map(({ name, models }) => (

@@ -455,6 +455,69 @@ describe('editor', () => {
     expect(within(dialog).queryByRole('status')).toBeNull();
   });
 
+  it('keeps sticker papers on a gap-sensing printer: picks one when it connects, flags changes, and saves a custom size', async () => {
+    const { printer } = await import('../printer');
+    const { TsplPrinterClient, tsplModelFor } = await import('libniimai');
+    const { getSetting } = await import('../storage/db');
+    const link = { name: 'QR380A-02B55B', write: async () => {}, onNotify: () => {}, onDisconnect: () => {}, disconnect: async () => {} };
+    const target = printer as unknown as { createClient: () => Promise<unknown> };
+    const original = target.createClient;
+    target.createClient = async () => new TsplPrinterClient(link, tsplModelFor('QR380A'), { chunkMs: 0, pauseMs: 1 });
+    onTestFinished(() => void (target.createClient = original));
+    const papers = [
+      { id: 'kraft', name: 'Kraft 50 × 30', widthMm: 50, lengthMm: 30, gapMm: 3 },
+      { id: 'roll', name: 'Receipt roll', widthMm: 58, lengthMm: 40 },
+    ];
+
+    renderApp(<Editor initialDoc={starterDoc()} initialProfileId={null} initialDensity={2} initialPaperPresets={papers} />);
+    await act(() => printer.connect('bluetooth'));
+    // The printer cannot say what is loaded, so it asks once, offering the saved sticker papers first.
+    const ask = await screen.findByRole('dialog', { name: 'What size is this roll?' });
+    const saved = within(ask).getByRole('group', { name: 'Saved papers' });
+    expect(within(saved).queryByText('Receipt roll')).toBeNull();
+    await userEvent.click(within(saved).getByRole('button', { name: /Kraft 50 × 30/ }));
+    await waitFor(async () => expect(await getSetting('rollSizes')).toEqual({ 'printer:QR380A-02B55B': { widthMm: 50, heightMm: 30 } }));
+    expect(Object.values((await getSetting('paperChoices')) ?? {})).toEqual(['kraft']);
+
+    await userEvent.click(screen.getByRole('button', { name: 'Printer ready' }));
+    const dialog = await screen.findByRole('dialog');
+    const select = within(dialog).getByRole('combobox', { name: 'Saved paper' });
+    expect(select).toHaveDisplayValue('Kraft 50 × 30');
+    expect(within(select).queryByRole('option', { name: 'Receipt roll' })).toBeNull();
+    expect(within(dialog).getByText('50 × 30 mm stickers')).toBeInTheDocument();
+    expect(within(dialog).queryByRole('button', { name: /Change roll size/ })).toBeNull();
+
+    // A custom sticker not in the common sizes: the saved paper shows as changed, then the size is kept as a new paper.
+    const length = within(dialog).getByRole('spinbutton', { name: 'Sticker length' });
+    await userEvent.clear(length);
+    await userEvent.type(length, '22');
+    await waitFor(() => expect(within(dialog).getByRole('status')).toHaveTextContent('Changed since loaded'));
+    expect(within(dialog).getByRole('combobox', { name: 'Common sizes' })).toHaveDisplayValue('Custom size');
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save as new paper' }));
+    const naming = await screen.findByRole('dialog', { name: 'Save as new paper' });
+    expect(within(naming).getByRole('textbox', { name: 'Paper name' })).toHaveValue('Stickers 50 × 22');
+    await userEvent.type(within(naming).getByRole('textbox', { name: 'Paper name' }), '{Enter}');
+    await waitFor(async () => expect((await getSetting('paperPresets'))?.[2]).toMatchObject({ name: 'Stickers 50 × 22', widthMm: 50, lengthMm: 22, gapMm: 3 }));
+    expect(select).toHaveDisplayValue('Stickers 50 × 22');
+
+    // Loading the first paper again puts its size back on the printer.
+    await userEvent.selectOptions(select, 'Kraft 50 × 30');
+    await waitFor(() => expect(within(dialog).getByRole('spinbutton', { name: 'Sticker length' })).toHaveValue(30));
+    await userEvent.selectOptions(within(dialog).getByRole('combobox', { name: 'Common sizes' }), '60 × 40 mm');
+    await waitFor(async () => expect((await getSetting('rollSizes'))?.['printer:QR380A-02B55B']).toEqual({ widthMm: 60, heightMm: 40 }));
+  });
+
+  it('keeps NIIMBOT rolls automatic: no saved papers or sticker sizes in the printer window', async () => {
+    const papers = [{ id: 'kraft', name: 'Kraft 50 × 30', widthMm: 50, lengthMm: 30, gapMm: 3 }];
+    renderApp(<Editor initialDoc={starterDoc()} initialProfileId={null} initialDensity={2} initialPaperPresets={papers} initialPaperChoices={{ D110: 'kraft' }} />);
+    await connectDemo();
+    await userEvent.click(screen.getByRole('button', { name: 'Printer ready' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).queryByRole('combobox', { name: 'Saved paper' })).toBeNull();
+    expect(within(dialog).queryByRole('spinbutton', { name: 'Sticker length' })).toBeNull();
+    expect(within(dialog).getByText('Roll')).toBeInTheDocument();
+  });
+
   it('saves every printer setting and saved paper to a file, and loads one back on top of what is there', async () => {
     const { getSetting, setSetting } = await import('../storage/db');
     const mine = [{ id: 'mine', name: 'Mine', widthMm: 58, lengthMm: 40 }];

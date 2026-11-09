@@ -4,6 +4,7 @@ import { resetDbConnection, saveLabel, listLabels } from '../storage/db';
 import userEvent from '@testing-library/user-event';
 import { createDoc } from '../doc/model';
 import { renderApp } from '../test/render';
+import { findManualProfile } from 'libniimai';
 import { StartScreen } from './StartScreen';
 
 const renderStart = (onBrowseTemplates = vi.fn(), extra: Partial<Parameters<typeof StartScreen>[0]> = {}) => {
@@ -189,5 +190,25 @@ describe('start screen', () => {
     await userEvent.type(length, '62');
     await userEvent.click(screen.getByRole('button', { name: /new label/i }));
     expect(onBlank).toHaveBeenCalledWith({ widthMm: 48, heightMm: 62 });
+  });
+
+  it('opens the paper settings from the sticker card of a gap-sensing printer', async () => {
+    const onPrinterSettings = vi.fn();
+    const status = { state: 'ready' as const, profile: findManualProfile('b21')!, deviceName: 'QR380A-02B55B', label: { barcode: 'printer:QR380A-02B55B', manual: true } };
+    renderStart(vi.fn(), { status, roll: { size: { widthMm: 50, heightMm: 22 }, key: 'printer:QR380A-02B55B', needsSize: false, manual: true }, paperName: 'Kraft', onPrinterSettings });
+    const card = screen.getByRole('button', { name: 'Paper settings' });
+    expect(card).toHaveTextContent('50 × 22 mm');
+    expect(card).toHaveTextContent('Kraft');
+    await userEvent.click(card);
+    expect(onPrinterSettings).toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: /Change size/ })).toBeNull();
+  });
+
+  it('shows a NIIMBOT roll as it was read, with nothing to change', () => {
+    const status = { state: 'ready' as const, profile: findManualProfile('b21')!, deviceName: 'B21-C2B', label: { barcode: '6972842743589' } };
+    renderStart(vi.fn(), { status, roll: { size: { widthMm: 50, heightMm: 30 }, key: '6972842743589', needsSize: false, name: 'RP50×30 white' }, paperName: 'Kraft' });
+    expect(screen.queryByRole('button', { name: 'Paper settings' })).toBeNull();
+    expect(screen.getByText('RP50×30 white')).toBeInTheDocument();
+    expect(screen.queryByText('Kraft')).toBeNull();
   });
 });

@@ -1524,6 +1524,47 @@ kbd {
 .preset:hover {
   border-color: var(--primary);
 }
+.saved-papers {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.saved-paper {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+}
+.saved-paper:hover {
+  border-color: var(--primary);
+}
+.saved-paper > svg {
+  flex: none;
+  color: var(--primary);
+}
+.saved-paper span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.saved-paper strong {
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.saved-paper small {
+  font-size: 11px;
+}
 .preset-roll {
   justify-content: center;
   color: var(--primary);

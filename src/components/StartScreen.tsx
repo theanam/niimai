@@ -34,13 +34,15 @@ interface Props {
   onSetRollSize: () => void;
   /** Opens the printer window: paper feed, print position and the rest. */
   onPrinterSettings: () => void;
+  /** The saved paper loaded on a printer that finds the gaps but not the size. */
+  paperName?: string;
   onOpen: (doc: LabelDoc) => void;
   onBlank: (size: LabelSize) => void;
   onBrowseTemplates: (seed?: TemplateSeed) => void;
 }
 
 
-function PrinterCard({ status, roll, stickerGap, paperWidth = THERMAL_DEFAULT_SIZE.widthMm, labelLength, onLabelLength, onConnect, printerType = null, onSetRollSize, onPrinterSettings, onBlank, onBrowseTemplates }: Pick<Props, 'status' | 'roll' | 'stickerGap' | 'paperWidth' | 'labelLength' | 'onLabelLength' | 'onConnect' | 'printerType' | 'onSetRollSize' | 'onPrinterSettings' | 'onBlank' | 'onBrowseTemplates'>) {
+function PrinterCard({ status, roll, stickerGap, paperWidth = THERMAL_DEFAULT_SIZE.widthMm, labelLength, onLabelLength, onConnect, printerType = null, onSetRollSize, onPrinterSettings, paperName, onBlank, onBrowseTemplates }: Pick<Props, 'status' | 'roll' | 'stickerGap' | 'paperWidth' | 'labelLength' | 'onLabelLength' | 'onConnect' | 'printerType' | 'onSetRollSize' | 'onPrinterSettings' | 'paperName' | 'onBlank' | 'onBrowseTemplates'>) {
   const usb = useUsbRoute(printerType);
   /** The connection being made; its button shows a spinner in place of its icon. */
   const [busy, setBusy] = useState<ConnectionKind | null>(null);
@@ -100,6 +102,16 @@ function PrinterCard({ status, roll, stickerGap, paperWidth = THERMAL_DEFAULT_SI
               </span>
               <ChevronRight size={18} className="start-roll-go" />
             </button>
+          ) : roll.manual && roll.size ? (
+            // Printers that find the gaps but not the size: the paper is the user's to change, in the printer window.
+            <button className="start-roll start-roll-button" onClick={onPrinterSettings} aria-label="Paper settings">
+              <LabelSilhouette size={roll.size} box={64} />
+              <span className="start-roll-text">
+                <strong>{sizeLabel(roll.size)} mm</strong>
+                <small className="muted">{paperName ?? 'Sticker size you set'}</small>
+              </span>
+              <ChevronRight size={18} className="start-roll-go" />
+            </button>
           ) : roll.size ? (
             <div className="start-roll">
               <LabelSilhouette size={roll.size} box={64} />
@@ -130,11 +142,6 @@ function PrinterCard({ status, roll, stickerGap, paperWidth = THERMAL_DEFAULT_SI
                 <button className="btn" onClick={() => onBrowseTemplates()}>
                   <LayoutTemplate size={16} /> Templates for this roll
                 </button>
-                {roll.manual && (
-                  <button className="btn btn-ghost" onClick={onSetRollSize} title="Change roll size">
-                    <ScanLine size={16} /> Change size
-                  </button>
-                )}
               </>
             ) : (
               roll.needsSize && (
@@ -346,6 +353,7 @@ export function StartScreen(props: Props) {
               printerType={props.printerType}
               onSetRollSize={props.onSetRollSize}
               onPrinterSettings={props.onPrinterSettings}
+              paperName={props.paperName}
               onBlank={props.onBlank}
               onBrowseTemplates={props.onBrowseTemplates}
             />

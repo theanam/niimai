@@ -33,8 +33,8 @@ import { fitBorders, safeArea, turnedArea } from '../printer/safeArea';
 import { alignmentDoc } from '../printer/alignment';
 import { placeOnHead } from '../printer/onHead';
 import { scaleDoc, scaleLength } from '../printer/scale';
-import { printWidthFor, stickerFeed, type LabelLengths, type PaperWidths, type StickerGaps } from '../printer/thermalPaper';
-import { presetFrom, presetValues, samePaper, type PaperChoices, type PaperPreset, type PaperValues } from '../printer/paperPresets';
+import { DEFAULT_GAP_MM, printWidthFor, stickerFeed, type LabelLengths, type PaperWidths, type StickerGaps } from '../printer/thermalPaper';
+import { presetFrom, presetValues, samePaper, stickerPapers, type PaperChoices, type PaperPreset, type PaperValues } from '../printer/paperPresets';
 import { CONFIG_FILE, CONFIG_KEYS, configSummary, mergeConfig, parseConfig, serializeConfig, type PrinterSettings } from '../printer/printerConfig';
 import { TEMPLATES } from '../templates';
 import { RollMismatchBanner } from './RollMismatchBanner';
@@ -165,9 +165,19 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
   const labelLength = (status.canFeed && printerKey && labelLengths[printerKey]) || THERMAL_DEFAULT_SIZE.heightMm;
   const [paperPresets, setPaperPresets] = useState(initialPaperPresets);
   const [paperChoices, setPaperChoices] = useState(initialPaperChoices);
-  /** The saved paper this printer has loaded, if one was chosen and still exists. */
-  const paperPreset = (status.canFeed && printerKey && paperPresets.find((p) => p.id === paperChoices[printerKey])) || null;
-  const paperNow: PaperValues = { widthMm: paperWidth, lengthMm: labelLength, ...(stickerGap !== undefined ? { gapMm: stickerGap } : {}), offset };
+  /**
+   * The saved paper this printer has loaded, if one was chosen and still exists. Printers that cannot sense the
+   * paper keep any paper; printers that find the gaps but not the size (roll.manual) keep sticker papers.
+   * NIIMBOT printers read their rolls, so they keep none.
+   */
+  const paperPreset =
+    (printerKey && (status.canFeed ? paperPresets : roll.manual ? stickerPapers(paperPresets) : []).find((p) => p.id === paperChoices[printerKey])) || null;
+  /** A gap-sensing printer's sticker size, or the size it is about to be given. */
+  const stickerRoll = roll.size ?? sizesForPrinter(status.profile)[0] ?? { widthMm: 50, heightMm: 30 };
+  const paperNow: PaperValues = roll.manual
+    ? // The printer finds the gaps itself; a saved paper's gap is kept for printers that do not.
+      { widthMm: stickerRoll.widthMm, lengthMm: stickerRoll.heightMm, gapMm: paperPreset?.gapMm ?? DEFAULT_GAP_MM, offset }
+    : { widthMm: paperWidth, lengthMm: labelLength, ...(stickerGap !== undefined ? { gapMm: stickerGap } : {}), offset };
   /** The printer's paper settings differ from the saved paper's. */
   const paperModified = !!paperPreset && !samePaper(paperNow, presetValues(paperPreset));
 
@@ -659,6 +669,11 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
     storePapers(paperPresets, preset ? { ...rest, [printerKey]: preset.id } : rest);
     if (!preset) return;
     const v = presetValues(preset);
+    if (roll.manual) {
+      saveRollSize({ widthMm: v.widthMm, heightMm: v.lengthMm });
+      changeOffset(v.offset);
+      return;
+    }
     changeStickerGap(v.gapMm ?? null);
     changePaperWidth(v.widthMm);
     changeLabelLength(v.lengthMm);
@@ -903,6 +918,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
             printerType={manualProfileId}
             onSetRollSize={() => setDialog('roll')}
             onPrinterSettings={() => setDialog('printer')}
+            paperName={paperPreset?.name}
             // The label still in memory reopens as it is, keeping its undo history.
             onOpen={(d) => (d.id === doc.id ? setView('edit') : loadDoc(d))}
             onBlank={(size) => loadDoc(createDoc(size))}
@@ -1032,6 +1048,8 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
         rollSize={null}
         initial={roll.size ?? sizesForPrinter(status.profile)[0] ?? paper}
         presets={sizesForPrinter(status.profile)}
+        saved={roll.manual ? stickerPapers(paperPresets).map((p) => ({ id: p.id, name: p.name, size: { widthMm: p.widthMm, heightMm: p.lengthMm } })) : undefined}
+        onPickSaved={choosePaper}
         onPick={saveRollSize}
       />
       <IconPicker
@@ -1083,6 +1101,8 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
         rollManual={roll.manual}
         rollName={roll.name}
         onSetRollSize={() => setDialog('roll')}
+        rollSizes={roll.manual ? sizesForPrinter(status.profile) : undefined}
+        onRollSize={roll.manual ? saveRollSize : undefined}
         manualProfileId={manualProfileId}
         onConnect={connect}
         onAlignmentTest={printAlignmentTest}

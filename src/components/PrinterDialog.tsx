@@ -11,7 +11,7 @@ import { StickerLineUp } from './StickerLineUp';
 import { DEFAULT_GAP_MM, MAX_GAP_MM, MAX_LENGTH_MM, MAX_PAPER_MM, MIN_LENGTH_MM, MIN_PAPER_MM } from '../printer/thermalPaper';
 import { ErrorBoundary } from '../ui/ErrorBoundary';
 import { Dialog, useConfirm } from '../ui/Dialog';
-import { paperSummary, suggestName, type PaperPreset, type PaperValues } from '../printer/paperPresets';
+import { paperSummary, stickerPapers, suggestName, type PaperPreset, type PaperValues } from '../printer/paperPresets';
 import { connectFailed, setupHref } from '../ui/setup';
 import { useUsbRoute } from '../printer/usbRoute';
 
@@ -28,6 +28,9 @@ interface Props {
   /** Product name of a recognised roll. */
   rollName?: string;
   onSetRollSize?: () => void;
+  /** Printers that find the gaps but never learn the sticker size: common sizes to offer, and setting the size. */
+  rollSizes?: LabelSize[];
+  onRollSize?: (size: LabelSize) => void;
   manualProfileId: string | null;
   onConnect: (kind: ConnectionKind) => Promise<void>;
   /** Prints a ruler label for reading the offset. */
@@ -238,24 +241,28 @@ function PaperName({ open, title, initial, taken, onOpenChange, onSave }: { open
   );
 }
 
-type PaperProps = Pick<Props, 'papers' | 'paperPreset' | 'paperModified' | 'paperNow' | 'onChoosePaper' | 'onSavePaper' | 'onSavePaperAs' | 'onRenamePaper' | 'onDeletePaper'>;
+type PaperProps = Pick<Props, 'papers' | 'paperPreset' | 'paperModified' | 'paperNow' | 'onChoosePaper' | 'onSavePaper' | 'onSavePaperAs' | 'onRenamePaper' | 'onDeletePaper'> & {
+  /** The printer finds the gaps itself: only sticker papers are offered, and their gap goes unmentioned. */
+  gapSensed?: boolean;
+};
 
 /** Saved papers, the way slicers keep filament profiles: load one, then save changes over it or as a new one. */
-function SavedPapers({ papers = [], paperPreset, paperModified, paperNow, onChoosePaper, onSavePaper, onSavePaperAs, onRenamePaper, onDeletePaper }: PaperProps) {
+function SavedPapers({ papers = [], paperPreset, paperModified, paperNow, onChoosePaper, onSavePaper, onSavePaperAs, onRenamePaper, onDeletePaper, gapSensed }: PaperProps) {
   const confirm = useConfirm();
   const [naming, setNaming] = useState<'new' | 'rename' | null>(null);
   if (!onChoosePaper || !onSavePaperAs || !paperNow) return null;
-  const sorted = [...papers].sort((a, b) => a.name.localeCompare(b.name));
+  const shown = gapSensed ? stickerPapers(papers) : papers;
+  const sorted = [...shown].sort((a, b) => a.name.localeCompare(b.name));
   const remove = async () => {
     if (!paperPreset || !onDeletePaper) return;
     if (await confirm({ title: `Delete ${paperPreset.name}?`, description: 'The printer keeps its current paper settings.', confirmLabel: 'Delete', danger: true })) onDeletePaper(paperPreset.id);
   };
-  const note = paperPreset ? paperSummary(paperPreset) : papers.length ? null : 'Save this paper to load it again in one step.';
+  const note = paperPreset ? paperSummary(paperPreset, gapSensed) : shown.length ? null : 'Save this paper to load it again in one step.';
   return (
     <div className="pd-papers">
       <div className="pd-papers-row">
         <select className="select" aria-label="Saved paper" value={paperPreset?.id ?? ''} onChange={(e) => onChoosePaper(e.target.value || null)}>
-          <option value="">{papers.length ? 'Unsaved paper' : 'No saved papers'}</option>
+          <option value="">{shown.length ? 'Unsaved paper' : 'No saved papers'}</option>
           {sorted.map((p) => (
             <option key={p.id} value={p.id}>
               {p.name}
@@ -416,6 +423,48 @@ function Paper({
   );
 }
 
+const sizeKey = (s: LabelSize) => `${s.widthMm}x${s.heightMm}`;
+
+/**
+ * Sticker paper on printers that find each sticker's edge but never learn its
+ * size: saved papers, the common sizes, or any size typed in.
+ */
+function StickerPaper({ rollSize, rollSizes = [], onRollSize, ...papers }: Pick<Props, 'rollSize' | 'rollSizes'> & { onRollSize: (size: LabelSize) => void } & PaperProps) {
+  const size = rollSize ?? rollSizes[0] ?? { widthMm: 50, heightMm: 30 };
+  const common = rollSize && rollSizes.some((s) => sizeKey(s) === sizeKey(rollSize)) ? sizeKey(rollSize) : '';
+  return (
+    <section className="pd-section" aria-labelledby="pd-stickers">
+      <h3 id="pd-stickers" className="pd-section-title">
+        <ScanLine size={15} /> Paper
+      </h3>
+      {papers.onChoosePaper && <SavedPapers {...papers} gapSensed />}
+      <div className="pd-paper-fields">
+        <select
+          className="select"
+          aria-label="Common sizes"
+          value={common}
+          onChange={(e) => {
+            const pick = rollSizes.find((s) => sizeKey(s) === e.target.value);
+            if (pick) onRollSize(pick);
+          }}
+        >
+          <option value="">{rollSize ? 'Custom size' : 'Pick a size'}</option>
+          {rollSizes.map((s) => (
+            <option key={sizeKey(s)} value={sizeKey(s)}>
+              {sizeLabel(s)} mm
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="pd-paper-fields">
+        <NumberField label="Sticker width" icon="W" value={size.widthMm} min={MIN_PAPER_MM} max={MAX_PAPER_MM} step={1} suffix="mm" onChange={(widthMm) => onRollSize({ widthMm, heightMm: size.heightMm })} />
+        <NumberField label="Sticker length" icon="L" value={size.heightMm} min={MIN_LENGTH_MM} max={MAX_LENGTH_MM} step={1} suffix="mm" onChange={(heightMm) => onRollSize({ widthMm: size.widthMm, heightMm })} />
+      </div>
+      <small className="muted">{rollSize ? 'The printer finds the gaps itself.' : 'This printer does not report the sticker size. Set it once and niimai remembers it.'}</small>
+    </section>
+  );
+}
+
 function Connected(props: Props) {
   const { status, rollSize, rollName, rollNeedsSize, rollManual, onSetRollSize, onDisconnect } = props;
   const title = status.profile?.name ?? status.detectedModel ?? 'Printer';
@@ -477,7 +526,7 @@ function Connected(props: Props) {
         )}
       </div>
 
-      {rollNeedsSize && onSetRollSize && (
+      {rollNeedsSize && onSetRollSize && !(rollManual && props.onRollSize) && (
         <button className="pd-callout" onClick={onSetRollSize}>
           <ScanLine size={18} />
           <span>
@@ -487,7 +536,7 @@ function Connected(props: Props) {
           <ChevronRight size={18} />
         </button>
       )}
-      {rollManual && !rollNeedsSize && onSetRollSize && (
+      {rollManual && !rollNeedsSize && onSetRollSize && !props.onRollSize && (
         <button className="pd-callout" onClick={onSetRollSize}>
           <ScanLine size={18} />
           <span>
@@ -496,6 +545,23 @@ function Connected(props: Props) {
           </span>
           <ChevronRight size={18} />
         </button>
+      )}
+
+      {rollManual && props.onRollSize && (
+        <StickerPaper
+          rollSize={rollSize}
+          rollSizes={props.rollSizes}
+          onRollSize={props.onRollSize}
+          papers={props.papers}
+          paperPreset={props.paperPreset}
+          paperModified={props.paperModified}
+          paperNow={props.paperNow}
+          onChoosePaper={props.onChoosePaper}
+          onSavePaper={props.onSavePaper}
+          onSavePaperAs={props.onSavePaperAs}
+          onRenamePaper={props.onRenamePaper}
+          onDeletePaper={props.onDeletePaper}
+        />
       )}
 
       {status.canFeed && (

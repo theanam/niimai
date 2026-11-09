@@ -56,10 +56,14 @@ export function presetFrom(name: string, values: PaperValues, id: string = newId
   };
 }
 
-/** "58 × 40 mm stickers, 2 mm gap" or "75 mm continuous". */
-export function paperSummary(p: Pick<PaperPreset, 'widthMm' | 'lengthMm' | 'gapMm'>): string {
-  return p.gapMm !== undefined ? `${p.widthMm} × ${p.lengthMm} mm stickers, ${p.gapMm} mm gap` : `${p.widthMm} mm continuous`;
+/** "58 × 40 mm stickers, 2 mm gap" or "75 mm continuous". Printers that find the gaps themselves leave the gap out. */
+export function paperSummary(p: Pick<PaperPreset, 'widthMm' | 'lengthMm' | 'gapMm'>, gapSensed = false): string {
+  if (p.gapMm === undefined) return `${p.widthMm} mm continuous`;
+  return gapSensed ? `${p.widthMm} × ${p.lengthMm} mm stickers` : `${p.widthMm} × ${p.lengthMm} mm stickers, ${p.gapMm} mm gap`;
 }
+
+/** Papers a gap-sensing printer can load: sticker papers only. */
+export const stickerPapers = (papers: PaperPreset[]): PaperPreset[] => papers.filter((p) => p.gapMm !== undefined);
 
 /** A name for a new paper from its size, unique among `papers`. */
 export function suggestName(values: Pick<PaperValues, 'widthMm' | 'lengthMm' | 'gapMm'>, papers: PaperPreset[]): string {

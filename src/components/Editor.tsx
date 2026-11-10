@@ -38,12 +38,13 @@ import { presetFrom, presetValues, samePaper, stickerPapers, type PaperChoices, 
 import { CONFIG_FILE, CONFIG_KEYS, configSummary, mergeConfig, parseConfig, serializeConfig, type PrinterSettings } from '../printer/printerConfig';
 import { TEMPLATES } from '../templates';
 import { RollMismatchBanner } from './RollMismatchBanner';
+import { isStalled, StalledDialog } from './StalledDialog';
 import { ContinuousDialog } from './ContinuousDialog';
 import { PrinterDialog } from './PrinterDialog';
 import { ShareDialog } from './ShareDialog';
 import { decodeShare, sharedPart } from '../files/share';
 
-type DialogName = 'new' | 'roll' | 'continuous' | 'library' | 'print' | 'printer' | 'icon' | 'share' | null;
+type DialogName = 'new' | 'roll' | 'continuous' | 'library' | 'print' | 'printer' | 'icon' | 'share' | 'stalled' | null;
 
 const DEFAULT_DPI = 203;
 
@@ -541,6 +542,13 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
   const placement = (turn: Rotation = 0): Pick<PrintOptions, 'offset' | 'rotate'> =>
     onHead === null ? { offset, ...(turn ? { rotate: turn } : {}) } : { offset: { x: 0, y: offset.y } };
 
+  /** A failed print: a stalled printer gets the steps that clear it, anything else a toast. */
+  const printFailed = (err: unknown) => {
+    const message = (err as Error).message;
+    if (isStalled(message)) setDialog('stalled');
+    else toast.error(message);
+  };
+
   const printToPrinter = async (copies: number, batch?: BatchRun) => {
     try {
       const { labelType, gapMm } = paperFor();
@@ -565,7 +573,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
       setDialog(null);
       return true;
     } catch (err) {
-      toast.error((err as Error).message);
+      printFailed(err);
       return false;
     }
   };
@@ -600,7 +608,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
       const page = placePage(await rasterize(test, dpi, {}));
       await printer.print(page, { density, copies: 1, ...placement(), ...paperFor(test.heightMm) });
     } catch (err) {
-      toast.error((err as Error).message);
+      printFailed(err);
     }
   };
 
@@ -1058,6 +1066,7 @@ export function Editor({ initialDoc, initialProfileId, initialDensity, initialRo
         weight={(selected?.type === 'icon' && iconTarget ? selected.weight : null) ?? 'bold'}
         onPick={pickIcon}
       />
+      <StalledDialog open={dialog === 'stalled'} onOpenChange={(o) => setDialog(o ? 'stalled' : null)} />
       <ShareDialog open={dialog === 'share'} onOpenChange={(o) => setDialog(o ? 'share' : null)} doc={doc} />
       <LibraryDialog
         open={dialog === 'library'}

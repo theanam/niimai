@@ -373,6 +373,11 @@ export function Help() {
           image darkness slider to tune photos and logos. Browser printing produces a vector document sized to the label.
         </p>
         <p>
+          If a print feeds blank labels and ends with "Printer stopped responding", the printer has stalled, often while it
+          finds the label gaps after the roll moved. Turn it off and on, reseat the roll, close the lid, then connect and
+          print again.
+        </p>
+        <p>
           Some labels are wider than the printhead. Once a printer is connected, the strips it cannot reach are shaded on
           the label, and borders move inside the printable area. Small templates come without borders.
         </p>

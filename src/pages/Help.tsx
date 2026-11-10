@@ -1,5 +1,5 @@
 import { Bluetooth, Braces, Bug, Cable, Cat, Check, Copy, Crosshair, Globe, Keyboard, LayoutTemplate, Mail, Printer, RectangleHorizontal, ScanLine, Share2, Sparkles } from 'lucide-react';
-import { CAT_MODELS, CAT_UNSUPPORTED, type Confidence, detectBrowser, ESCPOS_MODELS, type SetupTopic, supportIssue, type ThermalModel, TSPL_MODELS } from 'libniimai';
+import { CAT_MODELS, CAT_UNSUPPORTED, type Confidence, detectBrowser, ESCPOS_MODELS, MARKLIFE_MODELS, type SetupTopic, supportIssue, type ThermalModel, TSPL_MODELS } from 'libniimai';
 import { type ReactNode, useEffect, useState } from 'react';
 import { replayTour } from '../tour/Tour';
 import { shortcutLabel } from '../shortcuts/shortcuts';
@@ -12,6 +12,7 @@ const MODEL_FAMILIES = [
   { name: 'Receipt printers', models: ESCPOS_MODELS },
   { name: 'Cat printers', models: CAT_MODELS },
   { name: 'Label printers', models: TSPL_MODELS },
+  { name: 'Marklife printers', models: MARKLIFE_MODELS },
 ];
 
 /** A family's models by confidence, by name, each brand or alias once (the most confident one). */
@@ -405,7 +406,7 @@ export function Help() {
           <Cat size={18} /> Other Bluetooth thermal printers
         </h2>
         <p>
-          niimai prints on NIIMBOT printers, ESC/POS receipt printers, cat printers and TSPL label printers.
+          niimai prints on NIIMBOT printers, ESC/POS receipt printers, cat printers, TSPL label printers and Marklife label printers.
           Connect them with Bluetooth like any other printer.
         </p>
         <p>
@@ -429,6 +430,10 @@ export function Help() {
           TSPL label printers up to 80 mm wide find each label's edge themselves, but not its size. Tap the sticker size on the
           start screen to set it: a common size or any size you type. Save it as a paper to load it again next time, the same
           way as above.
+        </p>
+        <p>
+          Marklife printers work the same way. The P12 and P15 print on 12 to 15 mm tape, the P50 on stickers up to 50 mm
+          wide. The P12 and P15 also print over a USB cable.
         </p>
         <table className="shortcuts help-models">
           <tbody>

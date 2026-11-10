@@ -24,6 +24,8 @@ describe('printer catalog', () => {
     expect(identifyPrinter('MPT-3F')?.model).toMatchObject({ prefix: 'MPT-3', headDots: 576 });
     expect(identifyPrinter('BlueTooth Printer')?.model.headDots).toBeUndefined();
     expect(identifyPrinter('GP-M322')).toMatchObject({ family: 'tspl' });
+    expect(identifyPrinter('P12_ZA15B_BLE')).toMatchObject({ family: 'marklife', model: { prefix: 'P12' } });
+    expect(identifyPrinter('P50S_1A2B')).toMatchObject({ family: 'marklife', model: { prefix: 'P50' } });
     expect(identifyPrinter('Mystery')).toBeNull();
     expect(identifyPrinter(undefined)).toBeNull();
   });

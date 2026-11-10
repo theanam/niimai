@@ -72,6 +72,8 @@ export interface ThermalTransport {
   chunkBytes?: number;
   write(chunk: Uint8Array): Promise<void>;
   onNotify(fn: (data: Uint8Array) => void): void;
+  /** Flow control on its own characteristic, for printers that have one. */
+  onControl?(fn: (data: Uint8Array) => void): void;
   onDisconnect(fn: () => void): void;
   disconnect(): Promise<void>;
 }
@@ -244,22 +246,33 @@ export abstract class ThermalPrinterClient implements ClientLike {
   };
 }
 
-/** A Web Bluetooth link through one service: a write characteristic and, if present, a notify one. */
+/** Calls every listener with each value the characteristic sends. */
+async function listen(char: BluetoothRemoteGATTCharacteristic, listeners: ((d: Uint8Array) => void)[]) {
+  char.addEventListener('characteristicvaluechanged', (e) => {
+    const v = (e.target as BluetoothRemoteGATTCharacteristic).value;
+    if (v) listeners.forEach((fn) => fn(new Uint8Array(v.buffer.slice(v.byteOffset, v.byteOffset + v.byteLength))));
+  });
+  await char.startNotifications();
+}
+
+/**
+ * A Web Bluetooth link through one service: a write characteristic and, if
+ * present, a notify one. `control`: a flow-control characteristic, listened
+ * to when the printer has it.
+ */
 export async function webTransport(
   device: BluetoothDevice,
   server: BluetoothRemoteGATTServer,
-  ids: { service: string; write: string; notify?: string },
+  ids: { service: string; write: string; notify?: string; control?: string },
 ): Promise<ThermalTransport> {
   const service = await server.getPrimaryService(ids.service);
   const tx = await service.getCharacteristic(ids.write);
   const notify: ((d: Uint8Array) => void)[] = [];
-  if (ids.notify) {
-    const rx = await service.getCharacteristic(ids.notify);
-    rx.addEventListener('characteristicvaluechanged', (e) => {
-      const v = (e.target as BluetoothRemoteGATTCharacteristic).value;
-      if (v) notify.forEach((fn) => fn(new Uint8Array(v.buffer.slice(v.byteOffset, v.byteOffset + v.byteLength))));
-    });
-    await rx.startNotifications();
+  const control: ((d: Uint8Array) => void)[] = [];
+  if (ids.notify) await listen(await service.getCharacteristic(ids.notify), notify);
+  if (ids.control) {
+    const cx = await service.getCharacteristic(ids.control).catch(() => null);
+    if (cx) await listen(cx, control).catch(() => {});
   }
   return {
     name: device.name,
@@ -269,6 +282,7 @@ export async function webTransport(
       else await tx.writeValueWithResponse(buf);
     },
     onNotify: (fn) => notify.push(fn),
+    ...(ids.control ? { onControl: (fn: (d: Uint8Array) => void) => control.push(fn) } : {}),
     onDisconnect: (fn) => device.addEventListener('gattserverdisconnected', fn),
     disconnect: async () => server.disconnect(),
   };

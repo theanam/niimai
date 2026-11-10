@@ -15,7 +15,7 @@ function imports(file: string, { values = false } = {}): string[] {
 }
 
 /** Each printer family's own code. */
-const FAMILIES = ['escpos.ts', 'cat.ts', 'tspl.ts'];
+const FAMILIES = ['escpos.ts', 'cat.ts', 'tspl.ts', 'marklife.ts'];
 /** The NIIMBOT path and the parts every printer shares. */
 const CORE = ['service.ts', 'client.ts', 'profiles.ts', 'paper.ts', 'ble.ts', 'mock.ts', 'routed.ts'];
 

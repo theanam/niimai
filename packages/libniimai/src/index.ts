@@ -1,5 +1,5 @@
 /**
- * libniimai: connect to NIIMBOT, TSPL, ESC/POS and cat printers from the
+ * libniimai: connect to NIIMBOT, TSPL, ESC/POS, cat and Marklife printers from the
  * browser over Web Bluetooth, Web Serial or WebUSB, and print a canvas on them.
  */
 /// <reference types="web-bluetooth" preserve="true" />
@@ -63,7 +63,7 @@ export type { LabelSize, PrintDirection, PrinterProfile } from './profiles';
 export { effectivePaper, labelTypeOf, PAPER_TYPES, paperFromLabelType, paperName } from './paper';
 export type { PaperType } from './paper';
 
-export { findPrinterType, identifyPrinter, identifyUsbPrinter, PRINTER_CATALOG, PRINTER_TYPES } from './catalog';
+export { findPrinterType, identifyPrinter, identifyUsbPrinter, marklifeModel, PRINTER_CATALOG, PRINTER_TYPES } from './catalog';
 export type { CatalogEntry, PrinterFamily, PrinterType } from './catalog';
 
 export { BluetoothPrinter, byServices, type MatchedFamily, type MatchedPrinters, type NiimbotHandshake } from './bluetooth';
@@ -78,3 +78,5 @@ export { CAT_MODELS, CAT_UNSUPPORTED, CatPrinterClient, catFeed, catModelFor, pr
 export type { CatModel } from './cat';
 export { ESCPOS_MODELS, EscPosPrinterClient, escposFeed, escposJob, escposModelFor } from './escpos';
 export { TSPL_MODELS, TSPL_SIZES, TsplPrinterClient, tsplJob, tsplModelFor } from './tspl';
+export { MARKLIFE_MODELS, MARKLIFE_STICKER_SIZES, MARKLIFE_TAPE_SIZES, MarklifePrinterClient, l11Job as marklifeTapeJob, marklifeModelFor, yxqJob as marklifeStickerJob } from './marklife';
+export type { MarklifeModel } from './marklife';

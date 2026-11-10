@@ -1,7 +1,7 @@
 {
   "name": "libniimai",
-  "version": "0.8.0",
-  "description": "Print to NIIMBOT, TSPL, ESC/POS and cat printers from the browser over Web Bluetooth, Web Serial and WebUSB.",
+  "version": "0.9.0",
+  "description": "Print to NIIMBOT, TSPL, ESC/POS, cat and Marklife printers from the browser over Web Bluetooth, Web Serial and WebUSB.",
   "keywords": [
     "niimbot",
     "label printer",
@@ -11,7 +11,8 @@
     "webusb",
     "tspl",
     "esc/pos",
-    "cat printer"
+    "cat printer",
+    "marklife"
   ],
   "license": "MIT",
   "author": "Anam Ahmed <anam.ahmed.a@gmail.com>",

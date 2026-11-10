@@ -105,6 +105,21 @@ describe('USB printers', () => {
     expect(device.close).toHaveBeenCalled();
   });
 
+  it('knows a Marklife P12 on a cable by its USB IDs and sends it the same tape job, in large writes', async () => {
+    const { device, written, reply } = fakePrinter({ vendorId: 0x09c7, productId: 0x0011, productName: 'P12', deviceId: '' });
+    installUsb([], device);
+    const printer = new UsbPrinter();
+    await printer.connect();
+    expect(printer.getModelMetadata()).toMatchObject({ model: 'P12', printheadPixels: 96, printDirection: 'left' });
+    const page = printer.protocol.newPrintTask('B1' as never, { density: 2, labelType: 1 }).printPage(Array.from({ length: 320 }, () => new Uint8Array(12)), 1);
+    await vi.waitFor(() => expect(written.length).toBeGreaterThan(0));
+    reply([0xaa]);
+    await page;
+    const bytes = written.flatMap((w) => [...w]);
+    expect(bytes.slice(0, 4)).toEqual([0x1f, 0x70, 0x02, 0x02]);
+    expect(written.length).toBe(1);
+  });
+
   it('reconnects to the one USB printer the site already uses without asking', async () => {
     const { device } = fakePrinter();
     const usb = installUsb([device]);

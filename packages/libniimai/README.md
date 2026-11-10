@@ -1,6 +1,6 @@
 # libniimai
 
-Print from the browser on four families of thermal printers: **NIIMBOT**, **TSPL label printers**, **ESC/POS receipt printers** and **cat printers**. One API connects, detects the printer and prints any canvas, over Web Bluetooth, Web Serial or WebUSB. No server, no drivers, no app.
+Print from the browser on five families of thermal printers: **NIIMBOT**, **TSPL label printers**, **ESC/POS receipt printers**, **cat printers** and **Marklife label printers**. One API connects, detects the printer and prints any canvas, over Web Bluetooth, Web Serial or WebUSB. No server, no drivers, no app.
 
 libniimai powers [niimai](https://niimai.app), the label designer.
 
@@ -12,6 +12,7 @@ libniimai powers [niimai](https://niimai.app), the label designer.
 | **TSPL label printers** | Labels with gaps, black mark, continuous | Up to 80 mm | Bluetooth, USB | QR380A (sold as CC390), Gprinter GP-M322 |
 | **ESC/POS receipt printers** | 58 or 80 mm, continuous or stickers with gaps | 48 or 72 mm | Bluetooth, USB | MP583, MPT-II, Xprinter XP-58IIL, PT-210, RPP02, MPT-3, MTP-4B, RPP300 and more |
 | **Cat printers** | 58 mm continuous, stickers with gaps | 48 mm | Bluetooth | GB01, GB02, GB03, MX05, MX06, MX10 and more |
+| **Marklife label printers** | 12–15 mm tape, stickers up to 50 mm | 12 or 48 mm | Bluetooth, USB (P12, P15) | P12, P15, P11, P50 |
 
 The family is found from the device the user picks: by its Bluetooth name in `PRINTER_CATALOG`, then checked against the services it offers. A name that matches no family goes to NIIMBOT first, exactly as before. If it does not look like a NIIMBOT and misses the handshake twice, its services decide (`byServices`): the cat service makes it a cat printer, any other serial service outside NIIMBOT's a receipt printer, and a printer offering only NIIMBOT services keeps the NIIMBOT error. The `niimbotHandshake` option skips the NIIMBOT step for the names you choose, so their services decide at once. A type from `PRINTER_TYPES` set for unrecognised printers overrides all of this. Every family gets the same treatment:
 
@@ -37,7 +38,11 @@ Receipt printers on 58 mm paper with a 384-dot head, and 80 mm models with a 576
 
 The small "cat" printers sold under many names, on 58 mm paper with a 384-dot head. Five darkness levels, flow control so long prints never overrun the printer, and the newer GB03 and MX-series variants handled per model. `feed(mm)` moves the paper either way to line it up, and `gapMm` keeps prints on sticker rolls.
 
-Each model is marked by how well it is tested in `TSPL_MODELS`, `ESCPOS_MODELS` and `CAT_MODELS`; see also [thermal-printers.md](https://github.com/theanam/niimai/blob/main/docs/thermal-printers.md).
+### Marklife label printers
+
+Marklife printers, known by Bluetooth name only: they look like NIIMBOT printers but share nothing with them inside, and the service they offer (`FF00`) is too common to tell them by. The P12, P15 and P11 print on 12 to 15 mm tape that runs sideways through a 96-dot head, like a NIIMBOT D11; the P50 prints on stickers up to 50 mm wide with a 384-dot head and a deflated raster. The printer finds each label's edge and confirms each label; an empty roll, open cover or overheating comes back as an error. Writes go in the packet size the firmware takes and follow the credits it hands out. Like TSPL printers, they cannot sense the roll, so `status.label.barcode` keys its size per printer. The P12 and P15 also connect over USB.
+
+Each model is marked by how well it is tested in `TSPL_MODELS`, `ESCPOS_MODELS`, `CAT_MODELS` and `MARKLIFE_MODELS`; see also [thermal-printers.md](https://github.com/theanam/niimai/blob/main/docs/thermal-printers.md).
 
 ## Install
 
@@ -170,9 +175,9 @@ A printer connected as `'demo'` takes the stand-in's paper, head and density ran
 Every piece is exported, for building your own flow:
 
 - `createClient(kind)` returns a raw client for one connection.
-- `TsplPrinterClient`, `EscPosPrinterClient` and `CatPrinterClient` take any `ThermalTransport`, so they also work over other links.
-- `tsplJob`, `escposJob` and `catJob` build the bytes for one page; `escposFeed` and `catFeed` the bytes that move the paper.
-- `identifyPrinter(name)` matches a Bluetooth name to a known model across every family, from `PRINTER_CATALOG`; `tsplModelFor`, `escposModelFor` and `catModelFor` look in one family. `identifyUsbPrinter(device)` does the same for a USB device, by vendor and product ID, then product name.
+- `TsplPrinterClient`, `EscPosPrinterClient`, `CatPrinterClient` and `MarklifePrinterClient` take any `ThermalTransport`, so they also work over other links.
+- `tsplJob`, `escposJob`, `catJob`, `marklifeTapeJob` and `marklifeStickerJob` build the bytes for one page; `escposFeed` and `catFeed` the bytes that move the paper.
+- `identifyPrinter(name)` matches a Bluetooth name to a known model across every family, from `PRINTER_CATALOG`; `tsplModelFor`, `escposModelFor`, `catModelFor` and `marklifeModelFor` look in one family. `identifyUsbPrinter(device)` does the same for a USB device, by vendor and product ID, then product name.
 - `UsbPrinter` connects over WebUSB to a printer-class device (`USB_PRINTER_CLASS`, 7). The family comes from the catalog, then from a type set with `unrecognisedAs` when the printer speaks it, then from the printer's IEEE 1284 device ID (`familiesFromDeviceId`). A printer the site already uses connects without the chooser when it is the only one plugged in; `rememberedUsbPrinters()` lists them. `usbTransport(device)` gives the raw `ThermalTransport`.
 - `supportIssue(kind)` says why a connection type cannot be used in the current browser, as `{ reason, topic }`, or null when it can. `topic` names what fixes it: `linux` (a Chrome flag), `brave` (Brave flags), `ios`, `https`, `usb` (Windows and Linux drivers holding a USB printer) or `browsers`. `unsupportedReason(kind)` returns the reason alone.
 - `detectBrowser()` returns the system, the browser and whether it is built on Chromium.
@@ -191,6 +196,7 @@ Found a bug, or a printer that should work? [Open an issue](https://github.com/t
 - [niimbluelib](https://github.com/MultiMote/niimbluelib) by MultiMote, for the NIIMBOT protocol
 - [rbaron/catprinter](https://github.com/rbaron/catprinter) and [NaitLee/Cat-Printer](https://github.com/NaitLee/Cat-Printer), for the cat printer protocol
 - TSC's TSPL programming manual, for the label printer language
+- [tomLadder/thermoprint](https://github.com/tomLadder/thermoprint) and [thermal-label/marklife](https://github.com/thermal-label/marklife), for the Marklife protocol notes
 
 libniimai is an independent project and is not affiliated with NIIMBOT or any printer maker.
 

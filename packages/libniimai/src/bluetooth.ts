@@ -1,7 +1,8 @@
 import { CANDIDATE_SERVICES, createBleClient, requestPrinter } from './ble';
-import { findPrinterType, identifyPrinter, PRINTER_CATALOG, type CatalogEntry, type PrinterFamily, type PrinterType } from './catalog';
+import { findPrinterType, identifyPrinter, marklifeModel, PRINTER_CATALOG, type CatalogEntry, type PrinterFamily, type PrinterType } from './catalog';
 import { CAT_RX, CAT_SERVICE, CAT_TX, CatPrinterClient } from './cat';
 import { ESCPOS_ALT_SERVICE, ESCPOS_ALT_WRITE, ESCPOS_SERVICE, ESCPOS_WRITE, EscPosPrinterClient } from './escpos';
+import { MARKLIFE_CONTROL, MARKLIFE_NOTIFY, MARKLIFE_SERVICE, MARKLIFE_WRITE, MarklifePrinterClient } from './marklife';
 import { TSPL_NOTIFY, TSPL_SERVICE, TSPL_WRITE, TsplPrinterClient } from './tspl';
 import { webTransport } from './thermal';
 import type { ClientLike } from './client';
@@ -26,10 +27,16 @@ async function writeChannel(server: BluetoothRemoteGATTServer, services: string[
   return null;
 }
 
-const PRINTER_TYPE_NAMES: Record<PrinterFamily, string> = { escpos: 'receipt printer', tspl: 'label printer', cat: 'cat printer' };
+const PRINTER_TYPE_NAMES: Record<PrinterFamily, string> = { escpos: 'receipt printer', tspl: 'label printer', cat: 'cat printer', marklife: 'Marklife printer' };
 
 /** The client for a known or hand-picked thermal printer, over the service its family uses; null when the printer lacks it. */
-async function thermalClient(device: BluetoothDevice, server: BluetoothRemoteGATTServer, services: string[], { family, model }: CatalogEntry): Promise<ClientLike | null> {
+async function thermalClient(device: BluetoothDevice, server: BluetoothRemoteGATTServer, services: string[], entry: CatalogEntry): Promise<ClientLike | null> {
+  const { family, model } = entry;
+  if (family === 'marklife') {
+    const marklife = marklifeModel(entry);
+    if (!marklife || !services.includes(MARKLIFE_SERVICE)) return null;
+    return new MarklifePrinterClient(await webTransport(device, server, { service: MARKLIFE_SERVICE, write: MARKLIFE_WRITE, notify: MARKLIFE_NOTIFY, control: MARKLIFE_CONTROL }), marklife);
+  }
   if (family === 'cat') {
     return services.includes(CAT_SERVICE) ? new CatPrinterClient(await webTransport(device, server, { service: CAT_SERVICE, write: CAT_TX, notify: CAT_RX }), model) : null;
   }
@@ -115,7 +122,8 @@ function looksNiimbot(lib: Lib, name: string | undefined): boolean {
  * AE30 gets the cat client; a known ESC/POS printer the ESC/POS client, over
  * 18F0, the shared E781 service (as Xprinters use), or any serial service
  * with a writable characteristic; a known TSPL label printer offering 18F0
- * the TSPL client; and everything else the NIIMBOT client exactly as before.
+ * the TSPL client; a known Marklife printer offering FF00 the Marklife
+ * client; and everything else the NIIMBOT client exactly as before.
  * Known names never overlap, so each printer matches one client at most.
  */
 export class BluetoothPrinter extends RoutedClient {

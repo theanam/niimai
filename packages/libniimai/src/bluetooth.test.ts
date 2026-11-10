@@ -8,6 +8,7 @@ import { CAT_SERVICE } from './cat';
 import { CAT_MODELS } from './cat';
 import { ESCPOS_ALT_SERVICE, ESCPOS_MODELS, ESCPOS_SERVICE } from './escpos';
 import { TSPL_SERVICE } from './tspl';
+import { MARKLIFE_SERVICE } from './marklife';
 
 /** A Web Bluetooth device offering the given services. */
 function device(name: string, services: string[]) {
@@ -99,6 +100,23 @@ describe('bluetooth printer', () => {
     expect(createBleClient).not.toHaveBeenCalled();
     expect(printer.getModelMetadata()).toMatchObject({ model: 'Printer001', kind: 'thermal' });
     expect(typeof printer.feedPaper).toBe('function');
+  });
+
+  it('drives a known Marklife printer with the Marklife client, sending no NIIMBOT handshake', async () => {
+    requestPrinter.mockResolvedValue(device('P12_ZA15B_BLE', [MARKLIFE_SERVICE, 'e7810a71-73ae-499d-8c15-faa9aef0c3f2']));
+    const printer = new BluetoothPrinter(async () => ({}) as never);
+    await expect(printer.connect()).resolves.toEqual({ deviceName: 'P12_ZA15B_BLE' });
+    expect(createBleClient).not.toHaveBeenCalled();
+    expect(printer.getModelMetadata()).toMatchObject({ model: 'P12', printheadPixels: 96, printDirection: 'left' });
+    expect(printer.rollKey?.()).toBe('printer:P12_ZA15B_BLE');
+    expect(printer.feedPaper).toBeUndefined();
+    expect(printer.matchedAs).toBeUndefined();
+  });
+
+  it('falls back to the NIIMBOT client when a Marklife name lacks the Marklife service', async () => {
+    requestPrinter.mockResolvedValue(device('P15_1A2B', ['e7810a71-73ae-499d-8c15-faa9aef0c3f2']));
+    await new BluetoothPrinter(async () => ({}) as never).connect();
+    expect(createBleClient).toHaveBeenCalled();
   });
 
   it('still sends NIIMBOT printers whose names start with P to the NIIMBOT client', async () => {

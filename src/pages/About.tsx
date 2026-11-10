@@ -34,6 +34,14 @@ export function About() {
           <a href="https://github.com/NaitLee/Cat-Printer" target="_blank" rel="noreferrer">
             NaitLee/Cat-Printer
           </a>
+          , and the Marklife protocol from{' '}
+          <a href="https://github.com/tomLadder/thermoprint" target="_blank" rel="noreferrer">
+            tomLadder/thermoprint
+          </a>{' '}
+          and{' '}
+          <a href="https://github.com/thermal-label/marklife" target="_blank" rel="noreferrer">
+            thermal-label/marklife
+          </a>
           . Icons come from{' '}
           <a href="https://phosphoricons.com" target="_blank" rel="noreferrer">
             Phosphor Icons

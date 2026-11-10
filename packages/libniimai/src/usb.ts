@@ -112,7 +112,7 @@ export async function usbTransport(device: USBDevice): Promise<{ transport: Ther
   };
 }
 
-const PRINTER_TYPE_NAMES: Record<PrinterFamily, string> = { escpos: 'receipt printer', tspl: 'label printer', cat: 'cat printer' };
+const PRINTER_TYPE_NAMES: Record<PrinterFamily, string> = { escpos: 'receipt printer', tspl: 'label printer', cat: 'cat printer', marklife: 'Marklife printer' };
 
 /**
  * The USB printer behind the USB button for label and receipt printers. A

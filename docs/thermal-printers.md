@@ -1,7 +1,7 @@
 # Other Bluetooth thermal printers
 
 niimai is made for NIIMBOT printers. As an extra, it also prints on TSPL
-label printers up to 80 mm wide, on ESC/POS receipt printers (58 mm, and 80 mm
+label printers up to 80 mm wide, on Marklife label printers, on ESC/POS receipt printers (58 mm, and 80 mm
 models listed below), and on cat printers. Unless a model says otherwise, a
 receipt or cat printer has a 48 mm print width: a 384-dot head at 203 dpi.
 
@@ -10,6 +10,7 @@ receipt or cat printer has a 48 mm print width: a 384-dot head at 203 dpi.
 | TSPL label printers | Labels with gaps, black mark or continuous | Up to 80 mm | `18F0` |
 | ESC/POS receipt printers | 58 or 80 mm, continuous or stickers | 48 or 72 mm | `18F0`, `E781` or another serial service |
 | Cat printers | 58 mm, continuous or stickers | 48 mm | `AE30` |
+| Marklife label printers | 12–15 mm tape, or stickers up to 50 mm | 12 or 48 mm | `FF00` |
 
 Connect them the same way as a NIIMBOT printer: **Connect → Bluetooth**, then
 pick the printer in the browser's list. niimai recognises the model by its
@@ -93,6 +94,27 @@ Printers often called "cat printers", using the `AE30` service.
 | MXTP | Medium | |
 | SC03h | Medium | |
 
+## Marklife label printers
+
+Marklife printers (made by FeiOou/Deli) look like NIIMBOT printers but use
+their own protocols, over the `FF00` service. niimai knows them by Bluetooth
+name only, so a NIIMBOT is never taken for one. Like TSPL printers, they find
+each label's edge but not its size: tap the sticker size on the start screen to
+set it, and save it as a paper.
+
+| Model | Confidence | Notes |
+|---|---|---|
+| P12 | High | 12–15 mm tape, 96-dot head. Also over USB |
+| P15 | High | 12–15 mm tape, 96-dot head. Also P15R and P15S, and over USB |
+| P11 | Medium | 12–15 mm tape |
+| P50 | Medium | Stickers up to 50 mm, 384-dot head. Also P50S |
+
+The P12, P15 and P11 take the L11 protocol: the tape runs sideways through
+the head, as on a NIIMBOT D11, and darkness runs from 1 to 3. The P50 takes
+the YXQ protocol with a deflated raster, and darkness from 1 to 15. Marklife
+names that NIIMBOT also uses (A1, P1S, T2) are left out, as are the models
+on other protocols (D100, X4, T3).
+
 ## Not supported
 
 These look similar but use other protocols.
@@ -113,6 +135,9 @@ name.
   [NaitLee/Cat-Printer](https://github.com/NaitLee/Cat-Printer), for the cat
   printer protocol
 - The ESC/POS command reference, for raster images (`GS v 0`)
+- [tomLadder/thermoprint](https://github.com/tomLadder/thermoprint),
+  [thermal-label/marklife](https://github.com/thermal-label/marklife) and
+  Marklife's web kit, for the Marklife protocols
 - TSC's TSPL programming manual, for label printers (`SIZE`, `GAP`, `BITMAP`)
 - Bluetooth names and services of receipt printers, from
   [NielsLeenheer/WebBluetoothReceiptPrinter](https://github.com/NielsLeenheer/WebBluetoothReceiptPrinter),

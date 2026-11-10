@@ -4,7 +4,9 @@
  */
 import { CAT_MODELS, CatPrinterClient, catModelFor, printJob } from './cat';
 import { ESCPOS_MODELS, EscPosPrinterClient, escposJob, escposModelFor } from './escpos';
-import { TSPL_MODELS } from './tspl';
+import { MARKLIFE_MODELS } from './marklife';
+import { TSPL_MODELS, TsplPrinterClient, tsplModelFor } from './tspl';
+import { webTransport } from './thermal';
 import { findManualProfile, resolveProfile } from './profiles';
 import { PrinterService } from './service';
 import type { ThermalTransport } from './thermal';
@@ -109,12 +111,28 @@ describe('existing printers stay as they were', () => {
   });
 
   it('no printer name belongs to two families', () => {
-    const families = [CAT_MODELS, ESCPOS_MODELS, TSPL_MODELS].map((list) => list.map((m) => m.prefix));
+    const families = [CAT_MODELS, ESCPOS_MODELS, TSPL_MODELS, MARKLIFE_MODELS].map((list) => list.map((m) => m.prefix));
     families.forEach((mine, i) =>
       families.forEach((theirs, j) => {
         if (i === j) return;
         for (const a of mine) for (const b of theirs) expect(a.startsWith(b) || b.startsWith(a)).toBe(false);
       }),
     );
+  });
+
+  it('TSPL printers still report the same label-printer model', () => {
+    const client = new TsplPrinterClient(link('QR380A-02B55B'), tsplModelFor('QR380A-02B55B'));
+    expect(client.getModelMetadata()).toMatchObject({ model: 'QR380A', printheadPixels: 640, printDirection: 'top', densityMax: 15 });
+    expect(client.rollKey()).toBe('printer:QR380A-02B55B');
+  });
+
+  it('a Bluetooth link without flow control is the same link as before', async () => {
+    const char = { properties: { writeWithoutResponse: true }, addEventListener: vi.fn(), startNotifications: vi.fn(async () => {}), writeValueWithoutResponse: vi.fn(async () => {}) };
+    const getCharacteristic = vi.fn(async () => char);
+    const server = { getPrimaryService: async () => ({ getCharacteristic }), disconnect: () => {} };
+    const t = await webTransport({ name: 'QR380A', addEventListener: () => {} } as never, server as never, { service: 's', write: 'w', notify: 'n' });
+    expect(getCharacteristic.mock.calls.map((c) => c[0])).toEqual(['w', 'n']);
+    expect(char.startNotifications).toHaveBeenCalledTimes(1);
+    expect('onControl' in t).toBe(false);
   });
 });

@@ -24,7 +24,7 @@
 - **Every Google Font**, grouped by category and previewed in the picker.
 - **1,500 icons** from Phosphor in regular, bold and fill weights, chosen for crisp thermal printing.
 - **What you see is what prints.** A 1-bit preview shows every dot, photos are dithered for thermal paper, the edges your printhead cannot reach are shaded, and details finer than a printer dot are flagged.
-- **Works with other Bluetooth thermal printers too.** TSPL label printers up to 80 mm wide print on labels with gaps. Small 58 mm ESC/POS and cat printers print on continuous paper or sticker rolls, with the label length set right in the editor and templates made for long formats, from to-do lists to daily plans. Save each paper you use, sticker rolls and all, and load it again in one step.
+- **Works with other Bluetooth thermal printers too.** TSPL label printers up to 80 mm wide and Marklife label printers print on labels with gaps. Small 58 mm ESC/POS and cat printers print on continuous paper or sticker rolls, with the label length set right in the editor and templates made for long formats, from to-do lists to daily plans. Save each paper you use, sticker rolls and all, and load it again in one step.
 - **Keep your printer settings.** Save every printer's settings and your saved papers to a file, and load them on another device or browser.
 - **Recognises 60+ NIIMBOT rolls** from the barcode on their RFID tag, setting the label size and paper type and showing how many labels are left ([list](docs/known-rolls.md)).
 - **Browser printing** of the label as a vector document at its exact size.
@@ -53,6 +53,7 @@ niimai is built around NIIMBOT printers. It uses [niimbluelib](https://github.co
 | **TSPL label printers** | Labels with gaps, black mark or continuous | Up to 80 mm | QR380A (sold as CC390), Gprinter GP-M322 |
 | **ESC/POS receipt printers** | 58 or 80 mm, continuous or stickers | 48 or 72 mm | MP583 (sold as YAEN MPT-II), Xprinter XP-58IIL, PT-210, RPP02, MTP-II and more |
 | **Cat printers** | 58 mm continuous or stickers | 48 mm | GB01, GB02, GB03, MX05, MX06, MX10 and more |
+| **Marklife label printers** | 12–15 mm tape, or stickers up to 50 mm | 12 or 48 mm | P12, P15, P11, P50 |
 
 Connect them with the same Bluetooth button. Label printers work like a NIIMBOT: pick the roll size and paper type, and the printer finds each label's edge. See the [known models and how well each is supported](docs/thermal-printers.md).
 
@@ -68,7 +69,7 @@ Printing needs a browser with Web Bluetooth, Web Serial or WebUSB: Chrome or Edg
 [![size](https://img.shields.io/bundlephobia/minzip/libniimai)](https://bundlephobia.com/package/libniimai)
 [![license](https://img.shields.io/npm/l/libniimai)](LICENSE)
 
-Everything niimai does to reach a printer ships on its own as **libniimai**: connect over Web Bluetooth, Web Serial or WebUSB, detect the printer family, and print any canvas on NIIMBOT, TSPL, ESC/POS and cat printers from your own web page.
+Everything niimai does to reach a printer ships on its own as **libniimai**: connect over Web Bluetooth, Web Serial or WebUSB, detect the printer family, and print any canvas on NIIMBOT, TSPL, ESC/POS, cat and Marklife printers from your own web page.
 
 ```bash
 npm i libniimai
@@ -113,6 +114,7 @@ Found a bug or have an idea? [Open an issue](https://github.com/theanam/niimai/i
 - [niimbluelib](https://github.com/MultiMote/niimbluelib) by MultiMote, for the NIIMBOT printer protocol
 - [rbaron/catprinter](https://github.com/rbaron/catprinter) and [NaitLee/Cat-Printer](https://github.com/NaitLee/Cat-Printer), for the cat printer protocol
 - TSC's TSPL programming manual, for the label printer language
+- [tomLadder/thermoprint](https://github.com/tomLadder/thermoprint) and [thermal-label/marklife](https://github.com/thermal-label/marklife), for the Marklife protocol notes
 - [bwip-js](https://github.com/metafloor/bwip-js), for barcodes and QR codes
 - [Fontsource](https://fontsource.org), for the Google Fonts catalogue
 - [Phosphor Icons](https://phosphoricons.com) (MIT), for the icon library

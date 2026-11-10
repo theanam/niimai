@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as RPoi
 import { withGroups, type EditorAction } from '../doc/history';
 import { flagWidth, isMirrored, printableArea, sizeLabel, type LabelDoc, type LabelElement } from '../doc/model';
 import { HANDLES, resizeBox, snapBox, type Guide, type Handle } from '../doc/snap';
-import { coverBox, HUGS, placePatch, tighten, unionBox, type Box } from '../doc/bounds';
+import { coverBox, HUGS, placePatch, tighten, typedPatch, typingLimit, unionBox, type Box, type TypingLimit } from '../doc/bounds';
 import { onImageAspect } from '../render/imageAspect';
 import { round1 } from '../lib/units';
 import { elementSvg, mirroredSvg } from '../render/svg';
@@ -74,6 +74,11 @@ export function Canvas({ doc, selectedIds, dispatch, images, preview, fontsVersi
   const [guides, setGuides] = useState<Guide[]>([]);
   const [marquee, setMarquee] = useState<Box | null>(null);
   const drag = useRef<Drag | null>(null);
+  const typing = useRef<(TypingLimit & { id: string }) | null>(null);
+  // A new edit takes the box and size it starts with.
+  useEffect(() => {
+    typing.current = null;
+  }, [editingId]);
   const press = useRef<ReturnType<typeof setTimeout> | null>(null);
   const endPress = () => {
     if (press.current) clearTimeout(press.current);
@@ -392,7 +397,11 @@ export function Canvas({ doc, selectedIds, dispatch, images, preview, fontsVersi
             key={editing.id}
             el={editing}
             zoom={zoom}
-            onChange={(text) => dispatch({ type: 'update', id: editing.id, patch: { text }, key: 'text' })}
+            onChange={(text) => {
+              // The box and size as typing began: text with a set size stays inside it.
+              if (typing.current?.id !== editing.id) typing.current = { id: editing.id, ...typingLimit(editing) };
+              dispatch({ type: 'update', id: editing.id, patch: typedPatch(editing, text, typing.current), key: 'text' });
+            }}
             onDone={onEditEnd}
           />
         )}

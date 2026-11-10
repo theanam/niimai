@@ -156,3 +156,33 @@ export function placePatch(el: LabelElement, box: Box, measure: MeasureFn = meas
 /** The size a text element draws at, in points, for showing in the inspector. */
 export const shownFontSize = (el: TextElement, measure: MeasureFn = measureText): number =>
   el.autoFit ? Math.round((fitFontSize(el, measure) / ptToMm(1)) * 10) / 10 : el.fontSize;
+
+/** The box a text element keeps while it is being typed in, and the size it may grow back to. */
+export interface TypingLimit {
+  box: Box;
+  /** Points: the size set before typing began. */
+  fontSize: number;
+}
+
+/** What typing may fill: the element's box, widened to what it already draws so nothing shrinks on the first key. */
+export function typingLimit(el: TextElement, measure: MeasureFn = measureText): TypingLimit {
+  const box = unionBox([{ x: el.x, y: el.y, w: el.w, h: el.h }, visualBox(el, measure)]);
+  return { box: { x: tidy(box.x), y: tidy(box.y), w: tidy(box.w), h: tidy(box.h) }, fontSize: el.fontSize };
+}
+
+/**
+ * The patch for new text typed into a text element: its box stays the box
+ * it had as typing began. Fitted text fits itself into it; text with a set
+ * size shrinks to fit once it reaches an edge, and grows back to its set size
+ * as text is removed. Dynamic text with a set size is sized for the values it
+ * prints, so it takes the text alone and its box follows.
+ */
+export function typedPatch(el: TextElement, text: string, limit: TypingLimit, measure: MeasureFn = measureText): Partial<TextElement> {
+  if (el.autoFit) return { text, ...limit.box };
+  if (el.dynamic) return { text };
+  const lines = text.split('\n');
+  const widest = Math.max(0.01, ...lines.map((l) => measure(l || ' ', el.fontFamily, el.bold, el.italic)));
+  const fits = Math.min(limit.box.w / widest, limit.box.h / (lines.length * LINE_HEIGHT)) / ptToMm(1);
+  const fontSize = Math.max(1, Math.min(limit.fontSize, Math.floor(fits * 100) / 100));
+  return { text, fontSize, ...limit.box };
+}

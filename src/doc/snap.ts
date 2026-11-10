@@ -61,9 +61,11 @@ export function resizeBox(start: Box & { rotation: number }, handle: Handle, dx:
   let w = Math.max(min, start.w + sx * lx);
   let h = Math.max(min, start.h + sy * ly);
   if (keepAspect && sx && sy) {
-    const scale = Math.max(w / start.w, h / start.h);
-    w = Math.max(min, start.w * scale);
-    h = Math.max(min, start.h * scale);
+    // The corner goes to the point on the box's diagonal nearest the pointer, so it stays under the cursor
+    // however wide or flat the box is.
+    const scale = Math.max(((start.w + sx * lx) * start.w + (start.h + sy * ly) * start.h) / (start.w ** 2 + start.h ** 2), min / Math.min(start.w, start.h));
+    w = start.w * scale;
+    h = start.h * scale;
   }
   const [cx, cy] = rotate((sx * (w - start.w)) / 2, (sy * (h - start.h)) / 2, start.rotation);
   const centerX = start.x + start.w / 2 + cx;

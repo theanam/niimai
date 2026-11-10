@@ -393,7 +393,7 @@ export function Help() {
         <p>Lines run horizontal, vertical or diagonal; pick the direction in the side panel and drag the handles to set the angle.</p>
         <p>
           The box around text, images, icons and codes hugs what prints, so the size under it is the printed size. They
-          resize from the corners and keep their proportions; text grows as you type.
+          resize from the corners and keep their proportions; text shrinks to stay inside its box as you type.
         </p>
         <p>
           Shift-click elements, or drag across empty space, to select several. On a phone or tablet, long-press each one,

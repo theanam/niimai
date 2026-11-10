@@ -51,6 +51,25 @@ describe('resizing', () => {
     expect(r.w).toBeCloseTo(r.h);
   });
 
+  it('keeps a flat box’s corner under the pointer as it scales', () => {
+    // A text box 40 × 4 dragged by its corner to a point on its diagonal, twice as far out.
+    const flat = { x: 0, y: 0, w: 40, h: 4, rotation: 0 };
+    expect(resizeBox(flat, 'se', 40, 4, true)).toMatchObject({ w: 80, h: 8 });
+    // Moving across with the pointer a little low follows the move across: before, the short side won and
+    // the corner shot 20 mm past the pointer.
+    const r = resizeBox(flat, 'se', 20, 4, true);
+    expect(r.w).toBeCloseTo(60.2, 1);
+    expect(r.h).toBeCloseTo(6.02, 1);
+    // Dragging from the opposite corner works the same way.
+    expect(resizeBox(flat, 'nw', -40, -4, true)).toMatchObject({ x: -40, y: -4, w: 80, h: 8 });
+  });
+
+  it('keeps proportions at the minimum size', () => {
+    const r = resizeBox({ x: 0, y: 0, w: 40, h: 4, rotation: 0 }, 'se', -60, -60, true);
+    expect(r.h).toBeCloseTo(0.5);
+    expect(r.w).toBeCloseTo(5);
+  });
+
   it('never shrinks below the minimum', () => {
     expect(resizeBox(start, 'se', -50, -50, false).w).toBe(0.5);
   });

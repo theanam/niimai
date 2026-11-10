@@ -1,4 +1,4 @@
-import { coverBox, placePatch, shownFontSize, tighten, visualBox } from './bounds';
+import { coverBox, placePatch, shownFontSize, tighten, typedPatch, typingLimit, visualBox } from './bounds';
 import { hugEdit } from './history';
 import { createDoc, createElement, type ImageElement, type TextElement } from './model';
 import { setImageAspect } from '../render/imageAspect';
@@ -115,5 +115,51 @@ describe('icons', () => {
     const file = (viewBox: unknown) => ({ ...createDoc(), elements: [{ ...createElement('icon', doc), body: '<path d="M0 0H1V1Z"/>', viewBox }] });
     expect((parseDoc(file('1 2 3 4')).elements[0] as { viewBox?: string }).viewBox).toBe('1 2 3 4');
     expect((parseDoc(file('0 0 1 1"/><script>')).elements[0] as { viewBox?: string }).viewBox).toBeUndefined();
+  });
+});
+
+describe('typing inside a text box', () => {
+  /** Types into the element as the editor does: the patch goes through the same update step. */
+  const type = (el: TextElement, typed: string[]) => {
+    const limit = typingLimit(el);
+    return typed.reduce((cur, t) => hugEdit(cur, typedPatch(cur, t, limit)) as TextElement, el);
+  };
+  const inside = (el: TextElement, box: { x: number; y: number; w: number; h: number }) => {
+    const b = visualBox(el);
+    expect(b.x).toBeGreaterThanOrEqual(box.x - 0.01);
+    expect(b.y).toBeGreaterThanOrEqual(box.y - 0.01);
+    expect(b.x + b.w).toBeLessThanOrEqual(box.x + box.w + 0.01);
+    expect(b.y + b.h).toBeLessThanOrEqual(box.y + box.h + 0.01);
+  };
+
+  it('keeps fitted text in its box, however much is typed', () => {
+    const el = text();
+    const after = type(el, ['Label printing', 'Label printing is fun', 'Label printing is fun\nand quick']);
+    expect(after).toMatchObject({ x: 0, y: 0, w: 30, h: 10 });
+    inside(after, { x: 0, y: 0, w: 30, h: 10 });
+  });
+
+  it('shrinks text with a set size at the edge and grows it back to that size', () => {
+    // 20 pt is 7.06 mm: "Hi" fits a 30 × 10 box; 18 letters at 0.55 em need text under 3.04 mm.
+    const el = text({ autoFit: false, fontSize: 20, text: 'Hi' });
+    const long = type(el, ['Hello there friend']);
+    expect(long.fontSize).toBeCloseTo(8.6, 1);
+    inside(long, { x: 0, y: 0, w: 30, h: 10 });
+    expect(type(el, ['Hello there friend', 'Hi']).fontSize).toBe(20);
+    // A new line makes room for two lines in the same height.
+    inside(type(el, ['Hi\nthere']), { x: 0, y: 0, w: 30, h: 10 });
+  });
+
+  it('starts from what the text already draws, so the first key never shrinks it', () => {
+    // Saved before this rule: 20 pt text wider than its 10 mm box.
+    const el = text({ autoFit: false, fontSize: 20, text: 'Hello', w: 10, align: 'left' });
+    const drawn = visualBox(el);
+    expect(typingLimit(el).box.w).toBeCloseTo(drawn.w, 2);
+    expect(type(el, ['Hell']).fontSize).toBe(20);
+  });
+
+  it('leaves dynamic text with a set size to follow its fields', () => {
+    const el = text({ autoFit: false, fontSize: 20, dynamic: true });
+    expect(typedPatch(el, '{{Name}} and more', typingLimit(el))).toEqual({ text: '{{Name}} and more' });
   });
 });

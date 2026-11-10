@@ -128,7 +128,7 @@ describe('existing printers stay as they were', () => {
 
   it('a Bluetooth link without flow control is the same link as before', async () => {
     const char = { properties: { writeWithoutResponse: true }, addEventListener: vi.fn(), startNotifications: vi.fn(async () => {}), writeValueWithoutResponse: vi.fn(async () => {}) };
-    const getCharacteristic = vi.fn(async () => char);
+    const getCharacteristic = vi.fn(async (_uuid: string) => char);
     const server = { getPrimaryService: async () => ({ getCharacteristic }), disconnect: () => {} };
     const t = await webTransport({ name: 'QR380A', addEventListener: () => {} } as never, server as never, { service: 's', write: 'w', notify: 'n' });
     expect(getCharacteristic.mock.calls.map((c) => c[0])).toEqual(['w', 'n']);

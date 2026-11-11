@@ -247,3 +247,13 @@ describe('print dialog', () => {
     });
   });
 });
+
+describe('print dialog while printing', () => {
+  it('asks to keep the tab in front while a printer prints, and only then', () => {
+    const { unmount } = renderApp(dialog());
+    expect(screen.queryByText(/Keep this tab open/)).not.toBeInTheDocument();
+    unmount();
+    renderApp(dialog({ status: { state: 'printing', profile: findManualProfile('d11')!, progress: { page: 0, total: 1 } } }));
+    expect(screen.getByText('Keep this tab open and in front until printing ends.')).toHaveAttribute('role', 'status');
+  });
+});

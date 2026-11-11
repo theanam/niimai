@@ -375,7 +375,8 @@ export function Help() {
         <p>
           If a print feeds blank labels and ends with "Printer stopped responding", the printer has stalled, often while it
           finds the label gaps after the roll moved. Turn it off and on, reseat the roll, close the lid, then connect and
-          print again.
+          print again. Keep the niimai tab open and in front while it prints: some printers stop when the browser hides
+          the tab.
         </p>
         <p>
           Some labels are wider than the printhead. Once a printer is connected, the strips it cannot reach are shaded on

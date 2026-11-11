@@ -1475,6 +1475,17 @@ kbd {
   min-width: 4ch;
   text-align: right;
 }
+.print-stay {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.print-stay > svg {
+  flex-shrink: 0;
+}
 .print-progress {
   height: 4px;
   border-radius: 2px;

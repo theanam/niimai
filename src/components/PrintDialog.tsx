@@ -1,4 +1,4 @@
-import { BatteryMedium, ChevronRight, FileSpreadsheet, Layers, Loader2, Minus, Plus, Printer as PrinterIcon, FileText, ScanLine } from 'lucide-react';
+import { AppWindow, BatteryMedium, ChevronRight, FileSpreadsheet, Layers, Loader2, Minus, Plus, Printer as PrinterIcon, FileText, ScanLine } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { sizeLabel, type LabelDoc, type LabelSize } from '../doc/model';
 import { RollMismatchBanner } from './RollMismatchBanner';
@@ -234,6 +234,11 @@ export function PrintDialog({ open, onOpenChange, doc, status, preview, previewB
         <div className="print-progress" role="progressbar" aria-label="Sending to the printer" aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(((progress.page + sending / 100) / Math.max(1, progress.total)) * 100)}>
           <span style={{ width: `${((progress.page + sending / 100) / Math.max(1, progress.total)) * 100}%` }} />
         </div>
+      )}
+      {printing && (
+        <p className="print-stay" role="status">
+          <AppWindow size={14} /> Keep this tab open and in front until printing ends.
+        </p>
       )}
       {showBatch && <BatchSection doc={doc} run={run} onRun={setRun} onAddSheet={onAddSheet} onSequence={onSequence} />}
       <div className="row row-spread">

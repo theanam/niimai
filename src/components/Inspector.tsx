@@ -402,13 +402,13 @@ export function Inspector({ doc, selected, selection = [], onUpdateMany = () => 
               <Pencil size={16} /> Edit text
             </button>
           )}
+          <FontPicker value={el.fontFamily} onChange={(fontFamily) => set({ fontFamily })} />
           <div className="font-size-row">
-            <FontPicker value={el.fontFamily} onChange={(fontFamily) => set({ fontFamily })} />
             <NumberField label="Font size" icon="pt" value={shownFontSize(el)} min={1} max={400} step={1} onChange={(fontSize) => set({ fontSize, autoFit: false }, 'fontSize')} />
-          </div>
-          <div className="row">
             <Toggle label="Bold" icon={<Bold size={15} />} checked={el.bold} onChange={(bold) => set({ bold })} />
             <Toggle label="Italic" icon={<Italic size={15} />} checked={el.italic} onChange={(italic) => set({ italic })} />
+          </div>
+          <div className="row">
             <Segmented
               label="Alignment"
               value={el.align}

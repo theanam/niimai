@@ -1,6 +1,6 @@
 {
   "name": "libniimai",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "description": "Print to NIIMBOT, TSPL, ESC/POS, cat and Marklife printers from the browser over Web Bluetooth, Web Serial and WebUSB.",
   "keywords": [
     "niimbot",

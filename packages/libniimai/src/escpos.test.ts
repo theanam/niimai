@@ -42,7 +42,9 @@ describe('ESC/POS printers', () => {
     const bands = job.filter((_, i) => job[i] === 0x1d && job[i + 1] === 0x76 && job[i + 2] === 0x30).length;
     expect(bands).toBe(4);
     expect(job.filter((_, i) => job[i] === 0x1b && job[i + 1] === 0x33 && job[i + 2] === 24).length).toBe(1);
-    expect(job.slice(-3)).toEqual([0x1b, 0x64, 4]);
+    // About 15 mm past the tear bar, as line feeds: ESC d left the label's end inside the MTP-4B.
+    expect(job.slice(-6)).toEqual([0x1b, 0x33, 120, 0x0a, 0x1b, 0x32]);
+    expect(job.filter((_, i) => job[i] === 0x1b && job[i + 1] === 0x64)).toHaveLength(0);
   });
 
   it('follows every label with exactly the gap on labels with gaps, and no tear-off feed', () => {

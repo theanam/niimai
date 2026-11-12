@@ -55,8 +55,13 @@ export const escposModelFor = (name: string | undefined): ThermalModel | null =>
 const BAND = 24;
 /** Dots fed between copies. */
 const GAP_DOTS = 24;
-/** Lines fed after the last copy, so the print clears the tear bar. */
-const FEED_LINES = 4;
+/**
+ * Dots fed after the last copy on continuous paper, so the end of the label
+ * clears the tear bar: about 15 mm. It goes as the same line feeds as the
+ * gaps, because ESC d (feed lines) left the end of the label behind the
+ * tear bar on the MTP-4B.
+ */
+const FEED_AFTER = 120;
 
 /** Rows for an ESC/POS printer: leftmost dot in the highest bit, centred on a head `head` dots wide. */
 export const encodeRows = (data: ArrayLike<number>, width: number, height: number, head = THERMAL_HEAD_DOTS): Uint8Array[] =>
@@ -78,7 +83,7 @@ export function escposJob(rows: Uint8Array[], copies: number, gapDots?: number):
       for (const row of band) out.push(...row);
     }
   }
-  if (gapDots === undefined) out.push(0x1b, 0x64, FEED_LINES);
+  if (gapDots === undefined) out.push(...escposFeed(FEED_AFTER));
   else out.push(...escposFeed(gapDots));
   return Uint8Array.from(out);
 }

@@ -32,7 +32,7 @@ Desktop label printers up to 80 mm wide that take TSC's TSPL label language. The
 
 ### ESC/POS receipt printers
 
-Receipt printers on 58 mm paper with a 384-dot head, and 80 mm models with a 576-dot head. Pages print as one raster image at any length, for receipts, lists and long labels. `feed(mm)` lines up the paper; these printers have no reverse feed. For sticker rolls, `gapMm` keeps each print on its sticker.
+Receipt printers on 58 mm paper with a 384-dot head, and 80 mm models with a 576-dot head. Pages print as one raster image at any length, for receipts, lists and long labels. On continuous paper each print ends with about 15 mm of feed, so the label clears the tear bar. `feed(mm)` lines up the paper; these printers have no reverse feed. For sticker rolls, `gapMm` keeps each print on its sticker.
 
 ### Cat printers
 
